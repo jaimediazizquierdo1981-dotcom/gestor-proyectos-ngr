@@ -339,13 +339,26 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         l = sum((a["libre"][n] for n in gente[pf]), np.zeros(len(lista)))
         uso.append({"perfil": pf, "personas": len(gente[pf]), "capacidad": c.round(1).tolist(),
                     "usado": (c - l).round(1).tolist()})
+    # terceros: solo los cargos y meses en que se asignaron; % sobre la capacidad de los terceros asignados ese mes
+    uso_ter = []
+    for pf in PERFILES:
+        ters = [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") == "tercero"]
+        usados = [n for n in ters if a["asignacion"].get(n)]
+        if not usados:
+            continue
+        dias, capm = [], []
+        for i, mes in enumerate(lista):
+            act = [n for n in usados if sum(a["asignacion"][n].get(mes, {}).values()) > 0]
+            dias.append(round(sum(sum(a["asignacion"][n].get(mes, {}).values()) for n in act), 2))
+            capm.append(round(float(sum(cap[n][i] for n in act)), 2))
+        uso_ter.append({"perfil": pf, "personas": len(usados), "usado": dias, "capacidad": capm})
     personas = [{"persona": e["persona"], "perfil": e["perfil"], "genero": e.get("genero", ""),
                  "area": e.get("area") or "", "cargo": e.get("cargo") or "", "tipo": e.get("tipo") or "interno", "dias_semana": e.get("dias_semana", 5),
                  "capacidad": cap[e["persona"]].round(2).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
     return {"meses": lista, "parametros": p, "perfiles": PERFILES, "terceros": TERCEROS, "proyectos": filas,
-            "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc, "origen": base.get("origen"), "modo": modo}
+            "estados": estados, "uso_perfil": uso, "uso_terceros": uso_ter, "personas": personas, "montecarlo": mc, "origen": base.get("origen"), "modo": modo}
 
 
 def base_inicio(base: dict, codigo: str) -> str | None:

@@ -32,7 +32,9 @@
   .pie-ley i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px}
   .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
   select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
-  .heat td{min-width:44px;text-align:center;font-size:11.5px;padding:5px 3px}
+  .heat td{min-width:74px;text-align:center;font-size:11.5px;padding:5px 3px}
+  .heat td small{color:inherit;opacity:.75}
+  .heat td.tot{background:#f6f4ef!important;color:#1f2430!important;border-left:2px solid #e6e1d6}
   .heat th{font-size:11px;padding:5px 3px;text-align:center}
   .heat td.l{text-align:left;padding-left:8px}
   .note{color:var(--muted);font-size:12px;margin-top:8px}
@@ -67,8 +69,13 @@
 
   <div class="card">
     <h2>Uso de la capacidad por perfil y mes</h2>
-    <div class="sub">Días asignados en la Hoja de trabajo ÷ días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
+    <div class="sub">Equipo interno: días asignados en la Hoja de trabajo y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
+  </div>
+  <div class="card" id="cardTer" style="display:none">
+    <h2>Uso de terceros por cargo y mes</h2>
+    <div class="sub">Solo los cargos y meses en que hay terceros asignados en la Hoja de trabajo. % = días asignados ÷ días disponibles de los terceros asignados ese mes (22 días hábiles menos feriados).</div>
+    <div style="overflow:auto"><table class="heat" id="heatTer"></table></div>
   </div>
 </main>
 <script>
@@ -154,21 +161,29 @@ function barras() {
       <rect x="${L}" y="${y + 2}" width="${sc(v.py)}" height="11" rx="2" fill="#1F3864"/>
       <rect x="${L}" y="${y + 15}" width="${sc(v.ca)}" height="11" rx="2" fill="${COL[p.estado]}"/>
       <text x="${L + Math.max(sc(v.py), sc(v.ca)) + 6}" y="${y + 18}" font-size="11.5" fill="${falta > 0.5 && p.estado !== "cubierto" ? "#d64545" : "#6b7280"}">${
-        falta > 0.5 && p.estado !== "cubierto" ? `${fmtD(v.ca)} de ${fmtD(v.py)} días · faltan ${fmtD(falta)} días` : `${fmtD(v.ca)} días · cubierto`}</text>`;
+        falta > 0.5 && p.estado !== "cubierto" ? `${fmtD(v.ca)} de ${fmtD(v.py)} días · faltan ${fmtD(falta)} días` : (v.py ? `${fmtD(v.ca)} días · cubierto` : "sin posiciones definidas")}</text>`;
   });
   svg.innerHTML = h;
   subAv.textContent = D.modo === "hoja" ? "Días proyectados = días de las posiciones que necesita el proyecto. Capacidad real = días asignados a personas en la Hoja de trabajo." : "Días proyectados = lo que tomará el proyecto (con contingencia). Capacidad real = días que el equipo le puede asignar según la prioridad.";
 }
 
+function celda(usado, cap, vacia) {
+  if (vacia && !usado) return `<td style="background:#fff"></td>`;
+  const r = cap ? usado / cap : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
+  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(usado)} de ${fmtD(cap)} días">${fmtD(usado)} d <small>(${Math.round(r * 100)}%)</small></td>`;
+}
 function heat() {
-  let h = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}</tr>`;
-  for (const u of D.uso_perfil) {
-    h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => {
-      const r = c ? u.usado[i] / c : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
-      return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(u.usado[i])} de ${fmtD(c)} días">${Math.round(r * 100)}%</td>`;
-    }).join("") + "</tr>";
-  }
+  const cab = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th></tr>`;
+  const total = u => { const us = u.usado.reduce((a, b) => a + b, 0), c = u.capacidad.reduce((a, b) => a + b, 0);
+    return `<td class="tot"><b>${fmtD(us)} d</b> <small>(${c ? Math.round(us / c * 100) : 0}%)</small></td>`; };
+  let h = cab;
+  for (const u of D.uso_perfil)
+    h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => celda(u.usado[i], c)).join("") + total(u) + "</tr>";
   document.getElementById("heat").innerHTML = h;
+  const T = D.uso_terceros || [];
+  cardTer.style.display = T.length ? "" : "none";
+  if (T.length) document.getElementById("heatTer").innerHTML = cab.replace("Perfil", "Cargo (tercero)") +
+    T.map(u => `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => celda(u.usado[i], c, true)).join("") + total(u) + "</tr>").join("");
 }
 
 let MC = null;
