@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hoja de trabajo · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1600px;padding-top:14px}
+  .wrap{display:grid;grid-template-columns:310px 1fr;gap:16px;align-items:start}
+  aside{position:sticky;top:62px;max-height:calc(100vh - 76px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+  aside h2{font-size:15px;margin:0 0 6px}
+  aside input,aside select{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
+  .grupo{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:10px 0 4px;font-weight:700}
+  .col{display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center;padding:6px 6px;border:1px solid #eee8dc;border-radius:10px;margin-bottom:5px;cursor:grab;background:#fdfcf9}
+  .col:hover{border-color:#c9bfa9;background:#fff}
+  .col:active{cursor:grabbing}
+  .col b{font-size:12.5px;display:block;line-height:1.2}
+  .col small{font-size:11px;color:var(--muted)}
+  .mini{display:grid;grid-template-columns:repeat(12,1fr);gap:1px;margin-top:3px}
+  .mini i{height:6px;border-radius:1px;display:block}
+  .proy{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;transition:box-shadow .15s,border-color .15s}
+  .proy.sobre{border-color:#1F3864;box-shadow:0 0 0 3px rgba(31,56,100,.18)}
+  .ph{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #f0ece4}
+  .ph .pr{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700}
+  .ph h3{margin:0;font-size:15px}
+  .ph .ven{font-size:12px;color:var(--muted)}
+  .ph .cob{margin-left:auto;font-weight:700;font-size:14px}
+  .need{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 0}
+  .need span{font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:#faf8f4}
+  .need span.ok{background:#e3f4ec;border-color:#bfe3cf;color:#1d7a50}
+  .need span.falta{background:#fdf1d9;border-color:#f2d9a2;color:#8a5a00}
+  .need span.cero{background:#fbe3e3;border-color:#f0c4c4;color:#a52f2f}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+  th,td{padding:5px 4px;border-bottom:1px solid #f4f1ea;text-align:center;white-space:nowrap}
+  th{font-size:11px;color:var(--muted);font-weight:600}
+  td.l,th.l{text-align:left;padding-left:16px}
+  td.fuera input{background:#f3f1ec;color:#aaa}
+  td input{width:42px;padding:3px 2px;border:1px solid #e3ddd0;border-radius:5px;font:inherit;text-align:center}
+  td input.sobre{border-color:#d64545;background:#fdecec;color:#a52f2f;font-weight:700}
+  td input.lleno{background:#eef4fb;border-color:#c9d6ea}
+  .x{border:0;background:none;color:#b0b5bf;cursor:pointer;font-size:15px}
+  .x:hover{color:#d64545}
+  .drop{padding:12px 16px;color:var(--muted);font-size:12.5px;border-top:1px dashed #e3ddd0;text-align:center}
+  .persona-cell{display:flex;align-items:center;gap:8px}
+  .persona-cell small{color:var(--muted)}
+  .barra{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .barra .k{background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 12px;font-size:12px;color:var(--muted)}
+  .barra .k b{display:block;font-size:16px;color:var(--ink)}
+  #msg{font-size:12.5px;color:var(--ok)}
+</style>
+</head>
+<body>
+<script src="/static/comun.js"></script>
+<script>nav("Hoja de trabajo")</script>
+<main>
+  <h1>Hoja de trabajo: quién trabaja en qué proyecto y en qué meses</h1>
+  <div class="sub">Arrastra a un colaborador desde la lista de la izquierda hasta la sección del proyecto. Se propone cuántos días por mes según lo que el proyecto necesita de su rol y lo que la persona tiene libre; ajusta cada mes a mano. La disponibilidad de cada persona parte de sus días netos (ya descontados feriados, vacaciones y la reserva para operación) y baja con cada asignación. <span id="msg"></span></div>
+  <div class="barra" id="kpis"></div>
+  <div class="wrap">
+    <aside>
+      <h2>Colaboradores</h2>
+      <input id="buscar" placeholder="Buscar por nombre…">
+      <select id="filtroRol"><option value="">Todos los roles</option></select>
+      <div id="lista"></div>
+    </aside>
+    <section id="proyectos"></section>
+  </div>
+</main>
+<script>
+let D, ASIG = [];
+const ROLES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"];
+ROLES.forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
+buscar.oninput = filtroRol.onchange = () => pintarLista();
+
+const muneco = (color, s = 26) => `<svg width="${s}" height="${s}" viewBox="-14 -14 28 42"><path d="M-11,26 Q-11,6 0,6 Q11,6 11,26 Z" fill="${color}"/><circle cx="0" cy="-3" r="8" fill="#e6b58f"/></svg>`;
+const persona = n => D.personas.find(p => p.persona === n);
+const proyecto = c => D.proyectos.find(p => p.codigo === c);
+const r1 = n => Math.round(n * 2) / 2;   // medio día
+
+function usadoMes(nombre, mes, excepto) {
+  return ASIG.filter(a => a.persona === nombre && a !== excepto).reduce((s, a) => s + (+a.dias[mes] || 0), 0);
+}
+function libre(nombre) {
+  const p = persona(nombre);
+  return D.meses.map((m, i) => (p?.capacidad[i] || 0) - usadoMes(nombre, m));
+}
+function mesesProyecto(p) { return D.meses.filter(m => m >= p.inicio_plan && m <= p.fin_plan); }
+
+// ---------- lista de colaboradores
+function pintarLista() {
+  const q = buscar.value.trim().toLowerCase(), rol = filtroRol.value;
+  let h = "";
+  for (const r of ROLES) {
+    const g = D.personas.filter(p => p.perfil === r && (!rol || rol === r) && (!q || p.persona.toLowerCase().includes(q)));
+    if (!g.length) continue;
+    h += `<div class="grupo" style="color:${COL_PERFIL[r]}">${r}</div>`;
+    for (const p of g) {
+      const lib = libre(p.persona), tot = p.capacidad.reduce((a, b) => a + b, 0), totLib = lib.reduce((a, b) => a + b, 0);
+      h += `<div class="col" draggable="true" data-p="${p.persona}" title="Arrástrame a un proyecto">${muneco(COL_PERFIL[r])}
+        <div><b>${p.persona}</b><small>${p.area || ""} · <span style="color:${totLib < 0 ? "#d64545" : "inherit"}">${fmtD(totLib)} de ${fmtD(tot)} días libres</span></small>
+        <div class="mini">${lib.map((v, i) => { const c = p.capacidad[i] || 1, u = 1 - v / c;
+          return `<i title="${fmtMes(D.meses[i])}: ${fmtD(v)} días libres" style="background:${v < -0.01 ? "#d64545" : u > .85 ? "#e8833a" : u > .4 ? "#e5a12a" : u > 0.01 ? "#9fd3b5" : "#dfe9e3"}"></i>`; }).join("")}</div></div></div>`;
+    }
+  }
+  lista.innerHTML = h;
+  lista.querySelectorAll(".col").forEach(el => el.ondragstart = e => { e.dataTransfer.setData("text/plain", el.dataset.p); e.dataTransfer.effectAllowed = "copy"; });
+}
+
+// ---------- secciones de proyecto
+function necesidad(p) {
+  const out = {};
+  for (const pf of ROLES) {
+    const req = (p.req_mes?.[pf] || []).reduce((a, b) => a + b, 0);
+    const asig = ASIG.filter(a => a.codigo === p.codigo && persona(a.persona)?.perfil === pf).reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
+    if (req > 0.01 || asig > 0) out[pf] = {req, asig};
+  }
+  return out;
+}
+
+function pintarProyectos() {
+  const P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  proyectos.innerHTML = P.map(p => {
+    const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
+    const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
+    return `<div class="proy" data-c="${p.codigo}">
+      <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
+        <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
+      <div class="need">${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig >= v.req - .5 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="Asignado / requerido">${pf}: ${fmtD(v.asig)} / ${fmtD(v.req)} d</span>`).join("")}</div>
+      ${filas.length ? `<table><tr><th class="l">Colaborador</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th><th></th></tr>` +
+        filas.map(a => { const pe = persona(a.persona); if (!pe) return "";
+          const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
+          return `<tr><td class="l"><div class="persona-cell">${muneco(COL_PERFIL[pe.perfil], 22)}<div><b>${pe.persona}</b><br><small>${pe.perfil}</small></div></div></td>` +
+            D.meses.map((m, i) => { const v = a.dias[m] || "", sobre = (usadoMes(pe.persona, m) > (pe.capacidad[i] || 0) + 0.01) && v;
+              return `<td class="${vm.includes(m) ? "" : "fuera"}"><input type="number" min="0" step="0.5" value="${v}" class="${sobre ? "sobre" : v ? "lleno" : ""}"
+                title="${fmtMes(m)} · libres sin este proyecto: ${fmtD((pe.capacidad[i] || 0) - usadoMes(pe.persona, m, a))} días"
+                onchange="editar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}','${m}',this.value)"></td>`; }).join("") +
+            `<td><b>${fmtD(tot)}</b></td><td><button class="x" title="Quitar del proyecto" onclick="quitar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">✕</button></td></tr>`; }).join("") + "</table>" : ""}
+      <div class="drop">Arrastra aquí a los colaboradores que necesita este proyecto</div></div>`;
+  }).join("");
+  proyectos.querySelectorAll(".proy").forEach(el => {
+    el.ondragover = e => { e.preventDefault(); el.classList.add("sobre"); };
+    el.ondragleave = () => el.classList.remove("sobre");
+    el.ondrop = e => { e.preventDefault(); el.classList.remove("sobre"); agregar(el.dataset.c, e.dataTransfer.getData("text/plain")); };
+  });
+}
+
+function pintarKpis() {
+  const cap = D.personas.reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0), 0);
+  const asig = ASIG.reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
+  const sobre = D.personas.filter(p => libre(p.persona).some(v => v < -0.01)).length;
+  kpis.innerHTML = [["Días netos del equipo", fmtD(cap)], ["Asignados en la hoja", fmtD(asig)], ["Libres", fmtD(cap - asig)],
+    ["Uso", cap ? Math.round(asig / cap * 100) + "%" : "–"], ["Personas sobreasignadas", sobre]].map(([l, v]) => `<div class="k">${l}<b>${v}</b></div>`).join("");
+}
+function pintar() { pintarLista(); pintarProyectos(); pintarKpis(); }
+
+// ---------- acciones
+async function guardarA(a) {
+  const r = await fetch("/api/asignaciones", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(a)});
+  aviso(r.ok ? "Guardado." : "No se pudo guardar (¿base de datos conectada?)", r.ok);
+}
+function aviso(t, ok = true) { msg.style.color = ok ? "#2e9e6a" : "#d64545"; msg.textContent = t; clearTimeout(window._m); window._m = setTimeout(() => msg.textContent = "", 2500); }
+
+function agregar(codigo, nombre) {
+  const p = proyecto(codigo), pe = persona(nombre);
+  if (!p || !pe) return;
+  if (ASIG.some(a => a.codigo === codigo && a.persona === nombre)) { aviso(`${nombre} ya está en ${codigo}.`, false); return; }
+  // propuesta: lo que falta del rol en cada mes del proyecto, sin pasar los días libres de la persona
+  const dias = {}, req = p.req_mes?.[pe.perfil] || [];
+  D.meses.forEach((m, i) => {
+    if (!mesesProyecto(p).includes(m)) return;
+    const yaRol = ASIG.filter(a => a.codigo === codigo && persona(a.persona)?.perfil === pe.perfil).reduce((s, a) => s + (+a.dias[m] || 0), 0);
+    const falta = Math.max((req[i] || 0) - yaRol, 0), lib = Math.max((pe.capacidad[i] || 0) - usadoMes(nombre, m), 0);
+    const v = r1(Math.min(falta, lib));
+    if (v > 0) dias[m] = v;
+  });
+  const a = {codigo, persona: nombre, dias};
+  ASIG.push(a); pintar(); guardarA(a);
+  if (!Object.keys(dias).length) aviso(`${nombre} agregado sin días: su rol no tiene demanda libre en este proyecto o no tiene días disponibles. Ajusta los meses a mano.`, false);
+}
+function editar(codigo, nombre, mes, valor) {
+  const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre);
+  const v = Math.max(0, +valor || 0);
+  if (v) a.dias[mes] = v; else delete a.dias[mes];
+  pintar(); guardarA(a);
+}
+async function quitar(codigo, nombre) {
+  ASIG = ASIG.filter(a => !(a.codigo === codigo && a.persona === nombre)); pintar();
+  const r = await fetch(`/api/asignaciones?codigo=${encodeURIComponent(codigo)}&persona=${encodeURIComponent(nombre)}`, {method: "DELETE"});
+  aviso(r.ok ? "Quitado." : "No se pudo quitar.", r.ok);
+}
+
+(async () => {
+  cargando(true, "Cargando hoja de trabajo…");
+  [D, ASIG] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => [])]);
+  cargando(false); pintar();
+})();
+</script>
+</body>
+</html>

@@ -50,6 +50,9 @@ drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
 create table if not exists gestor.meta (clave text primary key, valor text);
+create table if not exists gestor.asignaciones (
+  codigo text not null, persona text not null, dias jsonb not null default '{{}}'::jsonb,
+  actualizado timestamptz default now(), primary key (codigo, persona));
 """
 
 
@@ -130,3 +133,23 @@ def actualizar_colaborador(persona: str, perfil: str | None = None, dias_semana:
         if dias_semana is not None:
             c.execute("update gestor.equipo set dias_semana = %s where persona = %s", (dias_semana, persona))
         return c.execute("select 1 from gestor.equipo where persona = %s", (persona,)).fetchone() is not None
+
+
+# ---------- hoja de trabajo: asignaciones manuales persona-proyecto-mes (en días)
+def leer_asignaciones() -> list[dict]:
+    with _conn() as c:
+        return [{"codigo": a, "persona": b, "dias": d} for a, b, d in
+                c.execute("select codigo, persona, dias from gestor.asignaciones order by codigo, persona")]
+
+
+def guardar_asignacion(codigo: str, persona: str, dias: dict) -> None:
+    dias = {m: round(float(v), 2) for m, v in (dias or {}).items() if v and float(v) > 0}
+    with _conn() as c:
+        c.execute("""insert into gestor.asignaciones (codigo, persona, dias, actualizado) values (%s, %s, %s, now())
+                     on conflict (codigo, persona) do update set dias = excluded.dias, actualizado = now()""",
+                  (codigo, persona, json.dumps(dias)))
+
+
+def borrar_asignacion(codigo: str, persona: str) -> None:
+    with _conn() as c:
+        c.execute("delete from gestor.asignaciones where codigo = %s and persona = %s", (codigo, persona))

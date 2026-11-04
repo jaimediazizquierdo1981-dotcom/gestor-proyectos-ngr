@@ -53,12 +53,33 @@ def api_colaborador(body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.get("/api/asignaciones")
+def api_asignaciones():
+    return db.leer_asignaciones() if db.disponible() else []
+
+
+@app.put("/api/asignaciones")
+def api_guardar_asignacion(body: dict = Body(...)):
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    db.guardar_asignacion(str(body["codigo"]), str(body["persona"]), body.get("dias") or {})
+    return {"ok": True}
+
+
+@app.delete("/api/asignaciones")
+def api_borrar_asignacion(codigo: str, persona: str):
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    db.borrar_asignacion(codigo, persona)
+    return {"ok": True}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()
 
 
-VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/modelos": "modelos.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html"}
+VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/modelos": "modelos.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html"}
 for ruta, archivo in VISTAS.items():
     app.add_api_route(ruta, (lambda a=archivo: FileResponse(STATIC / a)), methods=["GET"], include_in_schema=False)
 
