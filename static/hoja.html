@@ -24,6 +24,10 @@
   .mini{display:grid;grid-template-columns:repeat(12,1fr);gap:1px;margin-top:3px}
   .mini i{height:6px;border-radius:1px;display:block}
   .proy{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;transition:box-shadow .15s,border-color .15s}
+  .proy.foco{border-color:#e5a12a;box-shadow:0 0 0 4px rgba(229,161,42,.3)}
+  .xs-proy{order:9;font:inherit;font-size:11.5px;color:#6b7280;background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}
+  .xs-proy:hover{color:#d64545;border-color:#f0c4c4}
+  .proy{scroll-margin-top:70px}
   .proy.sobre{border-color:#1F3864;box-shadow:0 0 0 3px rgba(31,56,100,.18)}
   .ph{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid #f0ece4}
   .ph .pr{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700}
@@ -86,8 +90,7 @@
   <div class="wrap">
     <aside>
       <h2>Proyecto</h2>
-      <select id="filtroProy"><option value="">Todos los proyectos incluidos</option></select>
-      <button id="bIncluir" class="incl" style="display:none"></button>
+      <select id="filtroProy"><option value="">Ir a un proyecto…</option></select>
       <h2 style="margin-top:8px">Colaboradores</h2>
       <input id="buscar" placeholder="Buscar por nombre…">
       <select id="filtroRol"><option value="">Todos los roles</option></select>
@@ -157,12 +160,13 @@ function necesidad(p) {
 }
 
 function pintarProyectos() {
-  const P = D.proyectos.filter(p => filtroProy.value ? p.codigo === filtroProy.value : p.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  const P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
   proyectos.innerHTML = P.map(p => {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
     return `<div class="proy" data-c="${p.codigo}">
-      <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3>${p.incluir ? "" : '<span class="est excluido">No incluido en el consolidado</span>'}<span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
+      <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
+        <button class="xs-proy" title="Cerrar sección (quitar del consolidado)" onclick="quitarProyecto('${p.codigo}')">Cerrar sección ✕</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
       <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
         ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
@@ -185,28 +189,34 @@ function pintarProyectos() {
   });
 }
 
-// ---------- selector de proyectos: todos los del consolidado; incluir/quitar aquí también
+// ---------- selector de proyectos: si el proyecto ya tiene sección, lleva a ella; si no, se abre (se incluye) una nueva
 function pintarSelector() {
-  const v = filtroProy.value;
-  filtroProy.innerHTML = '<option value="">Todos los proyectos incluidos</option>' +
+  filtroProy.innerHTML = '<option value="">Ir a un proyecto…</option>' +
     D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad)
-      .map(p => `<option value="${p.codigo}">${p.incluir ? "✓" : "○"} ${p.codigo} · ${p.proyecto}${p.incluir ? "" : " (no incluido)"}</option>`).join("");
-  filtroProy.value = v; botonIncluir();
+      .map(p => `<option value="${p.codigo}">${p.incluir ? "✓" : "＋"} ${p.codigo} · ${p.proyecto}${p.incluir ? "" : " (abrir sección)"}</option>`).join("");
 }
-function botonIncluir() {
-  const p = proyecto(filtroProy.value);
-  bIncluir.style.display = p ? "block" : "none";
-  if (p) { bIncluir.textContent = p.incluir ? "Quitar del consolidado" : "Incluir en el consolidado"; bIncluir.className = "incl " + (p.incluir ? "quitar" : ""); }
+function irA(codigo) {
+  const el = proyectos.querySelector(`.proy[data-c="${codigo}"]`); if (!el) return;
+  el.scrollIntoView({behavior: "smooth", block: "start"});
+  el.classList.add("foco"); setTimeout(() => el.classList.remove("foco"), 1800);
 }
-async function cambiarInclusion() {
-  const p = proyecto(filtroProy.value); if (!p) return;
-  const esc = leer(ESC_KEY) || {};
-  esc[p.codigo] = {...(esc[p.codigo] || {}), incluir: !p.incluir};
-  guardar(ESC_KEY, esc);
-  cargando(true, "Actualizando escenario…");
-  D = await calcular(); cargando(false);
-  pintarSelector(); pintar();
-  aviso(proyecto(filtroProy.value).incluir ? "Proyecto incluido en el consolidado." : "Proyecto quitado del consolidado.");
+async function seleccionarProyecto() {
+  const c = filtroProy.value; if (!c) return;
+  const p = proyecto(c);
+  if (!p.incluir) {   // no tiene sección: se abre una nueva incluyéndolo en el escenario
+    const e = leer(ESC_KEY) || {};
+    e[c] = {...(e[c] || {}), incluir: true}; guardar(ESC_KEY, e);
+    cargando(true, "Abriendo sección…"); D = await calcular(); cargando(false);
+    pintarSelector(); pintar(); aviso(`Se abrió la sección de ${c} y quedó incluido en el consolidado.`);
+  }
+  filtroProy.value = "";
+  irA(c);
+}
+async function quitarProyecto(c) {
+  const e = leer(ESC_KEY) || {};
+  e[c] = {...(e[c] || {}), incluir: false}; guardar(ESC_KEY, e);
+  cargando(true, "Actualizando…"); D = await calcular(); cargando(false);
+  pintarSelector(); pintar(); aviso(`${c} se quitó del consolidado (sus asignaciones se conservan).`);
 }
 
 // ---------- pie de cada proyecto: capex de terceros y opex hasta fin de año
@@ -340,8 +350,7 @@ async function quitar(codigo, nombre) {
                                       fetch("/api/necesidades").then(r => r.json()).catch(() => ({})),
                                       fetch("/api/observaciones").then(r => r.json()).catch(() => ({}))]);
   pintarSelector();
-  filtroProy.onchange = () => { botonIncluir(); pintarProyectos(); };
-  bIncluir.onclick = cambiarInclusion;
+  filtroProy.onchange = seleccionarProyecto;
   cargando(false); pintar();
 })();
 </script>
