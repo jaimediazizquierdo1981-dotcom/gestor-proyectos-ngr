@@ -103,7 +103,7 @@
   <div class="wrap">
     <aside>
       <h2>Proyecto</h2>
-      <select id="filtroProy"><option value="">Ir a un proyecto…</option></select>
+      <select id="filtroProy"><option value="">Seleccionar o activar un proyecto…</option></select>
       <h2 style="margin-top:8px">Colaboradores</h2>
       <input id="buscar" placeholder="Buscar por nombre…">
       <select id="filtroRol"><option value="">Todos los roles</option></select>
@@ -217,9 +217,9 @@ function pintarProyectos() {
 
 // ---------- selector de proyectos: si el proyecto ya tiene sección, lleva a ella; si no, se abre (se incluye) una nueva
 function pintarSelector() {
-  filtroProy.innerHTML = '<option value="">Ir a un proyecto…</option>' +
+  filtroProy.innerHTML = '<option value="">Seleccionar o activar un proyecto…</option>' +
     D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad)
-      .map(p => `<option value="${p.codigo}">${p.incluir ? (p.on_hold ? "⏸" : "✓") : "＋"} ${p.codigo} · ${p.proyecto}${p.incluir ? (p.on_hold ? " (on hold)" : "") : " (abrir sección)"}</option>`).join("");
+      .map(p => `<option value="${p.codigo}">${p.incluir ? (p.on_hold ? "⏸" : "✓") : "＋"} ${p.codigo} · ${p.proyecto}${p.incluir ? (p.on_hold ? " (on hold)" : "") : " (activar)"}</option>`).join("");
 }
 function irA(codigo) {
   const el = proyectos.querySelector(`.proy[data-c="${codigo}"]`); if (!el) return;
@@ -246,7 +246,7 @@ async function eliminarFicha(c) {
   const e = leer(ESC_KEY) || {}; e[c] = {...(e[c] || {}), incluir: false, on_hold: false}; guardar(ESC_KEY, e);
   ASIG = ASIG.filter(a => a.codigo !== c); delete NEC[c]; delete OBS[c];
   cargando(true, "Actualizando…"); D = await calcular(); cargando(false);
-  pintarSelector(); pintar(); aviso(`Se eliminó la ficha de ${c}. Puedes volver a abrirla desde "Ir a un proyecto…".`);
+  pintarSelector(); pintar(); aviso(`Se eliminó la ficha de ${c}. Puedes volver a activarlo desde "Seleccionar o activar un proyecto…".`);
 }
 async function pausarProyecto(c, on) {   // un proyecto incluido ya no se quita: solo se pone o se saca de On hold
   const e = leer(ESC_KEY) || {};
