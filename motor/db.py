@@ -71,6 +71,7 @@ def iniciar() -> None:
         if nueva:   # cambia la estructura: se recrean las tablas y se recargan los datos ficticios
             c.execute("drop table if exists gestor.proyectos, gestor.equipo, gestor.feriados, gestor.parametros, gestor.horas_reales cascade")
         c.execute(DDL)
+        restaurar_libelula(c)
         if nueva:
             sembrar(c)
             if DATOS_VERSION == "12":   # arranque limpio pedido: sin posiciones ni asignaciones de prueba en la hoja
@@ -202,3 +203,25 @@ def guardar_observacion(codigo: str, campo: str, texto: str) -> None:
     with _conn() as c:
         c.execute(f"""insert into gestor.observaciones (codigo, {campo}, actualizado) values (%s, %s, now())
                       on conflict (codigo) do update set {campo} = excluded.{campo}, actualizado = now()""", (codigo, texto))
+
+
+def restaurar_libelula(c) -> None:
+    """Restaura una sola vez lo que el usuario había cargado en P01 (borrado por error en la versión 12)."""
+    if c.execute("select 1 from gestor.meta where clave = 'restaurado_p01'").fetchone():
+        return
+    if c.execute("select count(*) from gestor.asignaciones where codigo = 'P01'").fetchone()[0] == 0:
+        meses = [f"2027-{m:02d}" for m in range(1, 10)]
+        filas = {
+            "Carlos Vega": dict(zip(meses, [1, 1, 1, 1, 1, 1, 1, 1, 2])),
+            "Héctor Ruiz": dict(zip(meses, [0.5] * 9)),
+            "Lucía Ramos": dict(zip(meses, [0.5] * 8 + [2])),
+            "Mariana Vidal": dict(zip(meses, [0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1, 0.5])),
+        }
+        with c.cursor() as cur:
+            cur.executemany("insert into gestor.asignaciones (codigo, persona, dias) values ('P01', %s, %s) on conflict do nothing",
+                            [(n, json.dumps(v)) for n, v in filas.items()])
+        c.execute("delete from gestor.necesidades where codigo = 'P01'")
+        with c.cursor() as cur:
+            cur.executemany("insert into gestor.necesidades values ('P01', %s, %s)",
+                            [("PM", 10), ("Arquitecto", 6), ("Analista Funcional", 11)])
+    c.execute("insert into gestor.meta values ('restaurado_p01', '1') on conflict do nothing")
