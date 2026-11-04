@@ -14,6 +14,9 @@
   aside input,aside select{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
   .grupo{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:10px 0 4px;font-weight:700}
   .col{display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center;padding:6px 6px;border:1px solid #eee8dc;border-radius:10px;margin-bottom:5px;cursor:grab;background:#fdfcf9}
+  .col.ter{background:#f7f4fb;border-style:dashed}
+  .ter-h{margin-top:16px!important;padding-top:10px;border-top:2px solid var(--line);color:#5b3d8a!important}
+  .need span.exceso{background:#fff3c4;border-color:#f0d36a;color:#7a5b00;font-weight:600}
   .col:hover{border-color:#c9bfa9;background:#fff}
   .col:active{cursor:grabbing}
   .col b{font-size:12.5px;display:block;line-height:1.2}
@@ -45,7 +48,8 @@
   td.l,th.l{text-align:left;padding-left:16px}
   td.fuera input{background:#f3f1ec;color:#aaa}
   td input{width:62px;padding:3px 2px 3px 6px;border:1px solid #e3ddd0;border-radius:5px;font:inherit;text-align:center}
-  td input.sobre{border-color:#d64545;background:#fdecec;color:#a52f2f;font-weight:700}
+  td input.sobre{border-color:#e0b400;background:#fff3c4;color:#7a5b00;font-weight:700}
+  .warn{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:#7a5b00;background:#fff3c4;border:1px solid #f0d36a;border-radius:999px;padding:0 7px}
   td input.lleno{background:#eef4fb;border-color:#c9d6ea}
   td input::-webkit-inner-spin-button,td input::-webkit-outer-spin-button{opacity:1;height:22px}
   .prom{font:inherit;font-size:11.5px;padding:3px 8px;border:1px solid #c9d6ea;background:#eef4fb;color:#1F3864;border-radius:6px;cursor:pointer;white-space:nowrap}
@@ -99,21 +103,24 @@ function libre(nombre) {
 function mesesProyecto(p) { return D.meses.filter(m => m >= p.inicio_plan && m <= p.fin_plan); }
 
 // ---------- lista de colaboradores
+function tarjeta(p) {
+  const r = p.perfil, lib = libre(p.persona), tot = p.capacidad.reduce((a, b) => a + b, 0), totLib = lib.reduce((a, b) => a + b, 0);
+  return `<div class="col ${p.tipo === "tercero" ? "ter" : ""}" draggable="true" data-p="${p.persona}" title="Arrástrame a un proyecto">${muneco(COL_PERFIL[r])}
+    <div><b>${p.persona}</b><small>${p.tipo === "tercero" ? r + " · tercero" : (p.area || "")} · <span style="color:${totLib < 0 ? "#d64545" : "inherit"}">${fmtD(totLib)} de ${fmtD(tot)} días libres</span></small>
+    <div class="mini">${lib.map((v, i) => { const c = p.capacidad[i] || 1, u = 1 - v / c;
+      return `<i title="${fmtMes(D.meses[i])}: ${fmtD(v)} días libres" style="background:${v < -0.01 ? "#d64545" : u > .85 ? "#e8833a" : u > .4 ? "#e5a12a" : u > 0.01 ? "#9fd3b5" : "#dfe9e3"}"></i>`; }).join("")}</div></div></div>`;
+}
 function pintarLista() {
   const q = buscar.value.trim().toLowerCase(), rol = filtroRol.value;
+  const ok = p => (!rol || rol === p.perfil) && (!q || p.persona.toLowerCase().includes(q));
   let h = "";
   for (const r of ROLES) {
-    const g = D.personas.filter(p => p.perfil === r && (!rol || rol === r) && (!q || p.persona.toLowerCase().includes(q)));
-    if (!g.length) continue;
-    h += `<div class="grupo" style="color:${COL_PERFIL[r]}">${r}</div>`;
-    for (const p of g) {
-      const lib = libre(p.persona), tot = p.capacidad.reduce((a, b) => a + b, 0), totLib = lib.reduce((a, b) => a + b, 0);
-      h += `<div class="col" draggable="true" data-p="${p.persona}" title="Arrástrame a un proyecto">${muneco(COL_PERFIL[r])}
-        <div><b>${p.persona}</b><small>${p.area || ""} · <span style="color:${totLib < 0 ? "#d64545" : "inherit"}">${fmtD(totLib)} de ${fmtD(tot)} días libres</span></small>
-        <div class="mini">${lib.map((v, i) => { const c = p.capacidad[i] || 1, u = 1 - v / c;
-          return `<i title="${fmtMes(D.meses[i])}: ${fmtD(v)} días libres" style="background:${v < -0.01 ? "#d64545" : u > .85 ? "#e8833a" : u > .4 ? "#e5a12a" : u > 0.01 ? "#9fd3b5" : "#dfe9e3"}"></i>`; }).join("")}</div></div></div>`;
-    }
+    const g = D.personas.filter(p => p.tipo !== "tercero" && p.perfil === r && ok(p));
+    if (g.length) h += `<div class="grupo" style="color:${COL_PERFIL[r]}">${r}</div>` + g.map(tarjeta).join("");
   }
+  const t = D.personas.filter(p => p.tipo === "tercero" && ok(p));
+  if (t.length) h += `<div class="grupo ter-h">Terceros · ${fmtD(t[0].capacidad[0])} días/mes c/u (160 h)</div>` +
+    ROLES.map(r => t.filter(p => p.perfil === r)).filter(g => g.length).map(g => `<div class="grupo" style="color:${COL_PERFIL[g[0].perfil]};margin-top:4px">${g[0].perfil}</div>` + g.map(tarjeta).join("")).join("");
   lista.innerHTML = h;
   lista.querySelectorAll(".col").forEach(el => el.ondragstart = e => { e.dataTransfer.setData("text/plain", el.dataset.p); e.dataTransfer.effectAllowed = "copy"; });
 }
@@ -144,14 +151,14 @@ function pintarProyectos() {
       <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
       <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
-        ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="Asignado / requerido">${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
+        ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
       ${filas.length ? `<table><tr><th class="l">Colaborador</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th><th></th><th></th></tr>` +
         filas.map(a => { const pe = persona(a.persona); if (!pe) return "";
           const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
-          return `<tr><td class="l"><div class="persona-cell">${muneco(COL_PERFIL[pe.perfil], 22)}<div><b>${pe.persona}</b><br><small>${pe.perfil}</small></div></div></td>` +
+          return `<tr><td class="l"><div class="persona-cell">${muneco(COL_PERFIL[pe.perfil], 22)}<div><b>${pe.persona}</b>${D.meses.some((m, i) => (a.dias[m] || 0) && usadoMes(pe.persona, m) > (pe.capacidad[i] || 0) + 0.01) ? '<span class="warn" title="Algún mes supera los días que tiene disponibles">⚠ Warning!</span>' : ""}<br><small>${pe.perfil}${pe.tipo === "tercero" ? " · tercero" : ""}</small></div></div></td>` +
             D.meses.map((m, i) => { const v = a.dias[m] || "", sobre = (usadoMes(pe.persona, m) > (pe.capacidad[i] || 0) + 0.01) && v;
               return `<td class="${vm.includes(m) ? "" : "fuera"}"><input type="number" min="0" step="0.5" value="${v}" class="${sobre ? "sobre" : v ? "lleno" : ""}"
-                title="${fmtMes(m)} · libres sin este proyecto: ${fmtD((pe.capacidad[i] || 0) - usadoMes(pe.persona, m, a))} días"
+                title="${sobre ? "⚠ Warning! Excede su capacidad del mes. " : ""}${fmtMes(m)} · libres sin este proyecto: ${fmtD((pe.capacidad[i] || 0) - usadoMes(pe.persona, m, a))} días"
                 onchange="editar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}','${m}',this.value)"></td>`; }).join("") +
             `<td><b>${fmtD(tot)}</b></td><td><button class="prom" title="Repartir en partes iguales lo que necesita su rol; el último mes ajusta para cuadrar el total" onclick="promediar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">⚖ Promediar</button></td><td><button class="x" title="Quitar del proyecto" onclick="quitar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">✕</button></td></tr>`; }).join("") + "</table>" : ""}
       <div class="drop">Arrastra aquí a los colaboradores que necesita este proyecto</div></div>`;
@@ -164,10 +171,11 @@ function pintarProyectos() {
 }
 
 function pintarKpis() {
-  const cap = D.personas.reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0), 0);
-  const asig = ASIG.reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
+  const internos = D.personas.filter(p => p.tipo !== "tercero").map(p => p.persona);
+  const cap = D.personas.filter(p => p.tipo !== "tercero").reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0), 0);
+  const asig = ASIG.filter(a => internos.includes(a.persona)).reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
   const sobre = D.personas.filter(p => libre(p.persona).some(v => v < -0.01)).length;
-  kpis.innerHTML = [["Días netos del equipo", fmtD(cap)], ["Asignados en la hoja", fmtD(asig)], ["Libres", fmtD(cap - asig)],
+  kpis.innerHTML = [["Días netos del equipo interno", fmtD(cap)], ["Asignados (equipo interno)", fmtD(asig)], ["Libres", fmtD(cap - asig)],
     ["Uso", cap ? Math.round(asig / cap * 100) + "%" : "–"], ["Personas sobreasignadas", sobre]].map(([l, v]) => `<div class="k">${l}<b>${v}</b></div>`).join("");
 }
 function pintar() { pintarLista(); pintarProyectos(); pintarKpis(); }

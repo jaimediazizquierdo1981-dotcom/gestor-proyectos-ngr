@@ -64,7 +64,11 @@ def capacidad(equipo: list[dict], feriados: list[dict], p: dict, lista: list[str
     c = p["capacidad"]
     fer = {pd.Timestamp(f["fecha"]).date() for f in feriados} if c.get("descontar_feriados", True) else set()
     out = {}
+    dias_ter = float(c.get("horas_mes_tercero", 160)) / float(c.get("horas_por_dia_tercero", 8))
     for e in equipo:
+        if e.get("tipo") == "tercero":   # terceros: capacidad contratada fija (160 h = 20 días al mes)
+            out[e["persona"]] = np.full(len(lista), dias_ter)
+            continue
         fila = []
         fd = float(e.get("dias_semana", 5) or 5) / 5   # fracción de cada día hábil que trabaja
         for m in lista:
@@ -115,7 +119,7 @@ def asignar(proyectos: list[dict], equipo: list[dict], cap: dict, p: dict, lista
             detalle=True) -> dict:
     cob = p["cobertura"]
     libre = {k: v.copy() for k, v in cap.items()}
-    por_perfil = {pf: [e["persona"] for e in equipo if e["perfil"] == pf] for pf in PERFILES}
+    por_perfil = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}
     activos = sorted([x for x in proyectos if x.get("incluir", True)], key=lambda x: float(x.get("prioridad", 99)))
     res, asign = {}, {}
     for pr in activos:
@@ -294,7 +298,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                       "dias_proyectados": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
 
     # capacidad vs. uso por perfil y mes
-    gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf] for pf in PERFILES}
+    gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}
     uso = []
     for pf in PERFILES:
         c = sum((cap[n] for n in gente[pf]), np.zeros(len(lista)))
@@ -302,7 +306,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         uso.append({"perfil": pf, "personas": len(gente[pf]), "capacidad": c.round(1).tolist(),
                     "usado": (c - l).round(1).tolist()})
     personas = [{"persona": e["persona"], "perfil": e["perfil"], "genero": e.get("genero", ""),
-                 "area": e.get("area") or "", "cargo": e.get("cargo") or "", "dias_semana": e.get("dias_semana", 5),
+                 "area": e.get("area") or "", "cargo": e.get("cargo") or "", "tipo": e.get("tipo") or "interno", "dias_semana": e.get("dias_semana", 5),
                  "capacidad": cap[e["persona"]].round(2).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}

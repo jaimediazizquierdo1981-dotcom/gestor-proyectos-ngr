@@ -14,7 +14,7 @@ import pandas as pd
 
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
-DATOS_VERSION = "7"  # subir este número fuerza recargar los datos ficticios
+DATOS_VERSION = "9"  # subir este número fuerza recargar los datos ficticios
 PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"]
 COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
@@ -46,6 +46,7 @@ create table if not exists gestor.equipo (
   persona text primary key, perfil text not null, dias_semana numeric default 5, genero text);
 alter table gestor.equipo add column if not exists area text;
 alter table gestor.equipo add column if not exists cargo text;
+alter table gestor.equipo add column if not exists tipo text default 'interno';
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -84,8 +85,8 @@ def sembrar(c) -> None:
             f"values ({', '.join(['%s'] * (len(cols) + len(COL) + len(TERC)))})",
             [[r[k] for k in cols] + [r[p] for p in PERFILES] + [r[t] for t in TERC] for r in pr.to_dict(orient="records")])
         eq = pd.read_csv(DATA / "equipo.csv")
-        cur.executemany("insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo) values (%s,%s,%s,%s,%s,%s) on conflict do nothing",
-                        eq[["persona", "perfil", "dias_semana", "genero", "area", "cargo"]].values.tolist())
+        cur.executemany("insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo, tipo) values (%s,%s,%s,%s,%s,%s,%s) on conflict do nothing",
+                        eq[["persona", "perfil", "dias_semana", "genero", "area", "cargo", "tipo"]].fillna("").values.tolist())
         fe = pd.read_csv(DATA / "feriados.csv")
         cur.executemany("insert into gestor.feriados values (%s,%s) on conflict do nothing", fe.values.tolist())
         cur.execute("insert into gestor.parametros (id, data) values (1, %s) on conflict (id) do nothing",
@@ -105,8 +106,8 @@ def leer() -> dict:
             for k in ["capex", "opex_mensual"]:
                 d[k] = float(d[k] or 0)
             proyectos.append(d)
-        equipo = [{"persona": a, "perfil": b, "dias_semana": float(h), "genero": g, "area": ar, "cargo": cg}
-                  for a, b, h, g, ar, cg in cur.execute("select persona, perfil, dias_semana, genero, area, cargo from gestor.equipo order by area, persona")]
+        equipo = [{"persona": a, "perfil": b, "dias_semana": float(h), "genero": g, "area": ar, "cargo": cg, "tipo": t or "interno"}
+                  for a, b, h, g, ar, cg, t in cur.execute("select persona, perfil, dias_semana, genero, area, cargo, tipo from gestor.equipo order by area, persona")]
         feriados = [{"fecha": str(f), "motivo": m} for f, m in cur.execute("select fecha, motivo from gestor.feriados order by fecha")]
         par = cur.execute("select data from gestor.parametros where id = 1").fetchone()
     return {"proyectos": proyectos, "equipo": equipo, "feriados": feriados,
