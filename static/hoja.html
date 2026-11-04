@@ -139,7 +139,7 @@ function pintarProyectos() {
               return `<td class="${vm.includes(m) ? "" : "fuera"}"><input type="number" min="0" step="0.5" value="${v}" class="${sobre ? "sobre" : v ? "lleno" : ""}"
                 title="${fmtMes(m)} · libres sin este proyecto: ${fmtD((pe.capacidad[i] || 0) - usadoMes(pe.persona, m, a))} días"
                 onchange="editar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}','${m}',this.value)"></td>`; }).join("") +
-            `<td><b>${fmtD(tot)}</b></td><td><button class="prom" title="Repartir el total en partes iguales entre los meses del proyecto" onclick="promediar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">⚖ Promediar</button></td><td><button class="x" title="Quitar del proyecto" onclick="quitar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">✕</button></td></tr>`; }).join("") + "</table>" : ""}
+            `<td><b>${fmtD(tot)}</b></td><td><button class="prom" title="Repartir en partes iguales lo que necesita su rol; el último mes ajusta para cuadrar el total" onclick="promediar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">⚖ Promediar</button></td><td><button class="x" title="Quitar del proyecto" onclick="quitar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">✕</button></td></tr>`; }).join("") + "</table>" : ""}
       <div class="drop">Arrastra aquí a los colaboradores que necesita este proyecto</div></div>`;
   }).join("");
   proyectos.querySelectorAll(".proy").forEach(el => {
@@ -159,6 +159,26 @@ function pintarKpis() {
 function pintar() { pintarLista(); pintarProyectos(); pintarKpis(); }
 
 // ---------- acciones
+// reparte "total" en partes iguales de medio día; el último mes absorbe la diferencia para que la suma sea exacta.
+// Ningún mes pasa de lo que la persona tiene libre (libreMes).
+function repartir(total, meses, libreMes) {
+  const out = {}; if (!meses.length || total <= 0) return out;
+  const base = Math.round(total / meses.length * 2) / 2;
+  let acum = 0;
+  meses.forEach((m, k) => {
+    let v = k < meses.length - 1 ? base : Math.round((total - acum) * 2) / 2;
+    v = Math.max(0, Math.min(v, Math.floor(libreMes(m) * 2) / 2));
+    if (v > 0) out[m] = v; acum += v;
+  });
+  return out;
+}
+function faltaRol(codigo, perfil, excepto) {
+  const p = proyecto(codigo), req = (p.req_mes?.[perfil] || []).reduce((a, b) => a + b, 0);
+  const ya = ASIG.filter(a => a.codigo === codigo && a !== excepto && persona(a.persona)?.perfil === perfil)
+    .reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
+  return Math.max(Math.round((req - ya) * 2) / 2, 0);
+}
+
 async function guardarA(a) {
   const r = await fetch("/api/asignaciones", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(a)});
   aviso(r.ok ? "Guardado." : "No se pudo guardar (¿base de datos conectada?)", r.ok);
@@ -169,19 +189,10 @@ function agregar(codigo, nombre) {
   const p = proyecto(codigo), pe = persona(nombre);
   if (!p || !pe) return;
   if (ASIG.some(a => a.codigo === codigo && a.persona === nombre)) { aviso(`${nombre} ya está en ${codigo}.`, false); return; }
-  // propuesta: promedio simple = días que faltan del rol en el proyecto ÷ meses del proyecto (sin curva),
-  // sin pasar los días libres de la persona en cada mes; el usuario ajusta luego mes a mes
-  const dias = {}, vm = mesesProyecto(p);
-  const reqRol = (p.req_mes?.[pe.perfil] || []).reduce((a, b) => a + b, 0);
-  const yaRol = ASIG.filter(a => a.codigo === codigo && persona(a.persona)?.perfil === pe.perfil)
-    .reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
-  const prom = vm.length ? Math.max(reqRol - yaRol, 0) / vm.length : 0;
-  D.meses.forEach((m, i) => {
-    if (!vm.includes(m)) return;
-    const lib = Math.max((pe.capacidad[i] || 0) - usadoMes(nombre, m), 0);
-    const v = r1(Math.min(prom, lib));
-    if (v > 0) dias[m] = v;
-  });
+  // propuesta: promedio simple de lo que falta del rol; el último mes ajusta para cumplir el número exacto
+  const idx = m => D.meses.indexOf(m);
+  const dias = repartir(faltaRol(codigo, pe.perfil), mesesProyecto(p),
+                        m => Math.max((pe.capacidad[idx(m)] || 0) - usadoMes(nombre, m), 0));
   const a = {codigo, persona: nombre, dias};
   ASIG.push(a); pintar(); guardarA(a);
   if (!Object.keys(dias).length) aviso(`${nombre} agregado sin días: su rol no tiene demanda libre en este proyecto o no tiene días disponibles. Ajusta los meses a mano.`, false);
@@ -193,13 +204,11 @@ function editar(codigo, nombre, mes, valor) {
   pintar(); guardarA(a);
 }
 function promediar(codigo, nombre) {
-  const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre), vm = mesesProyecto(proyecto(codigo));
+  const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre), pe = persona(nombre), vm = mesesProyecto(proyecto(codigo));
   const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
-  if (!vm.length || !tot) return;
-  const base = Math.floor(tot / vm.length * 2) / 2;          // medio día
-  let resto = Math.round((tot - base * vm.length) * 2) / 2;   // lo que sobra se reparte de medio en medio desde el primer mes
-  a.dias = {};
-  vm.forEach(m => { let v = base; if (resto > 0) { v += 0.5; resto -= 0.5; } if (v > 0) a.dias[m] = v; });
+  const objetivo = faltaRol(codigo, pe.perfil, a) || tot;   // lo que el rol necesita (sin contar a esta persona)
+  const idx = m => D.meses.indexOf(m);
+  a.dias = repartir(objetivo, vm, m => Math.max((pe.capacidad[idx(m)] || 0) - usadoMes(nombre, m, a), 0));
   pintar(); guardarA(a);
 }
 async function quitar(codigo, nombre) {
