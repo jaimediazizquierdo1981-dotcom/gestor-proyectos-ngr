@@ -27,7 +27,7 @@
 <script>nav("Simulador")</script>
 <main>
   <h1>Simulador: ingreso de proyectos y consumo de la capacidad del equipo</h1>
-  <div class="sub">Cada mes llegan los proyectos que arrancan. El dispatcher los recibe y, los reparte entre las personas que le asignaste en la Hoja de trabajo. La barra de cada escritorio muestra los días libres del mes y se va vaciando.</div>
+  <div class="sub">Cada mes llegan los Product Owners (PO) con los proyectos que arrancan. El Dispatcher PMO los recibe y los reparte entre las personas que le asignaste en la Hoja de trabajo. La barra de cada escritorio muestra los días libres del mes y se va vaciando.</div>
   <div class="barra">
     <button class="pri" id="bPlay">▶ Reproducir</button><button id="bSig">Mes siguiente ⏭</button><button id="bRe">↺ Reiniciar</button>
     <select id="selVel"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
@@ -111,7 +111,7 @@ function dibujarBase() {
   el("circle", {cx: -9, cy: -15, r: 5, fill: "#7fe0ff", id: "ojo1"}, r);
   el("circle", {cx: 9, cy: -15, r: 5, fill: "#7fe0ff"}, r);
   el("rect", {x: -16, y: 4, width: 32, height: 22, rx: 5, fill: "#2a4a80"}, r);
-  txt(0, 80, "Dispatcher IA", {"text-anchor": "middle", "font-size": 11.5, fill: "#1F3864", "font-weight": 700}, r);
+  txt(0, 80, "Dispatcher PMO", {"text-anchor": "middle", "font-size": 11.5, fill: "#1F3864", "font-weight": 700}, r);
   // en ejecución y espera
   el("rect", {x: 20, y: 385, width: 430, height: 225, rx: 12, fill: "#f0fdf4", stroke: "#bbf7d0"});
   txt(36, 408, "EN EJECUCIÓN", {"font-size": 11, fill: "#1d7a50", "letter-spacing": 1});
@@ -182,7 +182,7 @@ async function llegada(pr, i, token) {
   const m = D.meses[i], col = COL_TIPO[pr.tipo] || "#2f7fc1";
   const g = el("g", {}); ubicar(g, PUERTA.x, PUERTA.y - 10);
   avatar(g, pr.codigo + pr.proyecto, null, col, 1);
-  const lbl = txt(0, 44, pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g);
+  const lbl = txt(0, 44, "PO · " + pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g);
   await sleep(150);
   await mover(g, ROBOT.x - 10, ROBOT.y - 6, 900); if (token !== run) return;
   const nom = pr.proyecto.length > 34 ? pr.proyecto.slice(0, 33) + "…" : pr.proyecto;
@@ -255,6 +255,28 @@ async function reproducir() {
   if (mesI >= D.meses.length - 1) { playing = false; bPlay.textContent = "▶ Reproducir"; }
 }
 
+// los PO de proyectos en ejecución comentan de vez en cuando
+const FRASES = [n => `¡Ya se viene mi proyecto: ${n}!`, () => "¡Ya sale, ya sale!", n => `${n} va con todo 💪`,
+  () => "¡Falta poquito!", n => `Mi equipo está a full con ${n}`, () => "¿Ya está el pase a producción?",
+  () => "¡Este mes cerramos el sprint!", n => `${n}: todo en verde ✅`];
+let charlaT = null;
+function charla() {
+  clearTimeout(charlaT);
+  charlaT = setTimeout(() => {
+    if (playing && EJEC.size) {
+      const cods = [...EJEC.keys()], cod = cods[Math.floor(Math.random() * cods.length)], g = EJEC.get(cod), pr = P.find(p => p.codigo === cod);
+      if (g && pr && !g.querySelector(".charla")) {
+        const nom = pr.proyecto.split(":")[0].slice(0, 22);
+        const t = FRASES[Math.floor(Math.random() * FRASES.length)](nom);
+        const k = [...EJEC.keys()].indexOf(cod) % 6, dx = k === 0 ? 70 : k === 5 ? -70 : 0;   // que no se salga del panel
+        const b = burbuja(g, dx, -18, t, "#1d4ed8"); b.classList.add("charla");
+        setTimeout(() => { b.setAttribute("opacity", 0); setTimeout(() => b.remove(), 500); }, 2300 / vel);
+      }
+    }
+    charla();
+  }, (1400 + Math.random() * 1600) / vel);
+}
+
 function reiniciar() {
   run++; playing = false; mesI = -1; ocupado = false; EJEC.clear(); ESPERA.length = 0;
   for (const k in usado) delete usado[k];
@@ -271,7 +293,7 @@ cargando(true, "Preparando la oficina…");
 calcular().then(d => {
   cargando(false);
   D = d; P = D.proyectos.filter(p => activo(p) && p.inicio_plan <= D.meses.at(-1));
-  reiniciar();
+  reiniciar(); charla();
   if (location.search.includes("auto")) { vel = 4; bPlay.click(); }
 });
 </script>
