@@ -61,7 +61,7 @@
       <div class="sub" id="subAv"></div>
       <div class="ctrl">Perfil <select id="selPerfil"><option value="">Todos</option></select></div>
       <svg id="barras" viewBox="0 0 900 420" role="img" aria-label="Horas proyectadas y reales por proyecto"></svg>
-      <div class="ley"><span><i style="background:#dfe5ef"></i>Plan total</span><span><i style="background:#1F3864"></i>Proyectado a la fecha de corte (PV)</span><span><i style="background:#e8833a"></i>Real a la fecha de corte (AC)</span></div>
+      <div class="ley"><span><i style="background:#1F3864"></i>Proyectado: lo que debería consumir</span><span><i style="background:#e8833a"></i>Real: lo que consumió</span></div>
     </div>
   </div>
 
@@ -137,25 +137,22 @@ function pie() {
 
 function barras() {
   const pf = selPerfil.value, P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
-  const val = p => pf ? {tot: p.recursos[pf] * (1 + D.parametros.estimacion.contingencia_pct), pv: p.evm.pv_perfil[pf], ac: p.evm.ac_perfil[pf]}
-                      : {tot: p.evm.horas_plan_total, pv: p.evm.pv, ac: p.evm.ac};
-  const mx = Math.max(1, ...P.map(p => Math.max(val(p).tot, val(p).ac)));
-  const L = 250, W = 400, fh = 32, H = 30 + P.length * fh;
+  const val = p => pf ? {py: p.evm.pv_perfil[pf], re: p.evm.ac_perfil[pf]} : {py: p.evm.pv, re: p.evm.ac};
+  const mx = Math.max(1, ...P.map(p => Math.max(val(p).py, val(p).re)));
+  const L = 250, W = 420, fh = 34, H = 16 + P.length * fh;
   const svg = document.getElementById("barras"); svg.setAttribute("viewBox", `0 0 900 ${H}`);
   let h = "";
   P.forEach((p, i) => {
-    const v = val(p), y = 14 + i * fh, sc = x => x / mx * W;
-    h += `<text x="${L - 10}" y="${y + 15}" text-anchor="end" font-size="12.5" fill="#1f2430">${p.codigo} · ${p.proyecto.length > 30 ? p.proyecto.slice(0, 29) + "…" : p.proyecto}</text>
-      <rect x="${L}" y="${y + 2}" width="${sc(v.tot)}" height="22" rx="3" fill="#dfe5ef"/>
-      <rect x="${L}" y="${y + 4}" width="${sc(v.pv)}" height="8" rx="2" fill="#1F3864"/>
-      <rect x="${L}" y="${y + 14}" width="${sc(v.ac)}" height="8" rx="2" fill="#e8833a"/>`;
-    let txt = v.pv || v.ac ? `PV ${fmtH(v.pv)} · AC ${fmtH(v.ac)} h` : "sin iniciar";
-    if (!pf && p.evm.cpi) txt += ` · CPI ${p.evm.cpi.toFixed(2)} · SPI ${p.evm.spi.toFixed(2)}`;
-    const desv = v.pv ? (v.ac - v.pv) / v.pv : 0;
-    h += `<text x="${L + Math.max(sc(v.tot), sc(v.ac)) + 6}" y="${y + 17}" font-size="11.5" fill="${desv > .1 ? "#d64545" : "#6b7280"}">${txt}</text>`;
+    const v = val(p), y = 10 + i * fh, sc = x => x / mx * W;
+    const desv = v.py ? (v.re - v.py) / v.py : 0;
+    h += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12.5" fill="#1f2430">${p.codigo} · ${p.proyecto.length > 30 ? p.proyecto.slice(0, 29) + "…" : p.proyecto}</text>
+      <rect x="${L}" y="${y + 2}" width="${sc(v.py)}" height="11" rx="2" fill="#1F3864"/>
+      <rect x="${L}" y="${y + 15}" width="${sc(v.re)}" height="11" rx="2" fill="#e8833a"/>
+      <text x="${L + Math.max(sc(v.py), sc(v.re)) + 6}" y="${y + 18}" font-size="11.5" fill="${Math.abs(desv) > .1 ? "#d64545" : "#6b7280"}">${
+        v.re ? `${fmtH(v.re)} de ${fmtH(v.py)} h · ${desv >= 0 ? "+" : ""}${Math.round(desv * 100)}%` : `0 de ${fmtH(v.py)} h · no se ejecutó`}</text>`;
   });
   svg.innerHTML = h;
-  subAv.textContent = `Corte al cierre de ${fmtMes(D.corte)}. Horas incluyen la contingencia. CPI < 1 = se gastaron más horas que el avance logrado; SPI < 1 = va atrasado.`;
+  subAv.textContent = `Acumulado hasta ${fmtMes(D.corte)}. Proyectado = horas que el proyecto debería consumir según su plan (con contingencia). Real = horas que consumió. En rojo, desviaciones mayores a ±10%.`;
 }
 
 function heat() {

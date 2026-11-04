@@ -14,6 +14,7 @@ import pandas as pd
 
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
+DATOS_VERSION = "2"  # subir este número fuerza recargar los datos ficticios
 PERFILES = ["PM", "Arquitecto", "Desarrollador", "Data Engineer", "QA", "Infra"]
 COL = {"PM": "h_pm", "Arquitecto": "h_arquitecto", "Desarrollador": "h_desarrollador",
        "Data Engineer": "h_data_engineer", "QA": "h_qa", "Infra": "h_infra"}
@@ -45,6 +46,7 @@ create table if not exists gestor.horas_reales (
   primary key (codigo, mes, perfil));
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
+create table if not exists gestor.meta (clave text primary key, valor text);
 """
 
 
@@ -53,8 +55,12 @@ def iniciar() -> None:
         return
     with _conn() as c:
         c.execute(DDL)
-        if c.execute("select count(*) from gestor.proyectos").fetchone()[0] == 0:
+        v = c.execute("select valor from gestor.meta where clave = 'datos_version'").fetchone()
+        if not v or v[0] != DATOS_VERSION:
+            c.execute("truncate gestor.horas_reales, gestor.proyectos, gestor.equipo, gestor.feriados, gestor.parametros")
             sembrar(c)
+            c.execute("insert into gestor.meta values ('datos_version', %s) on conflict (clave) do update set valor = excluded.valor",
+                      (DATOS_VERSION,))
 
 
 def sembrar(c) -> None:
