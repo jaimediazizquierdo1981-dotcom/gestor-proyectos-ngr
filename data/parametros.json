@@ -1,0 +1,27 @@
+{
+  "horizonte": {"inicio": "2026-07", "fin": "2027-12", "corte": "2026-10"},
+  "capacidad": {
+    "horas_por_dia": 8,
+    "descontar_feriados": true,
+    "dias_vacaciones_anual": 22,
+    "reserva_operacion_pct": 0.30
+  },
+  "estimacion": {
+    "contingencia_pct": 0.10,
+    "distribucion": "rayleigh",
+    "pico_rayleigh": 0.40
+  },
+  "cobertura": {
+    "umbral_cubierto": 0.98,
+    "umbral_parcial": 0.60,
+    "meses_desplazamiento_max": 0
+  },
+  "riesgo": {
+    "pert_optimista": 0.85,
+    "pert_probable": 1.00,
+    "pert_pesimista": 1.40,
+    "simulaciones": 400,
+    "semilla": 2027
+  },
+  "opex": {"inicia_mes_siguiente_al_fin": true}
+}

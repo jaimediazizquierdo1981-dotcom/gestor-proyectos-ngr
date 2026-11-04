@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Criterios · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1150px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+  .card h2{display:flex;gap:10px;align-items:center}
+  .card h2 .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px}
+  .campo{display:grid;grid-template-columns:1fr 130px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f0ece4}
+  .campo:last-child{border-bottom:0}
+  .campo label{font-weight:600;font-size:13px}
+  .campo small{display:block;color:var(--muted);font-weight:400;font-size:12px;line-height:1.35;margin-top:2px}
+  .campo input,.campo select{width:100%;padding:5px 7px;border:1px solid var(--line);border-radius:6px;font:inherit;text-align:right}
+  .campo select{text-align:left}
+  .campo.mod input,.campo.mod select{border-color:#e5a12a;background:#fff8e8}
+  .acciones{display:flex;gap:10px;align-items:center;margin:14px 0 4px;position:sticky;top:52px;z-index:5;background:var(--bg);padding:8px 0}
+  button{font:inherit;padding:7px 16px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;font-weight:600}
+  button.sec{background:#fff;color:var(--accent)}
+  #msg{font-size:13px;color:var(--ok)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:7px 9px;border-bottom:1px solid #f0ece4;text-align:left;vertical-align:top}
+  th{background:var(--accent);color:#fff;font-weight:600;font-size:12.5px}
+  td:first-child{font-weight:600;white-space:nowrap}
+  td.ej{color:var(--muted);font-size:12.5px}
+  .ojo{background:#fff7e6;border-left:4px solid var(--warn);border-radius:6px;padding:9px 14px;margin:10px 0;font-size:13px}
+  .tipos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:8px}
+  .tipos div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
+  .tipos b{display:block;margin-bottom:3px}
+</style>
+</head>
+<body>
+<script src="/static/comun.js"></script>
+<script>nav("Criterios")</script>
+<main>
+  <h1>Criterios para llenar y evaluar el portafolio</h1>
+  <div class="sub">Siguen la misma lógica que los parámetros de la Demanda TI: todo es variable y se puede cambiar en cualquier momento. Los cambios se guardan en este navegador y recalculan el consolidado y el simulador.</div>
+
+  <div class="card">
+    <h2><span class="n">A</span>Qué entra en este gestor</h2>
+    <div class="tipos">
+      <div><b>Proyectos transformacionales</b>No negociables: se atienden sí o sí. Se les da la prioridad más alta salvo decisión del comité.</div>
+      <div><b>Proyectos de tecnología</b>Obligatorios (renovación, obsolescencia, cumplimiento). Compiten por capacidad con los transformacionales según prioridad.</div>
+      <div><b>Requerimientos e incidencias</b>No se cargan aquí. Se cubren con la <b>reserva para operación</b> (% de la capacidad), que debe calzar con lo proyectado en la app de Demanda TI.</div>
+    </div>
+  </div>
+
+  <div class="acciones"><button id="bGuardar">Guardar y recalcular</button><button class="sec" id="bBase">Volver a valores base</button><span id="msg"></span></div>
+  <div class="grid" id="form"></div>
+
+  <div class="card">
+    <h2><span class="n">B</span>Cómo llenar cada campo del consolidado</h2>
+    <table>
+      <tr><th>Campo</th><th>Qué es</th><th>Criterio para llenarlo</th><th>Ejemplo</th></tr>
+      <tr><td>Código</td><td>Identificador único del proyecto.</td><td>P + correlativo. No se reutiliza aunque el proyecto se cancele.</td><td class="ej">P04</td></tr>
+      <tr><td>Tipo</td><td>Transformacional o Tecnología.</td><td>Transformacional si cambia cómo opera o vende el negocio; Tecnología si sostiene o renueva la plataforma.</td><td class="ej">Cliente Único → Transformacional</td></tr>
+      <tr><td>Marca</td><td>Marca(s) que patrocinan o se benefician.</td><td>"Todas" si es corporativo. Sirve para conversar con cada marca en la reunión mensual.</td><td class="ej">Bembos y Papa John's</td></tr>
+      <tr><td>Prioridad</td><td>Orden en que el proyecto toma capacidad.</td><td>1 = primero. Lo define el Comité: primero los ya iniciados, luego transformacionales, luego tecnología. Sin empates.</td><td class="ej">1, 2, 3…</td></tr>
+      <tr><td>Mes de inicio y fin</td><td>Ventana planificada.</td><td>Mes del kick-off y mes de salida a producción (go-live). El soporte post go-live va como Opex, no como horas del proyecto.</td><td class="ej">2027-02 a 2027-11</td></tr>
+      <tr><td>Horas por perfil</td><td>Esfuerzo interno total por tipo de recurso.</td><td>Estimación de 3 puntos con el líder técnico; se registra el <b>valor más probable</b>. La variación la cubre el modelo PERT (pestaña Modelos). No incluir horas de proveedores externos (eso es Capex).</td><td class="ej">PM 540 h, Dev 1 020 h</td></tr>
+      <tr><td>Capex</td><td>Inversión del proyecto.</td><td>Licencias, implementación externa, hardware y horas de terceros. Monto total en soles sin IGV, según business case aprobado.</td><td class="ej">S/ 520 000</td></tr>
+      <tr><td>Opex mensual</td><td>Costo recurrente que sostendrá la solución.</td><td>Suscripciones, soporte del proveedor, nube, mantenimiento. Arranca el mes siguiente al go-live.</td><td class="ej">S/ 12 000 / mes</td></tr>
+      <tr><td>% avance</td><td>Avance físico real a la fecha de corte.</td><td>Por entregables terminados (no por horas consumidas). Base para el Valor Ganado (EV).</td><td class="ej">42%</td></tr>
+      <tr><td>Horas reales</td><td>Horas imputadas por perfil y mes.</td><td>Del registro de horas del equipo, solo meses cerrados hasta la fecha de corte.</td><td class="ej">P01 · 2026-09 · Dev · 96 h</td></tr>
+    </table>
+    <div class="ojo">Regla de oro: si un dato no está confirmado, se carga el valor más probable y se marca en la reunión mensual para afinarlo. El modelo ya castiga la incertidumbre con la contingencia y con la simulación PERT.</div>
+  </div>
+</main>
+<script>
+const CAMPOS = [
+  ["1", "Horizonte y corte", [
+    ["horizonte.inicio", "Primer mes del horizonte", "Desde cuándo se planifica.", "month"],
+    ["horizonte.fin", "Último mes del horizonte", "Hasta cuándo se planifica.", "month"],
+    ["horizonte.corte", "Mes de corte", "Último mes cerrado con horas reales; base para real vs. proyectado.", "month"]]],
+  ["2", "Capacidad del equipo", [
+    ["capacidad.horas_por_dia", "Horas por día", "Jornada estándar (40 h semanales = 8 h).", "num"],
+    ["capacidad.descontar_feriados", "Descontar feriados", "Resta los feriados nacionales de los días hábiles.", "bool"],
+    ["capacidad.dias_vacaciones_anual", "Días hábiles de vacaciones al año", "Se reparten de forma pareja en los 12 meses.", "num"],
+    ["capacidad.reserva_operacion_pct", "Reserva para operación (%)", "Parte de la capacidad que se guarda para requerimientos e incidencias. Debe calzar con la Demanda TI.", "pct"]]],
+  ["3", "Estimación del esfuerzo", [
+    ["estimacion.contingencia_pct", "Contingencia (%)", "Colchón sobre las horas base de cada proyecto.", "pct"],
+    ["estimacion.distribucion", "Cómo se reparte el esfuerzo en el tiempo", "Uniforme: igual todos los meses. Rayleigh: sube, llega a un pico y baja (más realista).", "dist"],
+    ["estimacion.pico_rayleigh", "Pico de la curva Rayleigh", "En qué parte de la duración está la mayor carga (0,4 = al 40%).", "num"]]],
+  ["4", "Reglas de cobertura", [
+    ["cobertura.umbral_cubierto", "Umbral para 'Cubierto' (%)", "Cobertura mínima para considerar el proyecto atendido.", "pct"],
+    ["cobertura.umbral_parcial", "Umbral para 'Parcial' (%)", "Por debajo de esto queda 'No cubierto' y no consume capacidad.", "pct"],
+    ["cobertura.meses_desplazamiento_max", "Meses que se puede postergar el inicio", "Si no entra en su ventana, el modelo prueba moverlo hasta N meses.", "num"]]],
+  ["5", "Riesgo (PERT y Monte Carlo)", [
+    ["riesgo.pert_optimista", "Factor optimista", "Si todo sale bien, el esfuerzo real es este múltiplo del estimado.", "num"],
+    ["riesgo.pert_probable", "Factor más probable", "Normalmente 1,0.", "num"],
+    ["riesgo.pert_pesimista", "Factor pesimista", "Si se complica: múltiplo del estimado.", "num"],
+    ["riesgo.simulaciones", "Número de simulaciones", "Más simulaciones = resultado más estable pero más lento.", "num"]]],
+];
+let BASE = null;
+const get = (o, r) => r.split(".").reduce((a, k) => a?.[k], o);
+const set = (o, r, v) => { const ks = r.split("."); let a = o; ks.slice(0, -1).forEach(k => a = a[k] = a[k] || {}); a[ks.at(-1)] = v; };
+
+function pintar() {
+  const mod = leer(PAR_KEY) || {};
+  form.innerHTML = CAMPOS.map(([n, t, cs]) => `<div class="card"><h2><span class="n">${n}</span>${t}</h2>` + cs.map(([r, l, d, tipo]) => {
+    const v = get(mod, r) ?? get(BASE, r), m = get(mod, r) !== undefined ? "mod" : "";
+    let inp;
+    if (tipo === "bool") inp = `<select data-r="${r}" data-t="bool"><option value="1" ${v ? "selected" : ""}>Sí</option><option value="0" ${v ? "" : "selected"}>No</option></select>`;
+    else if (tipo === "dist") inp = `<select data-r="${r}" data-t="txt"><option value="rayleigh" ${v === "rayleigh" ? "selected" : ""}>Rayleigh</option><option value="uniforme" ${v === "uniforme" ? "selected" : ""}>Uniforme</option></select>`;
+    else if (tipo === "month") inp = `<input type="month" data-r="${r}" data-t="txt" value="${v}">`;
+    else if (tipo === "pct") inp = `<input type="number" step="1" data-r="${r}" data-t="pct" value="${Math.round(v * 100)}">`;
+    else inp = `<input type="number" step="any" data-r="${r}" data-t="num" value="${v}">`;
+    return `<div class="campo ${m}"><label>${l}<small>${d}</small></label>${inp}</div>`;
+  }).join("") + "</div>").join("");
+}
+
+bGuardar.onclick = () => {
+  const out = {};
+  document.querySelectorAll("[data-r]").forEach(el => {
+    const r = el.dataset.r, t = el.dataset.t;
+    const v = t === "bool" ? el.value === "1" : t === "pct" ? +el.value / 100 : t === "num" ? +el.value : el.value;
+    if (v !== get(BASE, r)) set(out, r, v);
+  });
+  guardar(PAR_KEY, out); pintar();
+  msg.textContent = Object.keys(out).length ? "Guardado. El consolidado y el simulador ya usan estos valores." : "Sin cambios respecto a la base.";
+};
+bBase.onclick = () => { borrar(PAR_KEY); pintar(); msg.textContent = "Se restauraron los valores base."; };
+
+fetch("/api/base").then(r => r.json()).then(b => { BASE = b.parametros; pintar(); });
+</script>
+</body>
+</html>

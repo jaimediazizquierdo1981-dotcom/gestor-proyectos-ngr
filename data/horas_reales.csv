@@ -1,0 +1,43 @@
+codigo,mes,perfil,horas
+P01,2026-07,PM,36.3
+P01,2026-08,PM,108.7
+P01,2026-09,PM,150.3
+P01,2026-10,PM,141.7
+P01,2026-07,Arquitecto,15.0
+P01,2026-08,Arquitecto,49.2
+P01,2026-09,Arquitecto,53.9
+P01,2026-10,Arquitecto,77.2
+P01,2026-07,Desarrollador,64.9
+P01,2026-08,Desarrollador,164.0
+P01,2026-09,Desarrollador,222.8
+P01,2026-10,Desarrollador,245.9
+P01,2026-07,Data Engineer,11.4
+P01,2026-08,Data Engineer,33.7
+P01,2026-09,Data Engineer,49.1
+P01,2026-10,Data Engineer,55.4
+P01,2026-07,QA,31.9
+P01,2026-08,QA,83.9
+P01,2026-09,QA,114.3
+P01,2026-10,QA,140.6
+P01,2026-07,Infra,35.2
+P01,2026-08,Infra,96.2
+P01,2026-09,Infra,158.3
+P01,2026-10,Infra,147.0
+P02,2026-09,PM,21.8
+P02,2026-10,PM,69.3
+P02,2026-09,Arquitecto,9.7
+P02,2026-10,Arquitecto,30.0
+P02,2026-09,Desarrollador,56.8
+P02,2026-10,Desarrollador,149.6
+P02,2026-09,Data Engineer,8.1
+P02,2026-10,Data Engineer,20.3
+P02,2026-09,QA,18.2
+P02,2026-10,QA,52.7
+P02,2026-09,Infra,16.4
+P02,2026-10,Infra,38.5
+P03,2026-10,PM,14.7
+P03,2026-10,Arquitecto,8.4
+P03,2026-10,Desarrollador,7.6
+P03,2026-10,Data Engineer,38.9
+P03,2026-10,QA,4.6
+P03,2026-10,Infra,3.8

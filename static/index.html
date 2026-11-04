@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consolidado · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 14px;min-width:150px}
+  .kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .kpi .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tbl{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:auto;margin-top:12px}
+  table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+  th,td{padding:5px 6px;text-align:right;border-bottom:1px solid #f0ece4;white-space:nowrap}
+  thead th{background:var(--accent);color:#fff;font-weight:600;position:sticky;top:0;z-index:2}
+  thead tr.g th{background:#2a4a80;font-size:11px;text-transform:uppercase;letter-spacing:.4px;text-align:center}
+  td.l,th.l{text-align:left} td.nom{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+  tr.off td{color:#a7adb8} tr.tot td{background:#f6f4ef;font-weight:700}
+  input[type=number]{width:46px;padding:2px 4px;border:1px solid var(--line);border-radius:5px;font:inherit;text-align:right}
+  input[type=month]{padding:1px 3px;border:1px solid var(--line);border-radius:5px;font:inherit;width:120px}
+  .tag{font-size:11px;padding:1px 7px;border-radius:5px;background:#eef2f8;color:var(--accent)}
+  .tag.T{background:#f3ecfb;color:#5b3d8a}
+  .sep{border-left:2px solid #e6e1d6}
+  .fila2{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:16px}
+  @media (max-width:1000px){.fila2{grid-template-columns:1fr}}
+  .ley{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+  .ley i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+  svg{width:100%;height:auto}
+  .pie-ley div{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #f0ece4;font-size:13px}
+  .pie-ley i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px}
+  .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
+  select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
+  .heat td{min-width:44px;text-align:center;font-size:11.5px;padding:5px 3px}
+  .heat th{font-size:11px;padding:5px 3px;text-align:center}
+  .heat td.l{text-align:left;padding-left:8px}
+  .note{color:var(--muted);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<script src="/static/comun.js"></script>
+<script>nav("Consolidado")</script>
+<main>
+  <h1>Consolidado de proyectos: Capex, Opex y recursos</h1>
+  <div class="sub" id="sub">Datos ficticios. Marca o desmarca proyectos, cambia su prioridad o mes de inicio para armar escenarios; se recalcula al instante y queda guardado en este navegador.</div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tbl"><table id="t"></table></div>
+  <div class="note">Horas por perfil = esfuerzo base del proyecto (sin contingencia). <b>Cobertura</b> = horas que el equipo puede atender ÷ horas requeridas (con contingencia). <b>P(cubierto)</b> = probabilidad Monte Carlo de quedar 100% cubierto si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
+
+  <div class="fila2">
+    <div class="card">
+      <h2>¿Cuántos proyectos se cubren?</h2>
+      <div class="sub">Según la capacidad del equipo y el orden de prioridad.</div>
+      <svg id="pie" viewBox="0 0 300 300" role="img" aria-label="Proyectos cubiertos, parciales y no cubiertos"></svg>
+      <div class="pie-ley" id="pieLey"></div>
+    </div>
+    <div class="card">
+      <h2>Capacidad utilizada por proyecto: real vs. proyectada</h2>
+      <div class="sub" id="subAv"></div>
+      <div class="ctrl">Perfil <select id="selPerfil"><option value="">Todos</option></select></div>
+      <svg id="barras" viewBox="0 0 900 420" role="img" aria-label="Horas proyectadas y reales por proyecto"></svg>
+      <div class="ley"><span><i style="background:#dfe5ef"></i>Plan total</span><span><i style="background:#1F3864"></i>Proyectado a la fecha de corte (PV)</span><span><i style="background:#e8833a"></i>Real a la fecha de corte (AC)</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Uso de la capacidad por perfil y mes</h2>
+    <div class="sub">Horas asignadas a proyectos ÷ horas netas disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
+    <div style="overflow:auto"><table class="heat" id="heat"></table></div>
+  </div>
+</main>
+<script>
+let D = null, esc = leer(ESC_KEY) || {};
+const PF = ["PM", "Arquitecto", "Desarrollador", "Data Engineer", "QA", "Infra"];
+const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra"};
+PF.forEach(p => selPerfil.insertAdjacentHTML("beforeend", `<option>${p}</option>`));
+selPerfil.onchange = () => barras();
+
+function cambiar(cod, campo, valor) {
+  esc[cod] = {...(esc[cod] || {}), [campo]: valor};
+  guardar(ESC_KEY, esc); clearTimeout(window._t); window._t = setTimeout(cargar, 250);
+}
+
+function tabla() {
+  const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
+  const inc = P.filter(p => p.incluir);
+  const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
+  let h = `<thead><tr class="g"><th colspan="8"></th><th colspan="7" class="sep">Recursos (horas por tipo)</th><th colspan="3" class="sep">Inversión y soporte</th><th colspan="3" class="sep">Cobertura</th></tr>
+  <tr><th>Incl.</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Tipo</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
+  ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total h</th>
+  <th class="sep">Capex</th><th>Opex/mes</th><th>Opex anual</th>
+  <th class="sep l">Estado</th><th>Cobertura</th><th>P(cubierto)</th></tr></thead><tbody>`;
+  for (const p of P) {
+    h += `<tr class="${p.incluir ? "" : "off"}">
+      <td><input type="checkbox" ${p.incluir ? "checked" : ""} onchange="cambiar('${p.codigo}','incluir',this.checked)"></td>
+      <td><input type="number" min="1" value="${p.prioridad}" onchange="cambiar('${p.codigo}','prioridad',+this.value)"></td>
+      <td class="l"><b>${p.codigo}</b></td><td class="l nom" title="${p.proyecto} · ${p.marca}">${p.proyecto}</td>
+      <td class="l"><span class="tag ${p.tipo[0] === "T" && p.tipo !== "Tecnologia" ? "T" : ""}">${p.tipo === "Tecnologia" ? "Tecnología" : "Transf."}</span></td>
+      <td class="l"><select onchange="cambiar('${p.codigo}','inicio',this.value)">${D.meses.map(m => `<option value="${m}" ${m === p.inicio ? "selected" : ""}>${fmtMes(m)}</option>`).join("")}</select></td>
+      <td class="l">${fmtMes(p.fin_plan)}</td><td>${p.duracion_meses}</td>
+      ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtH(p.recursos[f])}</td>`).join("")}<td><b>${fmtH(p.horas_base)}</b></td>
+      <td class="sep">${fmtK(p.capex)}</td><td>${fmtS(p.opex_mensual)}</td><td>${fmtK(p.opex_anual)}</td>
+      <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${p.incluir ? fmtPct(p.cobertura) : "–"}</td>
+      <td>${p.incluir ? fmtPct(p.prob_cubierto) : "–"}</td></tr>`;
+  }
+  h += `<tr class="tot"><td colspan="7" class="l">Total proyectos incluidos (${inc.length})</td><td></td>
+    ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtH(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtH(s("horas_base"))}</td>
+    <td class="sep">${fmtK(s("capex"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_anual"))}</td><td class="sep" colspan="3"></td></tr></tbody>`;
+  t.innerHTML = h;
+  const cub = inc.filter(p => p.estado === "cubierto");
+  kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
+    ["Cubiertos al 100%", cub.length + " de " + inc.length],
+    ["Capex total", fmtK(s("capex"))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex, 0))],
+    ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Horas requeridas", fmtH(s("horas_requeridas"))]]
+    .map(([l, v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
+}
+
+function pie() {
+  const E = D.estados, orden = ["cubierto", "parcial", "no_cubierto", "excluido"];
+  const tot = orden.reduce((a, k) => a + E[k], 0); let ang = -Math.PI / 2, h = "";
+  const cx = 150, cy = 150, r = 130;
+  for (const k of orden) {
+    if (!E[k]) continue;
+    const a = E[k] / tot * 2 * Math.PI, a2 = ang + a, big = a > Math.PI ? 1 : 0;
+    const x1 = cx + r * Math.cos(ang), y1 = cy + r * Math.sin(ang), x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+    h += E[k] === tot ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${COL[k]}"/>`
+      : `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${big} 1 ${x2},${y2} Z" fill="${COL[k]}" stroke="#fff" stroke-width="2"/>`;
+    const m = ang + a / 2;
+    h += `<text x="${cx + r * .62 * Math.cos(m)}" y="${cy + r * .62 * Math.sin(m) + 6}" text-anchor="middle" fill="#fff" font-size="18" font-weight="700">${E[k]}</text>`;
+    ang = a2;
+  }
+  document.getElementById("pie").innerHTML = h;
+  pieLey.innerHTML = orden.map(k => `<div><span><i style="background:${COL[k]}"></i>${ETQ[k]}</span><b>${E[k]} · ${tot ? Math.round(E[k] / tot * 100) : 0}%</b></div>`).join("");
+}
+
+function barras() {
+  const pf = selPerfil.value, P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  const val = p => pf ? {tot: p.recursos[pf] * (1 + D.parametros.estimacion.contingencia_pct), pv: p.evm.pv_perfil[pf], ac: p.evm.ac_perfil[pf]}
+                      : {tot: p.evm.horas_plan_total, pv: p.evm.pv, ac: p.evm.ac};
+  const mx = Math.max(1, ...P.map(p => Math.max(val(p).tot, val(p).ac)));
+  const L = 250, W = 400, fh = 32, H = 30 + P.length * fh;
+  const svg = document.getElementById("barras"); svg.setAttribute("viewBox", `0 0 900 ${H}`);
+  let h = "";
+  P.forEach((p, i) => {
+    const v = val(p), y = 14 + i * fh, sc = x => x / mx * W;
+    h += `<text x="${L - 10}" y="${y + 15}" text-anchor="end" font-size="12.5" fill="#1f2430">${p.codigo} · ${p.proyecto.length > 30 ? p.proyecto.slice(0, 29) + "…" : p.proyecto}</text>
+      <rect x="${L}" y="${y + 2}" width="${sc(v.tot)}" height="22" rx="3" fill="#dfe5ef"/>
+      <rect x="${L}" y="${y + 4}" width="${sc(v.pv)}" height="8" rx="2" fill="#1F3864"/>
+      <rect x="${L}" y="${y + 14}" width="${sc(v.ac)}" height="8" rx="2" fill="#e8833a"/>`;
+    let txt = v.pv || v.ac ? `PV ${fmtH(v.pv)} · AC ${fmtH(v.ac)} h` : "sin iniciar";
+    if (!pf && p.evm.cpi) txt += ` · CPI ${p.evm.cpi.toFixed(2)} · SPI ${p.evm.spi.toFixed(2)}`;
+    const desv = v.pv ? (v.ac - v.pv) / v.pv : 0;
+    h += `<text x="${L + Math.max(sc(v.tot), sc(v.ac)) + 6}" y="${y + 17}" font-size="11.5" fill="${desv > .1 ? "#d64545" : "#6b7280"}">${txt}</text>`;
+  });
+  svg.innerHTML = h;
+  subAv.textContent = `Corte al cierre de ${fmtMes(D.corte)}. Horas incluyen la contingencia. CPI < 1 = se gastaron más horas que el avance logrado; SPI < 1 = va atrasado.`;
+}
+
+function heat() {
+  let h = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}</tr>`;
+  for (const u of D.uso_perfil) {
+    h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => {
+      const r = c ? u.usado[i] / c : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
+      return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtH(u.usado[i])} de ${fmtH(c)} h">${Math.round(r * 100)}%</td>`;
+    }).join("") + "</tr>";
+  }
+  document.getElementById("heat").innerHTML = h;
+}
+
+async function cargar() {
+  D = await calcular(); tabla(); pie(); barras(); heat();
+}
+cargar().catch(e => document.querySelector("main").insertAdjacentHTML("beforeend", `<p style="color:#d64545">No se pudo calcular: ${e.message}</p>`));
+</script>
+</body>
+</html>
