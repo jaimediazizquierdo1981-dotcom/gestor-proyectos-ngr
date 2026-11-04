@@ -32,6 +32,11 @@ def _fusionar(base: dict, extra: dict) -> dict:
     return out
 
 
+def activo(x: dict) -> bool:
+    """Cuenta en el cálculo: incluido y no está en pausa (on hold)."""
+    return bool(x.get("incluir", True)) and not x.get("on_hold", False)
+
+
 def meses(inicio: str, fin: str) -> list[str]:
     return [str(p) for p in pd.period_range(inicio, fin, freq="M")]
 
@@ -122,7 +127,7 @@ def asignar(proyectos: list[dict], equipo: list[dict], cap: dict, p: dict, lista
     cob = p["cobertura"]
     libre = {k: v.copy() for k, v in cap.items()}
     por_perfil = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}
-    activos = sorted([x for x in proyectos if x.get("incluir", True)], key=lambda x: float(x.get("prioridad", 99)))
+    activos = sorted([x for x in proyectos if activo(x)], key=lambda x: float(x.get("prioridad", 99)))
     res, asign = {}, {}
     for pr in activos:
         f = (factores or {}).get(pr["codigo"], 1.0)
@@ -163,8 +168,8 @@ def asignar(proyectos: list[dict], equipo: list[dict], cap: dict, p: dict, lista
                              "dias_requeridos": round(float(tot), 1),
                              "req_mes": {pf: v.round(1).tolist() for pf, v in req.items()} if detalle else None}
     for pr in proyectos:
-        if not pr.get("incluir", True):
-            res[pr["codigo"]] = {"estado": "excluido", "cobertura": 0, "desplazo_meses": 0,
+        if not activo(pr):
+            res[pr["codigo"]] = {"estado": "excluido" if not pr.get("incluir", True) else "on_hold", "cobertura": 0, "desplazo_meses": 0,
                                  "dias_requeridos": 0, "req_mes": None}
     return {"resultado": res, "asignacion": asign, "libre": libre}
 
@@ -184,7 +189,7 @@ def montecarlo(proyectos, equipo, cap, p, lista) -> dict:
     n = int(r.get("simulaciones", 400))
     rng = np.random.default_rng(int(r.get("semilla", 2027)))
     a, m, b = float(r["pert_optimista"]), float(r["pert_probable"]), float(r["pert_pesimista"])
-    act = [x for x in proyectos if x.get("incluir", True)]
+    act = [x for x in proyectos if activo(x)]
     mu = (a + 4 * m + b) / 6
     if n <= 0 or not act:
         return {"prob": {}, "dist_cubiertos": [], "n": 0, "media_factor": mu}
@@ -212,9 +217,15 @@ def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict
     """Cobertura y uso a partir de lo asignado a mano en la Hoja de trabajo."""
     cob = p["cobertura"]
     perfil_de = {e["persona"]: e["perfil"] for e in equipo}
-    activos = {x["codigo"] for x in proyectos if x.get("incluir", True)}
-    asign, libre = {}, {k: v.copy() for k, v in cap.items()}
+    activos = {x["codigo"] for x in proyectos if activo(x)}
+    en_pausa = {x["codigo"] for x in proyectos if x.get("incluir", True) and x.get("on_hold")}
+    asign, libre, pausa = {}, {k: v.copy() for k, v in cap.items()}, {}
     for r in hoja["asig"]:
+        if r["codigo"] in en_pausa and r["persona"] in perfil_de:   # on hold: se guarda para mostrarlo, no descuenta
+            for mes, d in (r["dias"] or {}).items():
+                if mes in lista and float(d) > 0:
+                    pausa.setdefault(r["persona"], {}).setdefault(mes, {})[r["codigo"]] = float(d)
+            continue
         if r["codigo"] not in activos or r["persona"] not in perfil_de:
             continue
         for mes, d in (r["dias"] or {}).items():
@@ -225,7 +236,7 @@ def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict
     for pr in proyectos:
         c = pr["codigo"]
         req_mes = plan_proyecto(pr, p, lista)
-        if not pr.get("incluir", True):   # excluido: igual se devuelve su plan para poder verlo en la hoja
+        if not activo(pr):   # excluido u on hold: igual se devuelve su plan para poder verlo en la hoja
             res[c] = {**auto["resultado"][c], "req_mes": {pf: v.round(1).tolist() for pf, v in req_mes.items()}}
             continue
         if c in hoja["nec"]:
@@ -244,7 +255,7 @@ def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict
         res[c] = {"estado": estado, "cobertura": round(ratio, 4), "desplazo_meses": 0, "dias_requeridos": round(tot, 1),
                   "req_mes": {pf: v.round(1).tolist() for pf, v in req_mes.items()},
                   "req_hoja": req, "asig_hoja": asig_pf}
-    return {"resultado": res, "asignacion": asign, "libre": libre}
+    return {"resultado": res, "asignacion": asign, "libre": libre, "pausa": pausa}
 
 
 # ---------------------------------------------------------------- orquestador
@@ -258,6 +269,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     for pr in entrada.get("proyectos") or base["proyectos"]:
         pr = {**pr, **escenario.get(pr["codigo"], {})}
         pr.setdefault("incluir", True)
+        pr.setdefault("on_hold", False)
         if pr["inicio"] != base_inicio(base, pr["codigo"]) and "fin" not in escenario.get(pr["codigo"], {}):
             # mover el inicio mantiene la duración original
             b = next((x for x in base["proyectos"] if x["codigo"] == pr["codigo"]), None)
@@ -288,7 +300,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         dur = (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
         opex_meses = sum(1 for m in lista if m > fin_real) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
         filas.append({**{k: pr[k] for k in ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin",
-                                              "capex", "opex_mensual", "incluir"]},
+                                              "capex", "opex_mensual", "incluir", "on_hold"]},
                       "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real,
                       "duracion_meses": dur, "recursos": {pf: float(pr.get(pf, 0) or 0) for pf in PERFILES},
                       "terceros": {t: float(pr.get("T " + t, 0) or 0) for t in TERCEROS},
@@ -306,7 +318,8 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         a_tercero = {"Desarrollador": "Dev", "QA": "QA", "Analista Funcional": "Analista Funcional", "Analista Técnico": "Analista Técnico"}
         for f in filas:
             rec, ter = {pf: 0.0 for pf in PERFILES}, {t: 0.0 for t in TERCEROS}
-            for n, ms in a["asignacion"].items():
+            fuente = a.get("pausa", {}) if f.get("on_hold") else a["asignacion"]
+            for n, ms in fuente.items():
                 d = sum(x.get(f["codigo"], 0) for x in ms.values())
                 if not d:
                     continue
@@ -321,7 +334,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
             # capex de terceros = días asignados ÷ días hábiles del mes × costo mensual del cargo
             costos = p.get("costos_terceros", {})
             cx = 0.0
-            for n, ms in a["asignacion"].items():
+            for n, ms in fuente.items():
                 if tipo_de.get(n) != "tercero":
                     continue
                 for mes, x in ms.items():
@@ -356,7 +369,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                  "area": e.get("area") or "", "cargo": e.get("cargo") or "", "tipo": e.get("tipo") or "interno", "dias_semana": e.get("dias_semana", 5),
                  "capacidad": cap[e["persona"]].round(2).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
-    estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
+    estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "on_hold", "excluido"]}
     return {"meses": lista, "parametros": p, "perfiles": PERFILES, "terceros": TERCEROS, "proyectos": filas,
             "estados": estados, "uso_perfil": uso, "uso_terceros": uso_ter, "personas": personas, "montecarlo": mc, "origen": base.get("origen"), "modo": modo}
 

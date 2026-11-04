@@ -19,3 +19,4 @@ h1{font-size:20px;margin:0 0 2px} .sub{color:var(--muted);font-size:12.5px;margi
 .est{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .est.cubierto{background:#e3f4ec;color:#1d7a50}.est.parcial{background:#fdf1d9;color:#8a5a00}
 .est.no_cubierto{background:#fbe3e3;color:#a52f2f}.est.excluido{background:#eceef2;color:#6b7280}
+.est.on_hold{background:#e4e6ea;color:#4b5160}

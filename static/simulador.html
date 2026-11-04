@@ -242,7 +242,7 @@ selVel.onchange = e => { vel = +e.target.value; };
 cargando(true, "Preparando la oficina…");
 calcular().then(d => {
   cargando(false);
-  D = d; P = D.proyectos.filter(p => p.incluir && p.inicio_plan <= D.meses.at(-1));
+  D = d; P = D.proyectos.filter(p => activo(p) && p.inicio_plan <= D.meses.at(-1));
   reiniciar();
   if (location.search.includes("auto")) { vel = 4; bPlay.click(); }
 });

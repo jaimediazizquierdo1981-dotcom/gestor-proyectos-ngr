@@ -20,6 +20,9 @@
   tr.off td{color:#a7adb8} tr.tot td{background:#f6f4ef;font-weight:700}
   input[type=number]{width:46px;padding:2px 4px;border:1px solid var(--line);border-radius:5px;font:inherit;text-align:right}
   input[type=month]{padding:1px 3px;border:1px solid var(--line);border-radius:5px;font:inherit;width:120px}
+  .hold{font:inherit;font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--line);background:#fff;color:#6b7280;cursor:pointer;white-space:nowrap}
+  .hold.on{background:#8a8f99;border-color:#8a8f99;color:#fff;font-weight:600}
+  .hold:disabled{opacity:.4;cursor:default}
   .tag{font-size:11px;padding:1px 7px;border-radius:5px;background:#eef2f8;color:var(--accent)}
   .tag.T{background:#f3ecfb;color:#5b3d8a}
   .sep{border-left:2px solid #e6e1d6}
@@ -93,17 +96,18 @@ function cambiar(cod, campo, valor) {
 
 function tabla() {
   const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
-  const inc = P.filter(p => p.incluir);
+  const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th colspan="7"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
-  <tr><th>Incl.</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
+  let h = `<thead><tr class="g"><th colspan="8"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
+  <tr><th>Incl.</th><th title="En pausa: se muestra en gris y no descuenta capacidad">On hold</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
   ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   ${TF.map((t, i) => `<th class="${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th>Total</th>
   <th class="sep">Capex</th><th title="Días de terceros asignados en la Hoja × costo mensual del cargo (Criterios)">Capex terceros</th><th>Opex/mes</th><th title="Opex mensual × meses desde el fin del proyecto hasta diciembre">Opex hasta dic.</th>
   <th class="sep l">Estado</th><th>Cobertura</th></tr></thead><tbody>`;
   for (const p of P) {
-    h += `<tr class="${p.incluir ? "" : "off"}">
+    h += `<tr class="${activo(p) ? "" : "off"}">
       <td><input type="checkbox" ${p.incluir ? "checked" : ""} onchange="cambiar('${p.codigo}','incluir',this.checked)"></td>
+      <td><button class="hold ${p.on_hold ? "on" : ""}" ${p.incluir ? "" : "disabled"} title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: queda en gris y no descuenta días"}" onclick="cambiar('${p.codigo}','on_hold',${!p.on_hold})">${p.on_hold ? "⏸ On hold" : "On hold"}</button></td>
       <td><input type="number" min="1" value="${p.prioridad}" onchange="cambiar('${p.codigo}','prioridad',+this.value)"></td>
       <td class="l"><b>${p.codigo}</b></td><td class="l nom" title="${p.proyecto} · ${p.marca}">${p.proyecto}</td>
 
@@ -112,10 +116,10 @@ function tabla() {
       ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.recursos[f])}</td>`).join("")}<td><b>${fmtD(p.dias_base)}</b></td>
       ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.terceros[t])}</td>`).join("")}<td><b>${fmtD(p.dias_terceros)}</b></td>
       <td class="sep">${fmtK(p.capex)}</td><td>${p.capex_terceros ? fmtK(p.capex_terceros) : "–"}</td><td>${fmtS(p.opex_mensual)}</td><td>${p.opex_horizonte ? fmtK(p.opex_horizonte) : "–"}</td>
-      <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${p.incluir ? fmtPct(p.cobertura) : "–"}</td>
+      <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${activo(p) ? fmtPct(p.cobertura) : "–"}</td>
       </tr>`;
   }
-  h += `<tr class="tot"><td colspan="6" class="l">Total proyectos incluidos (${inc.length})</td><td></td>
+  h += `<tr class="tot"><td colspan="7" class="l">Total proyectos activos (${inc.length})</td><td></td>
     ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtD(s("dias_base"))}</td>
     ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.terceros[t]))}</td>`).join("")}<td>${fmtD(s("dias_terceros"))}</td>
     <td class="sep">${fmtK(s("capex"))}</td><td>${fmtK(s("capex_terceros"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_horizonte"))}</td><td class="sep" colspan="2"></td></tr></tbody>`;
@@ -129,7 +133,7 @@ function tabla() {
 }
 
 function pie() {
-  const E = D.estados, orden = ["cubierto", "parcial", "no_cubierto", "excluido"];
+  const E = D.estados, orden = ["cubierto", "parcial", "no_cubierto", "on_hold", "excluido"];
   const tot = orden.reduce((a, k) => a + E[k], 0); let ang = -Math.PI / 2, h = "";
   const cx = 150, cy = 150, r = 130;
   for (const k of orden) {
@@ -147,7 +151,7 @@ function pie() {
 }
 
 function barras() {
-  const pf = selPerfil.value, P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  const pf = selPerfil.value, P = D.proyectos.filter(activo).sort((a, b) => a.prioridad - b.prioridad);
   const suma = o => Object.values(o).reduce((a, v) => a + v, 0);
   const val = p => pf ? {py: p.dias_proyectados[pf] || 0, ca: p.capacidad_asignada[pf] || 0}
                       : {py: suma(p.dias_proyectados), ca: suma(p.capacidad_asignada)};

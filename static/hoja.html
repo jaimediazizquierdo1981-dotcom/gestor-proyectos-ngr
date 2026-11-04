@@ -24,6 +24,8 @@
   .mini{display:grid;grid-template-columns:repeat(12,1fr);gap:1px;margin-top:3px}
   .mini i{height:6px;border-radius:1px;display:block}
   .proy{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;transition:box-shadow .15s,border-color .15s}
+  .proy.pausa{filter:grayscale(1);opacity:.6;background:#f1f1f1}
+  .banda{background:#8a8f99;color:#fff;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:14px 14px 0 0}
   .proy.foco{border-color:#e5a12a;box-shadow:0 0 0 4px rgba(229,161,42,.3)}
   .xs-proy{order:9;font:inherit;font-size:11.5px;color:#6b7280;background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}
   .xs-proy:hover{color:#d64545;border-color:#f0c4c4}
@@ -110,8 +112,9 @@ const persona = n => D.personas.find(p => p.persona === n);
 const proyecto = c => D.proyectos.find(p => p.codigo === c);
 const r1 = n => Math.round(n * 2) / 2;   // medio día
 
+const enPausa = c => !!proyecto(c)?.on_hold;
 function usadoMes(nombre, mes, excepto) {
-  return ASIG.filter(a => a.persona === nombre && a !== excepto).reduce((s, a) => s + (+a.dias[mes] || 0), 0);
+  return ASIG.filter(a => a.persona === nombre && a !== excepto && !enPausa(a.codigo)).reduce((s, a) => s + (+a.dias[mes] || 0), 0);
 }
 function libre(nombre) {
   const p = persona(nombre);
@@ -163,7 +166,7 @@ function pintarProyectos() {
   proyectos.innerHTML = P.map(p => {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
-    return `<div class="proy" data-c="${p.codigo}">
+    return `<div class="proy ${p.on_hold ? "pausa" : ""}" data-c="${p.codigo}">${p.on_hold ? '<div class="banda">⏸ On hold: sus días no se descuentan de la capacidad. Se reactiva desde el Consolidado.</div>' : ""}
       <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <button class="xs-proy" title="Cerrar sección (quitar del consolidado)" onclick="quitarProyecto('${p.codigo}')">Cerrar sección ✕</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
@@ -181,7 +184,8 @@ function pintarProyectos() {
       <div class="drop">Arrastra aquí a los colaboradores que necesita este proyecto</div>
       ${pie(p)}</div>`;
   }).join("");
-  proyectos.querySelectorAll(".proy").forEach(el => {
+  proyectos.querySelectorAll(".proy.pausa input, .proy.pausa textarea, .proy.pausa select, .proy.pausa button:not(.xs-proy)").forEach(x => x.disabled = true);
+  proyectos.querySelectorAll(".proy:not(.pausa)").forEach(el => {
     el.ondragover = e => { e.preventDefault(); el.classList.add("sobre"); };
     el.ondragleave = () => el.classList.remove("sobre");
     el.ondrop = e => { e.preventDefault(); el.classList.remove("sobre"); agregar(el.dataset.c, e.dataTransfer.getData("text/plain")); };
@@ -192,7 +196,7 @@ function pintarProyectos() {
 function pintarSelector() {
   filtroProy.innerHTML = '<option value="">Ir a un proyecto…</option>' +
     D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad)
-      .map(p => `<option value="${p.codigo}">${p.incluir ? "✓" : "＋"} ${p.codigo} · ${p.proyecto}${p.incluir ? "" : " (abrir sección)"}</option>`).join("");
+      .map(p => `<option value="${p.codigo}">${p.incluir ? (p.on_hold ? "⏸" : "✓") : "＋"} ${p.codigo} · ${p.proyecto}${p.incluir ? (p.on_hold ? " (on hold)" : "") : " (abrir sección)"}</option>`).join("");
 }
 function irA(codigo) {
   const el = proyectos.querySelector(`.proy[data-c="${codigo}"]`); if (!el) return;
@@ -256,7 +260,7 @@ async function cambiarOpex(codigo, valor) {
 function pintarKpis() {
   const internos = D.personas.filter(p => p.tipo !== "tercero").map(p => p.persona);
   const cap = D.personas.filter(p => p.tipo !== "tercero").reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0), 0);
-  const asig = ASIG.filter(a => internos.includes(a.persona)).reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
+  const asig = ASIG.filter(a => internos.includes(a.persona) && !enPausa(a.codigo)).reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
   const sobre = D.personas.filter(p => libre(p.persona).some(v => v < -0.01)).length;
   kpis.innerHTML = [["Días netos del equipo interno", fmtD(cap)], ["Asignados (equipo interno)", fmtD(asig)], ["Libres", fmtD(cap - asig)],
     ["Uso", cap ? Math.round(asig / cap * 100) + "%" : "–"], ["Personas sobreasignadas", sobre]].map(([l, v]) => `<div class="k">${l}<b>${v}</b></div>`).join("");
