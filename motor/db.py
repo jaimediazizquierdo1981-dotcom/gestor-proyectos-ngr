@@ -14,7 +14,7 @@ import pandas as pd
 
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
-DATOS_VERSION = "11"  # subir este número fuerza recargar los datos ficticios
+DATOS_VERSION = "12"  # subir este número fuerza recargar los datos ficticios
 PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"]
 COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
@@ -73,6 +73,8 @@ def iniciar() -> None:
         c.execute(DDL)
         if nueva:
             sembrar(c)
+            if DATOS_VERSION == "12":   # arranque limpio pedido: sin posiciones ni asignaciones de prueba en la hoja
+                c.execute("delete from gestor.necesidades; delete from gestor.asignaciones; delete from gestor.observaciones;")
             c.execute("insert into gestor.meta values ('datos_version', %s) on conflict (clave) do update set valor = excluded.valor",
                       (DATOS_VERSION,))
 

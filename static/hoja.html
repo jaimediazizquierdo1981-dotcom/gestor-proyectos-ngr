@@ -145,8 +145,7 @@ function pintarLista() {
 // ---------- secciones de proyecto
 // posiciones que necesita el proyecto: las que definió el usuario en la hoja o, si aún no las tocó, las del consolidado
 function posiciones(p) {
-  if (NEC[p.codigo]) return NEC[p.codigo];
-  return ROLES.map(pf => ({perfil: pf, dias: r1((p.req_mes?.[pf] || []).reduce((a, b) => a + b, 0))})).filter(x => x.dias > 0);
+  return NEC[p.codigo] || [];   // arranca vacío: las posiciones las define el usuario
 }
 function diasRol(p, pf) { return posiciones(p).filter(x => x.perfil === pf).reduce((a, x) => a + x.dias, 0); }
 function necesidad(p) {

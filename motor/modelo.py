@@ -230,8 +230,8 @@ def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict
             continue
         if c in hoja["nec"]:
             req = {i["perfil"]: float(i["dias"]) for i in hoja["nec"][c]}
-        else:   # aún no se definieron posiciones en la hoja: las del plan
-            req = {pf: _medio(float(v.sum())) for pf, v in req_mes.items() if v.sum() > 0}
+        else:   # aún no se definieron posiciones en la hoja: vacío
+            req = {}
         asig_pf = {pf: 0.0 for pf in PERFILES}
         for n, ms in asign.items():
             for d in ms.values():
