@@ -28,6 +28,8 @@
   .banda{background:#8a8f99;color:#fff;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:14px 14px 0 0}
   .proy.foco{border-color:#e5a12a;box-shadow:0 0 0 4px rgba(229,161,42,.3)}
   .xs-proy{order:9;font:inherit;font-size:11.5px;color:#6b7280;background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}
+  .xs-proy.del{margin-left:6px}
+  .xs-proy.del:hover{background:#fef2f2}
   .xs-proy:hover{color:#d64545;border-color:#f0c4c4}
   .proy{scroll-margin-top:70px}
   .proy.sobre{border-color:#1F3864;box-shadow:0 0 0 3px rgba(31,56,100,.18)}
@@ -185,6 +187,7 @@ function pintarProyectos() {
     return `<div class="proy ${p.on_hold ? "pausa" : ""}" data-c="${p.codigo}">${p.on_hold ? '<div class="banda">⏸ On hold: sus días no se descuentan de la capacidad. Usa ▶ Reactivar para volver a contarlo.</div>' : ""}
       <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <button class="xs-proy" title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: no descuenta capacidad"}" onclick="pausarProyecto('${p.codigo}', ${!p.on_hold})">${p.on_hold ? "▶ Reactivar" : "⏸ On hold"}</button>
+        <button class="xs-proy del" title="Eliminar la ficha: borra sus posiciones, asignaciones y observaciones y la quita de la hoja" onclick="eliminarFicha('${p.codigo}')">🗑 Eliminar ficha</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
       <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><span class="lbl">de</span><select id="desde-${p.codigo}">${opcMeses(p.inicio_plan)}</select><span class="lbl">a</span><select id="hasta-${p.codigo}">${opcMeses(p.fin_plan)}</select><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
         ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${(() => { const it = (NEC[p.codigo] || []).find(i => i.perfil === pf); if (!it) return "";
@@ -232,6 +235,16 @@ async function seleccionarProyecto() {
   }
   filtroProy.value = "";
   irA(c);
+}
+async function eliminarFicha(c) {
+  const p = proyecto(c);
+  if (!confirm(`¿Eliminar la ficha de ${c} · ${p.proyecto}?\n\nSe borran sus posiciones, asignaciones y observaciones, y sale del consolidado. No se puede deshacer.`)) return;
+  const r = await fetch(`/api/hoja/ficha?codigo=${encodeURIComponent(c)}`, {method: "DELETE"});
+  if (!r.ok) { aviso("No se pudo eliminar la ficha.", false); return; }
+  const e = leer(ESC_KEY) || {}; e[c] = {...(e[c] || {}), incluir: false, on_hold: false}; guardar(ESC_KEY, e);
+  ASIG = ASIG.filter(a => a.codigo !== c); delete NEC[c]; delete OBS[c];
+  cargando(true, "Actualizando…"); D = await calcular(); cargando(false);
+  pintarSelector(); pintar(); aviso(`Se eliminó la ficha de ${c}. Puedes volver a abrirla desde "Ir a un proyecto…".`);
 }
 async function pausarProyecto(c, on) {   // un proyecto incluido ya no se quita: solo se pone o se saca de On hold
   const e = leer(ESC_KEY) || {};

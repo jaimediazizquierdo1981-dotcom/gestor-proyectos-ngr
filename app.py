@@ -201,6 +201,14 @@ async def api_cargar_colaboradores(archivo: UploadFile = File(...), modo: str = 
     return resp
 
 
+@app.delete("/api/hoja/ficha")
+def api_eliminar_ficha(codigo: str):
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    db.eliminar_ficha(codigo)
+    return {"ok": True}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()

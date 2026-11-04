@@ -295,3 +295,18 @@ def cargar_colaboradores(filas: list[dict], modo: str) -> dict:
         c.commit()
     nombres = {f["persona"] for f in filas}
     return {"nuevos": sorted(nombres - antes), "actualizados": sorted(nombres & antes), "quitados": quitados}
+
+
+def eliminar_ficha(codigo: str) -> None:
+    """Borra la ficha del proyecto en la hoja (asignaciones, posiciones, observaciones) y lo saca del escenario."""
+    import psycopg
+    with psycopg.connect(URL) as c:
+        with c.cursor() as cur:
+            for t in ("asignaciones", "necesidades", "observaciones"):
+                cur.execute(f"delete from gestor.{t} where codigo = %s", (codigo,))
+            r = cur.execute("select data from gestor.escenario where id = 1").fetchone()
+            data = r[0] if r else {}
+            data[codigo] = {**data.get(codigo, {}), "incluir": False, "on_hold": False}
+            cur.execute("""insert into gestor.escenario (id, data) values (1, %s)
+                           on conflict (id) do update set data = excluded.data""", (json.dumps(data),))
+        c.commit()
