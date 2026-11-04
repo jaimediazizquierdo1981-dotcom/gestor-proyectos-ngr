@@ -61,11 +61,11 @@
       <tr><td>Marca</td><td>Marca(s) que patrocinan o se benefician.</td><td>"Todas" si es corporativo. Sirve para conversar con cada marca en la reunión mensual.</td><td class="ej">Bembos y Papa John's</td></tr>
       <tr><td>Prioridad</td><td>Orden en que el proyecto toma capacidad.</td><td>1 = primero. Lo define el Comité: primero los ya iniciados, luego transformacionales, luego tecnología. Sin empates.</td><td class="ej">1, 2, 3…</td></tr>
       <tr><td>Mes de inicio y fin</td><td>Ventana planificada.</td><td>Mes del kick-off y mes de salida a producción (go-live). El soporte post go-live va como Opex, no como días del proyecto.</td><td class="ej">2027-02 a 2027-11</td></tr>
-      <tr><td>Días proyectados por perfil</td><td>Días-persona que tomará el proyecto, por tipo de recurso (1 día = 1 persona a tiempo completo una jornada).</td><td>Estimación de 3 puntos con el líder técnico; se registra el <b>valor más probable</b>. La variación la cubre el modelo PERT (pestaña Modelos). No incluir días de proveedores externos (eso es Capex).</td><td class="ej">PM 68 días, Dev 128 días</td></tr>
+      <tr><td>Días proyectados por perfil</td><td>Días-persona que tomará el proyecto, por tipo de recurso (1 día = 1 persona a tiempo completo una jornada).</td><td>Estimación con el líder técnico; se registra el <b>valor más probable</b>. No incluir días de proveedores externos (eso es Capex).</td><td class="ej">PM 68 días, Dev 128 días</td></tr>
       <tr><td>Capex</td><td>Inversión del proyecto.</td><td>Licencias, implementación externa, hardware y servicios de terceros. Monto total en soles sin IGV, según business case aprobado.</td><td class="ej">S/ 520 000</td></tr>
       <tr><td>Opex mensual</td><td>Costo recurrente que sostendrá la solución.</td><td>Suscripciones, soporte del proveedor, nube, mantenimiento. Arranca el mes siguiente al go-live.</td><td class="ej">S/ 12 000 / mes</td></tr>
     </table>
-    <div class="ojo">Regla de oro: si un dato no está confirmado, se carga el valor más probable y se marca en la reunión mensual para afinarlo. El modelo ya castiga la incertidumbre con la contingencia y con la simulación PERT.</div>
+    <div class="ojo">Regla de oro: si un dato no está confirmado, se carga el valor más probable y se marca en la reunión mensual para afinarlo. </div>
   </div>
 </main>
 <script>
@@ -77,20 +77,11 @@ const CAMPOS = [
     ["capacidad.descontar_feriados", "Descontar feriados", "Resta los feriados nacionales de los días hábiles.", "bool"],
     ["capacidad.dias_vacaciones_anual", "Días hábiles de vacaciones al año", "Se reparten de forma pareja en los 12 meses.", "num"],
     ["capacidad.reserva_operacion_pct", "Reserva para operación (%)", "Parte de la capacidad que se guarda para requerimientos e incidencias. Debe calzar con la Demanda TI.", "pct"]]],
-  ["3", "Estimación del esfuerzo", [
-    ["estimacion.contingencia_pct", "Contingencia (%)", "Colchón sobre los días base de cada proyecto.", "pct"],
-    ["estimacion.distribucion", "Cómo se reparte el esfuerzo en el tiempo", "Uniforme: igual todos los meses. Rayleigh: sube, llega a un pico y baja (más realista).", "dist"],
-    ["estimacion.pico_rayleigh", "Pico de la curva Rayleigh", "En qué parte de la duración está la mayor carga (0,4 = al 40%).", "num"]]],
-  ["4", "Reglas de cobertura", [
+  ["3", "Reglas de cobertura", [
     ["cobertura.umbral_cubierto", "Umbral para 'Cubierto' (%)", "Cobertura mínima para considerar el proyecto atendido.", "pct"],
     ["cobertura.umbral_parcial", "Umbral para 'Parcial' (%)", "Por debajo de esto queda 'No cubierto' y no consume capacidad.", "pct"],
     ["cobertura.meses_desplazamiento_max", "Meses que se puede postergar el inicio", "Si no entra en su ventana, el modelo prueba moverlo hasta N meses.", "num"]]],
-  ["5", "Riesgo (PERT y Monte Carlo)", [
-    ["riesgo.pert_optimista", "Factor optimista", "Si todo sale bien, los días reales son este múltiplo del estimado.", "num"],
-    ["riesgo.pert_probable", "Factor más probable", "Normalmente 1,0.", "num"],
-    ["riesgo.pert_pesimista", "Factor pesimista", "Si se complica: múltiplo del estimado.", "num"],
-    ["riesgo.simulaciones", "Número de simulaciones", "Más simulaciones = resultado más estable pero más lento.", "num"]]],
-  ["6", "Costo de terceros (S/ por mes)", [
+  ["4", "Costo de terceros (S/ por mes)", [
     ["costos_terceros.Desarrollador", "Desarrollador", "Costo mensual de un tercero a tiempo completo. Capex = días asignados ÷ días hábiles del mes × este costo.", "num"],
     ["costos_terceros.QA", "QA", "Costo mensual de un tercero a tiempo completo.", "num"],
     ["costos_terceros.Analista Funcional", "Analista Funcional", "Costo mensual de un tercero a tiempo completo.", "num"],
