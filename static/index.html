@@ -47,12 +47,12 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="tbl"><table id="t"></table></div>
-  <div class="note">Recursos internos = esfuerzo base del equipo propio en días-persona (sin contingencia). Terceros = días de proveedores externos: no consumen capacidad del equipo. <b>Cobertura</b> = días que el equipo puede atender ÷ días requeridos (con contingencia). <b>P(cubierto)</b> = probabilidad Monte Carlo de quedar 100% cubierto si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
+  <div class="note">Recursos internos = esfuerzo base del equipo propio en días-persona (sin contingencia). Terceros = días de proveedores externos: no consumen capacidad del equipo. <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. <b>P(viable)</b> = probabilidad (modelo automático + Monte Carlo) de que el equipo pueda cubrirlo al 100% si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
   <div class="fila2">
     <div class="card">
       <h2>¿Cuántos proyectos se cubren?</h2>
-      <div class="sub">Según la capacidad del equipo y el orden de prioridad.</div>
+      <div class="sub" id="subPie">Según lo asignado en la Hoja de trabajo.</div>
       <svg id="pie" viewBox="0 0 300 300" role="img" aria-label="Proyectos cubiertos, parciales y no cubiertos"></svg>
       <div class="pie-ley" id="pieLey"></div>
     </div>
@@ -67,7 +67,7 @@
 
   <div class="card">
     <h2>Uso de la capacidad por perfil y mes</h2>
-    <div class="sub">Días asignados a proyectos ÷ días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
+    <div class="sub">Días asignados en la Hoja de trabajo ÷ días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
   </div>
 </main>
@@ -93,7 +93,7 @@ function tabla() {
   ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   ${TF.map((t, i) => `<th class="${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th>Total</th>
   <th class="sep">Capex</th><th>Opex/mes</th><th>Opex anual</th>
-  <th class="sep l">Estado</th><th>Cobertura</th><th>P(cubierto)</th></tr></thead><tbody>`;
+  <th class="sep l">Estado</th><th>Cobertura</th><th title="Probabilidad de que el proyecto sea viable con la capacidad del equipo (modelo automático + Monte Carlo)">P(viable)</th></tr></thead><tbody>`;
   for (const p of P) {
     h += `<tr class="${p.incluir ? "" : "off"}">
       <td><input type="checkbox" ${p.incluir ? "checked" : ""} onchange="cambiar('${p.codigo}','incluir',this.checked)"></td>
@@ -157,7 +157,7 @@ function barras() {
         falta > 0.5 && p.estado !== "cubierto" ? `${fmtD(v.ca)} de ${fmtD(v.py)} días · faltan ${fmtD(falta)} días` : `${fmtD(v.ca)} días · cubierto`}</text>`;
   });
   svg.innerHTML = h;
-  subAv.textContent = "Días proyectados = lo que tomará el proyecto en días-persona (con contingencia). Capacidad real = días que el equipo le puede asignar con la gente y la disponibilidad que tiene, según la prioridad.";
+  subAv.textContent = D.modo === "hoja" ? "Días proyectados = días de las posiciones que necesita el proyecto. Capacidad real = días asignados a personas en la Hoja de trabajo." : "Días proyectados = lo que tomará el proyecto (con contingencia). Capacidad real = días que el equipo le puede asignar según la prioridad.";
 }
 
 function heat() {
@@ -177,6 +177,7 @@ async function cargar() {
   D = await calcular(); D.proyectos.forEach(p => p.prob_cubierto = null);
   tabla(); pie(); barras(); heat();
   sub.textContent = sub.textContent.replace(/^Datos ficticios\./, `Datos ficticios (desde ${D.origen}).`);
+  if (D.modo !== "hoja") subPie.textContent = "Según la capacidad del equipo y el orden de prioridad (modelo automático).";
   cargando(true, "Simulando riesgo (Monte Carlo)…");
   const mc = await montecarlo().catch(() => null);
   if (mc) { D.proyectos.forEach(p => p.prob_cubierto = mc.prob[p.codigo] ?? null); tabla(); }

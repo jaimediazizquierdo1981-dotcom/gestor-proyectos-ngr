@@ -197,6 +197,50 @@ def montecarlo(proyectos, equipo, cap, p, lista) -> dict:
             "dist_cubiertos": np.bincount(dist, minlength=len(act) + 1).tolist(), "n": n, "media_factor": mu}
 
 
+# ---------------------------------------------------------------- 6. hoja de trabajo (manda sobre el modelo automático)
+def _medio(x: float) -> float:
+    return math.floor(x * 2 + 0.5) / 2
+
+
+def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict:
+    """Cobertura y uso a partir de lo asignado a mano en la Hoja de trabajo."""
+    cob = p["cobertura"]
+    perfil_de = {e["persona"]: e["perfil"] for e in equipo}
+    activos = {x["codigo"] for x in proyectos if x.get("incluir", True)}
+    asign, libre = {}, {k: v.copy() for k, v in cap.items()}
+    for r in hoja["asig"]:
+        if r["codigo"] not in activos or r["persona"] not in perfil_de:
+            continue
+        for mes, d in (r["dias"] or {}).items():
+            if mes in lista and float(d) > 0:
+                asign.setdefault(r["persona"], {}).setdefault(mes, {})[r["codigo"]] = float(d)
+                libre[r["persona"]][lista.index(mes)] -= float(d)
+    res = {}
+    for pr in proyectos:
+        c = pr["codigo"]
+        if not pr.get("incluir", True):
+            res[c] = auto["resultado"][c]
+            continue
+        req_mes = plan_proyecto(pr, p, lista)
+        if c in hoja["nec"]:
+            req = {i["perfil"]: float(i["dias"]) for i in hoja["nec"][c]}
+        else:   # aún no se definieron posiciones en la hoja: las del plan
+            req = {pf: _medio(float(v.sum())) for pf, v in req_mes.items() if v.sum() > 0}
+        asig_pf = {pf: 0.0 for pf in PERFILES}
+        for n, ms in asign.items():
+            for d in ms.values():
+                asig_pf[perfil_de[n]] += d.get(c, 0)
+        tot = sum(req.values())
+        ratio = sum(min(asig_pf.get(pf, 0), v) for pf, v in req.items()) / tot if tot else 0.0
+        estado = ("cubierto" if ratio >= float(cob["umbral_cubierto"]) else
+                  "parcial" if ratio > 0 and ratio >= float(cob["umbral_parcial"]) else
+                  "parcial" if ratio > 0 else "no_cubierto")
+        res[c] = {"estado": estado, "cobertura": round(ratio, 4), "desplazo_meses": 0, "dias_requeridos": round(tot, 1),
+                  "req_mes": {pf: v.round(1).tolist() for pf, v in req_mes.items()},
+                  "req_hoja": req, "asig_hoja": asig_pf}
+    return {"resultado": res, "asignacion": asign, "libre": libre}
+
+
 # ---------------------------------------------------------------- orquestador
 def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     entrada = entrada or {}
@@ -218,6 +262,12 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     equipo = entrada.get("equipo") or base["equipo"]
     cap = capacidad(equipo, base["feriados"], p, lista)
     a = asignar(proyectos, equipo, cap, p, lista)
+    modo = "modelo"
+    from motor import db
+    if db.disponible() and not entrada.get("modelo_automatico"):
+        a = desde_hoja(a, proyectos, equipo, cap, p, lista,
+                       {"asig": db.leer_asignaciones(), "nec": db.leer_necesidades()})
+        modo = "hoja"
     mc = montecarlo(proyectos, equipo, cap, p, lista) if con_mc else {"prob": {}, "dist_cubiertos": [], "n": 0, "media_factor": None}
 
     filas = []
@@ -227,7 +277,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         for e_ in equipo:
             for d_ in a["asignacion"].get(e_["persona"], {}).values():
                 asig[e_["perfil"]] += d_.get(pr["codigo"], 0)
-        proy = {pf: round(float(sum(v)), 1) for pf, v in (r["req_mes"] or {}).items()}
+        proy = r["req_hoja"] if "req_hoja" in r else {pf: round(float(sum(v)), 1) for pf, v in (r["req_mes"] or {}).items()}
         fin_real = str(pd.Period(pr["fin"], "M") + r["desplazo_meses"])
         dur = (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
         opex_meses = sum(1 for m in lista if m > fin_real) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
@@ -257,7 +307,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
     return {"meses": lista, "parametros": p, "perfiles": PERFILES, "terceros": TERCEROS, "proyectos": filas,
-            "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc, "origen": base.get("origen")}
+            "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc, "origen": base.get("origen"), "modo": modo}
 
 
 def base_inicio(base: dict, codigo: str) -> str | None:

@@ -27,7 +27,7 @@
 <script>nav("Simulador")</script>
 <main>
   <h1>Simulador: ingreso de proyectos y consumo de la capacidad del equipo</h1>
-  <div class="sub">Cada mes llegan los proyectos que arrancan. El dispatcher los recibe y, según la prioridad y los días libres, los reparte entre las personas de cada perfil. La barra de cada escritorio muestra los días libres del mes y se va vaciando.</div>
+  <div class="sub">Cada mes llegan los proyectos que arrancan. El dispatcher los recibe y, los reparte entre las personas que le asignaste en la Hoja de trabajo. La barra de cada escritorio muestra los días libres del mes y se va vaciando.</div>
   <div class="barra">
     <button class="pri" id="bPlay">▶ Reproducir</button><button id="bSig">Mes siguiente ⏭</button><button id="bRe">↺ Reiniciar</button>
     <select id="selVel"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
@@ -96,7 +96,7 @@ function dibujarBase() {
   el("rect", {x: 20, y: 385, width: 430, height: 225, rx: 14, fill: "#eaf5ef"});
   txt(36, 408, "EN EJECUCIÓN", {"font-size": 11, fill: "#1d7a50", "letter-spacing": 1});
   el("rect", {x: 20, y: 622, width: 430, height: 156, rx: 14, fill: "#fbecec"});
-  txt(36, 645, "SALA DE ESPERA · SIN CAPACIDAD", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
+  txt(36, 645, "SALA DE ESPERA · SIN ASIGNACIÓN", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
   // escritorios por perfil
   const pf = D.perfiles, x0 = 470, cw = (1395 - x0) / pf.length, BW = cw - 22;
   window.BW = BW;
@@ -162,7 +162,7 @@ async function llegada(pr, i, token) {
   await sleep(1500); if (token !== run) return;
   b1.remove();
   const rb = el("g", {}); ubicar(rb, ROBOT.x + 70, ROBOT.y - 60);
-  const res = pr.estado === "cubierto" ? "Cubierto ✔" : pr.estado === "parcial" ? `Parcial: ${fmtPct(pr.cobertura)} de los días` : "Sin capacidad: a la sala de espera";
+  const res = pr.estado === "cubierto" ? "Cubierto ✔" : pr.estado === "parcial" ? `Parcial: ${fmtPct(pr.cobertura)} de los días` : (D.modo === "hoja" ? "Sin personas asignadas: a la sala de espera" : "Sin capacidad: a la sala de espera");
   burbuja(rb, 0, 0, `Prioridad ${pr.prioridad} · ${res}${pr.desplazo_meses ? `\nPostergado ${pr.desplazo_meses} mes(es)` : ""}`,
     pr.estado === "no_cubierto" ? "#a52f2f" : pr.estado === "parcial" ? "#8a5a00" : "#1d7a50");
   await sleep(1100); if (token !== run) { rb.remove(); return; }
