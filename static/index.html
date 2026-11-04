@@ -47,7 +47,7 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="tbl"><table id="t"></table></div>
-  <div class="note"><span id="notaRec">Recursos internos y Terceros = días asignados a personas en la Hoja de trabajo, por rol.</span> <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. <b>P(viable)</b> = probabilidad (modelo automático + Monte Carlo) de que el equipo pueda cubrirlo al 100% si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
+  <div class="note"><span id="notaRec">Recursos internos y Terceros = días asignados a personas en la Hoja de trabajo, por rol.</span> <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
   <div class="fila2">
     <div class="card">
@@ -88,12 +88,12 @@ function tabla() {
   const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
   const inc = P.filter(p => p.incluir);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th colspan="7"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="3" class="sep">Cobertura</th></tr>
+  let h = `<thead><tr class="g"><th colspan="7"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
   <tr><th>Incl.</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
   ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   ${TF.map((t, i) => `<th class="${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th>Total</th>
   <th class="sep">Capex</th><th title="Días de terceros asignados en la Hoja × costo mensual del cargo (Criterios)">Capex terceros</th><th>Opex/mes</th><th title="Opex mensual × meses desde el fin del proyecto hasta diciembre">Opex hasta dic.</th>
-  <th class="sep l">Estado</th><th>Cobertura</th><th title="Probabilidad de que el proyecto sea viable con la capacidad del equipo (modelo automático + Monte Carlo)">P(viable)</th></tr></thead><tbody>`;
+  <th class="sep l">Estado</th><th>Cobertura</th></tr></thead><tbody>`;
   for (const p of P) {
     h += `<tr class="${p.incluir ? "" : "off"}">
       <td><input type="checkbox" ${p.incluir ? "checked" : ""} onchange="cambiar('${p.codigo}','incluir',this.checked)"></td>
@@ -106,12 +106,12 @@ function tabla() {
       ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.terceros[t])}</td>`).join("")}<td><b>${fmtD(p.dias_terceros)}</b></td>
       <td class="sep">${fmtK(p.capex)}</td><td>${p.capex_terceros ? fmtK(p.capex_terceros) : "–"}</td><td>${fmtS(p.opex_mensual)}</td><td>${p.opex_horizonte ? fmtK(p.opex_horizonte) : "–"}</td>
       <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${p.incluir ? fmtPct(p.cobertura) : "–"}</td>
-      <td>${p.incluir ? (p.prob_cubierto == null ? "…" : fmtPct(p.prob_cubierto)) : "–"}</td></tr>`;
+      </tr>`;
   }
   h += `<tr class="tot"><td colspan="6" class="l">Total proyectos incluidos (${inc.length})</td><td></td>
     ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtD(s("dias_base"))}</td>
     ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.terceros[t]))}</td>`).join("")}<td>${fmtD(s("dias_terceros"))}</td>
-    <td class="sep">${fmtK(s("capex"))}</td><td>${fmtK(s("capex_terceros"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_horizonte"))}</td><td class="sep" colspan="3"></td></tr></tbody>`;
+    <td class="sep">${fmtK(s("capex"))}</td><td>${fmtK(s("capex_terceros"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_horizonte"))}</td><td class="sep" colspan="2"></td></tr></tbody>`;
   t.innerHTML = h;
   const cub = inc.filter(p => p.estado === "cubierto");
   kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
@@ -174,14 +174,11 @@ function heat() {
 let MC = null;
 async function cargar() {
   cargando(true, "Calculando cobertura…");
-  D = await calcular(); D.proyectos.forEach(p => p.prob_cubierto = null);
+  D = await calcular();
   tabla(); pie(); barras(); heat();
   sub.textContent = sub.textContent.replace(/^Datos ficticios\./, `Datos ficticios (desde ${D.origen}).`);
   if (D.modo !== "hoja") notaRec.textContent = "Recursos internos = esfuerzo base del equipo propio en días-persona (sin contingencia). Terceros = días de proveedores externos.";
   if (D.modo !== "hoja") subPie.textContent = "Según la capacidad del equipo y el orden de prioridad (modelo automático).";
-  cargando(true, "Simulando riesgo (Monte Carlo)…");
-  const mc = await montecarlo().catch(() => null);
-  if (mc) { D.proyectos.forEach(p => p.prob_cubierto = mc.prob[p.codigo] ?? null); tabla(); }
   cargando(false);
 }
 cargar().catch(e => document.querySelector("main").insertAdjacentHTML("beforeend", `<p style="color:#d64545">No se pudo calcular: ${e.message}</p>`));
