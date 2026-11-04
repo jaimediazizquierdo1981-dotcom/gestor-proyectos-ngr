@@ -209,6 +209,41 @@ def api_eliminar_ficha(codigo: str):
     return {"ok": True}
 
 
+def _activos():
+    o = ejecutar({}, con_mc=False)
+    return o, [p for p in sorted(o["proyectos"], key=lambda x: x["prioridad"]) if p["incluir"] and not p.get("on_hold")]
+
+
+@app.get("/api/plantilla/posiciones")
+def api_plantilla_posiciones():
+    from motor import plantillas
+    from motor.modelo import PERFILES
+    o, act = _activos()
+    data = plantillas.plantilla_posiciones(act, db.leer_necesidades() if db.disponible() else {}, o["meses"], PERFILES)
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="plantilla_posiciones_por_proyecto.xlsx"'})
+
+
+@app.post("/api/cargar/posiciones")
+async def api_cargar_posiciones(archivo: UploadFile = File(...), confirmar: bool = False):
+    from motor import plantillas
+    from motor.modelo import PERFILES
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    o, act = _activos()
+    try:
+        por, errores = plantillas.leer_posiciones(await archivo.read(), o["meses"], PERFILES, {p["codigo"] for p in act})
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo leer el archivo: {e}")
+    resumen = [{"codigo": c, "posiciones": len(v), "dias": sum(i["dias"] for i in v)} for c, v in por.items()]
+    resp = {"proyectos": resumen, "errores": errores, "guardado": False}
+    if confirmar:
+        if not por:
+            raise HTTPException(400, "No hay filas válidas para cargar.")
+        db.cargar_posiciones(por); resp["guardado"] = True
+    return resp
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()

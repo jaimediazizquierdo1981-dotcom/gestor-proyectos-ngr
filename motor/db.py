@@ -56,6 +56,7 @@ create table if not exists gestor.necesidades (
   codigo text not null, perfil text not null, dias numeric not null default 0, primary key (codigo, perfil));
 alter table gestor.necesidades add column if not exists mes_ini text;
 alter table gestor.necesidades add column if not exists mes_fin text;
+alter table gestor.necesidades add column if not exists dist jsonb;
 create table if not exists gestor.observaciones (
   codigo text primary key, capex text default '', opex text default '', actualizado timestamptz default now());
 create table if not exists gestor.escenario (
@@ -173,21 +174,38 @@ def borrar_asignacion(codigo: str, persona: str) -> None:
 def leer_necesidades() -> dict:
     out = {}
     with _conn() as c:
-        for cod, pf, dias, ini, fin in c.execute("select codigo, perfil, dias, mes_ini, mes_fin from gestor.necesidades order by codigo, perfil"):
+        for cod, pf, dias, ini, fin, dist in c.execute("select codigo, perfil, dias, mes_ini, mes_fin, dist from gestor.necesidades order by codigo, perfil"):
             out.setdefault(cod, [])
             if pf != "_vacio":
-                out[cod].append({"perfil": pf, "dias": float(dias), "desde": ini, "hasta": fin})
+                out[cod].append({"perfil": pf, "dias": float(dias), "desde": ini, "hasta": fin, "dist": dist})
     return out
+
+
+def _fila_nec(codigo: str, i: dict) -> tuple:
+    dist = {m: float(v) for m, v in (i.get("dist") or {}).items() if v and float(v) > 0} or None
+    return (codigo, str(i["perfil"]), float(i["dias"]), i.get("desde"), i.get("hasta"), json.dumps(dist) if dist else None)
+
+
+def cargar_posiciones(por_proyecto: dict) -> None:
+    """Reemplaza las posiciones de los proyectos que vienen en la plantilla."""
+    import psycopg
+    with psycopg.connect(URL) as c:
+        with c.cursor() as cur:
+            for cod, items in por_proyecto.items():
+                cur.execute("delete from gestor.necesidades where codigo = %s", (cod,))
+                cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)",
+                                [_fila_nec(cod, i) for i in items] or [(cod, "_vacio", 0, None, None, None)])
+        c.commit()
 
 
 def guardar_necesidades(codigo: str, items: list[dict]) -> None:
     with _conn() as c:
         c.execute("delete from gestor.necesidades where codigo = %s", (codigo,))
-        filas = [(codigo, str(i["perfil"]), float(i["dias"]), i.get("desde"), i.get("hasta")) for i in items if float(i.get("dias", 0)) > 0]
+        filas = [_fila_nec(codigo, i) for i in items if float(i.get("dias", 0)) > 0]
         if not filas:   # el usuario quitó todas: se recuerda que está vacío
-            filas = [(codigo, "_vacio", 0, None, None)]
+            filas = [(codigo, "_vacio", 0, None, None, None)]
         with c.cursor() as cur:
-            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin) values (%s, %s, %s, %s, %s)", filas)
+            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)", filas)
 
 
 def actualizar_proyecto(codigo: str, opex_mensual: float | None = None) -> None:
@@ -251,9 +269,9 @@ def guardar_hoja(body: dict) -> str:
             cur.execute("delete from gestor.necesidades")
             filas = []
             for cod, items in (body.get("necesidades") or {}).items():
-                its = [(cod, i["perfil"], float(i["dias"]), i.get("desde"), i.get("hasta")) for i in items if float(i.get("dias", 0)) > 0]
-                filas += its or [(cod, "_vacio", 0, None, None)]
-            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin) values (%s, %s, %s, %s, %s)", filas)
+                its = [_fila_nec(cod, i) for i in items if float(i.get("dias", 0)) > 0]
+                filas += its or [(cod, "_vacio", 0, None, None, None)]
+            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)", filas)
             cur.executemany("""insert into gestor.observaciones (codigo, capex, opex, actualizado) values (%s, %s, %s, now())
                                on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
                             [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])

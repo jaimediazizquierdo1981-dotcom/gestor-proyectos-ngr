@@ -73,7 +73,18 @@
   </div>
 
   <div class="card">
-    <h2><span class="n">C</span>Cómo llenar cada campo del consolidado</h2>
+    <h2><span class="n">C</span>Plantilla de posiciones por proyecto</h2>
+    <div class="sub" style="margin:2px 0 10px">Para los proyectos activos: una fila por proyecto y rol, con los días-persona de cada mes (por ejemplo, PM 20 días en abril y 20 en mayo). Al cargarla, se reemplazan las posiciones de los proyectos que vengan en el archivo y la Hoja de trabajo propone las asignaciones según esa distribución. Trae una hoja de ejemplo.</div>
+    <div class="pl">
+      <a class="btn" href="/api/plantilla/posiciones">⬇ Descargar plantilla (.xlsx)</a>
+      <label class="file">📎 <span id="nomArch2">Elegir archivo…</span><input type="file" id="arch2" accept=".xlsx"></label>
+      <button class="sec" id="bValidar2">Validar</button><button id="bCargar2" disabled>Cargar a la base</button>
+    </div>
+    <div id="resCarga2" class="res"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">D</span>Cómo llenar cada campo del consolidado</h2>
     <table>
       <tr><th>Campo</th><th>Qué es</th><th>Criterio para llenarlo</th><th>Ejemplo</th></tr>
       <tr><td>Código</td><td>Identificador único del proyecto.</td><td>P + correlativo. No se reutiliza aunque el proyecto se cancele.</td><td class="ej">P04</td></tr>
@@ -157,6 +168,22 @@ async function enviar(confirmar) {
   resCarga.innerHTML = h; bCargar.disabled = confirmar || !d.filas_validas;
 }
 bValidar.onclick = () => enviar(false);
+arch2.onchange = () => { nomArch2.textContent = arch2.files[0]?.name || "Elegir archivo…"; bCargar2.disabled = true; resCarga2.innerHTML = ""; };
+async function enviar2(confirmar) {
+  if (!arch2.files[0]) { resCarga2.innerHTML = '<span class="e">Elige primero el archivo .xlsx</span>'; return; }
+  const fd = new FormData(); fd.append("archivo", arch2.files[0]);
+  resCarga2.textContent = confirmar ? "Cargando…" : "Validando…";
+  const r = await fetch(`/api/cargar/posiciones?confirmar=${confirmar}`, {method: "POST", body: fd});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { resCarga2.innerHTML = `<span class="e">${d.detail || "Error " + r.status}</span>`; return; }
+  let h = confirmar && d.guardado ? "✅ Posiciones cargadas en la base. " : "";
+  h += `<b>${d.proyectos.length}</b> proyectos en el archivo` + (d.errores.length ? ` · <span class="e">${d.errores.length} filas con error</span>` : "");
+  if (d.errores.length) h += "<ul class='e'>" + d.errores.slice(0, 12).map(e => `<li>${e}</li>`).join("") + "</ul>";
+  if (d.proyectos.length) h += "<table><tr><th>Proyecto</th><th>Posiciones</th><th>Días</th></tr>" + d.proyectos.map(p => `<tr><td>${p.codigo}</td><td>${p.posiciones}</td><td>${fmtD(p.dias)}</td></tr>`).join("") + "</table>";
+  resCarga2.innerHTML = h; bCargar2.disabled = confirmar || !d.proyectos.length;
+}
+bValidar2.onclick = () => enviar2(false);
+bCargar2.onclick = () => { if (confirm("Se reemplazarán las posiciones de los proyectos que vienen en el archivo. ¿Continuar?")) enviar2(true); };
 bCargar.onclick = () => { if (modo.value !== "reemplazar" || confirm("Se quitarán los colaboradores propios que no estén en el archivo. ¿Continuar?")) enviar(true); };
 </script>
 </body>
