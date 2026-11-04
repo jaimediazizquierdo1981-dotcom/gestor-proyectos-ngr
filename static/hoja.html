@@ -61,7 +61,10 @@
   .pie .monto{display:block;font-size:16px;font-weight:700;margin:3px 0;font-variant-numeric:tabular-nums}
   .pie .monto input{width:90px;font:inherit;font-size:14px;padding:2px 5px;border:1px solid var(--line);border-radius:6px;text-align:right}
   .pie small{color:var(--muted)}
+  .pie textarea{display:block;width:100%;min-height:90px;margin-top:8px;font:inherit;font-size:12.5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;resize:vertical;background:#fff}
   aside h2+select{margin-bottom:4px}
+  .incl{width:100%;font:inherit;font-size:12.5px;font-weight:600;padding:6px;border-radius:8px;border:1px solid #2e9e6a;background:#e3f4ec;color:#1d7a50;cursor:pointer;margin-bottom:6px}
+  .incl.quitar{border-color:#d9d4c9;background:#f6f4ef;color:#6b7280}
   .x{border:0;background:none;color:#b0b5bf;cursor:pointer;font-size:15px}
   .x:hover{color:#d64545}
   .drop{padding:12px 16px;color:var(--muted);font-size:12.5px;border-top:1px dashed #e3ddd0;text-align:center}
@@ -83,7 +86,8 @@
   <div class="wrap">
     <aside>
       <h2>Proyecto</h2>
-      <select id="filtroProy"><option value="">Todos los proyectos</option></select>
+      <select id="filtroProy"><option value="">Todos los proyectos incluidos</option></select>
+      <button id="bIncluir" class="incl" style="display:none"></button>
       <h2 style="margin-top:8px">Colaboradores</h2>
       <input id="buscar" placeholder="Buscar por nombre…">
       <select id="filtroRol"><option value="">Todos los roles</option></select>
@@ -93,7 +97,7 @@
   </div>
 </main>
 <script>
-let D, ASIG = [], NEC = {};
+let D, ASIG = [], NEC = {}, OBS = {};
 const ROLES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"];
 ROLES.forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
 buscar.oninput = filtroRol.onchange = () => pintarLista();
@@ -153,12 +157,12 @@ function necesidad(p) {
 }
 
 function pintarProyectos() {
-  const P = D.proyectos.filter(p => p.incluir && (!filtroProy.value || p.codigo === filtroProy.value)).sort((a, b) => a.prioridad - b.prioridad);
+  const P = D.proyectos.filter(p => filtroProy.value ? p.codigo === filtroProy.value : p.incluir).sort((a, b) => a.prioridad - b.prioridad);
   proyectos.innerHTML = P.map(p => {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
     return `<div class="proy" data-c="${p.codigo}">
-      <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
+      <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3>${p.incluir ? "" : '<span class="est excluido">No incluido en el consolidado</span>'}<span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
       <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
         ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
@@ -181,6 +185,30 @@ function pintarProyectos() {
   });
 }
 
+// ---------- selector de proyectos: todos los del consolidado; incluir/quitar aquí también
+function pintarSelector() {
+  const v = filtroProy.value;
+  filtroProy.innerHTML = '<option value="">Todos los proyectos incluidos</option>' +
+    D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad)
+      .map(p => `<option value="${p.codigo}">${p.incluir ? "✓" : "○"} ${p.codigo} · ${p.proyecto}${p.incluir ? "" : " (no incluido)"}</option>`).join("");
+  filtroProy.value = v; botonIncluir();
+}
+function botonIncluir() {
+  const p = proyecto(filtroProy.value);
+  bIncluir.style.display = p ? "block" : "none";
+  if (p) { bIncluir.textContent = p.incluir ? "Quitar del consolidado" : "Incluir en el consolidado"; bIncluir.className = "incl " + (p.incluir ? "quitar" : ""); }
+}
+async function cambiarInclusion() {
+  const p = proyecto(filtroProy.value); if (!p) return;
+  const esc = leer(ESC_KEY) || {};
+  esc[p.codigo] = {...(esc[p.codigo] || {}), incluir: !p.incluir};
+  guardar(ESC_KEY, esc);
+  cargando(true, "Actualizando escenario…");
+  D = await calcular(); cargando(false);
+  pintarSelector(); pintar();
+  aviso(proyecto(filtroProy.value).incluir ? "Proyecto incluido en el consolidado." : "Proyecto quitado del consolidado.");
+}
+
 // ---------- pie de cada proyecto: capex de terceros y opex hasta fin de año
 function capexTerceros(p) {
   const costos = D.parametros.costos_terceros || {}, det = {};
@@ -196,11 +224,19 @@ function pie(p) {
   const mesesOpex = D.meses.filter(m => m > p.fin_plan), op = +p.opex_mensual || 0;
   return `<div class="pie">
     <div><b>Capex por terceros</b><span class="monto">${fmtS(cx)}</span>
-      <small>${Object.keys(det).length ? Object.entries(det).map(([r, v]) => `${r}: ${fmtS(v)}`).join(" · ") : "Sin terceros asignados"} · costos por mes en Criterios</small></div>
+      <small>${Object.keys(det).length ? Object.entries(det).map(([r, v]) => `${r}: ${fmtS(v)}`).join(" · ") : "Sin terceros asignados"} · costos por mes en Criterios</small>
+      <textarea placeholder="Observaciones del Capex: licencias, implementación, hardware, supuestos…" onchange="guardarObs('${p.codigo}','capex',this.value)">${esc(OBS[p.codigo]?.capex)}</textarea></div>
     <div><b>Opex desde el fin del proyecto hasta dic.</b>
       <span class="monto">S/ <input type="number" min="0" step="500" value="${op}" onchange="cambiarOpex('${p.codigo}', this.value)"> / mes × ${mesesOpex.length} meses = ${fmtS(op * mesesOpex.length)}</span>
-      <small>${mesesOpex.length ? `${fmtMes(mesesOpex[0])} a ${fmtMes(mesesOpex.at(-1))}` : "El proyecto termina en diciembre: no hay Opex en el año"}</small></div>
+      <small>${mesesOpex.length ? `${fmtMes(mesesOpex[0])} a ${fmtMes(mesesOpex.at(-1))}` : "El proyecto termina en diciembre: no hay Opex en el año"}</small>
+      <textarea placeholder="Observaciones del Opex: suscripciones, soporte, nube, mantenimiento…" onchange="guardarObs('${p.codigo}','opex',this.value)">${esc(OBS[p.codigo]?.opex)}</textarea></div>
   </div>`;
+}
+const esc = t => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+async function guardarObs(codigo, campo, texto) {
+  OBS[codigo] = {...(OBS[codigo] || {}), [campo]: texto};
+  const r = await fetch("/api/observaciones", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo, campo, texto})});
+  aviso(r.ok ? "Observación guardada." : "No se pudo guardar la observación.", r.ok);
 }
 async function cambiarOpex(codigo, valor) {
   const p = proyecto(codigo); p.opex_mensual = Math.max(0, +valor || 0); pintarProyectos();
@@ -300,11 +336,12 @@ async function quitar(codigo, nombre) {
 
 (async () => {
   cargando(true, "Cargando hoja de trabajo…");
-  [D, ASIG, NEC] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => []),
-                                      fetch("/api/necesidades").then(r => r.json()).catch(() => ({}))]);
-  D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad)
-    .forEach(p => filtroProy.insertAdjacentHTML("beforeend", `<option value="${p.codigo}">${p.codigo} · ${p.proyecto}</option>`));
-  filtroProy.onchange = () => pintarProyectos();
+  [D, ASIG, NEC, OBS] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => []),
+                                      fetch("/api/necesidades").then(r => r.json()).catch(() => ({})),
+                                      fetch("/api/observaciones").then(r => r.json()).catch(() => ({}))]);
+  pintarSelector();
+  filtroProy.onchange = () => { botonIncluir(); pintarProyectos(); };
+  bIncluir.onclick = cambiarInclusion;
   cargando(false); pintar();
 })();
 </script>

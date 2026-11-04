@@ -224,10 +224,10 @@ def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict
     res = {}
     for pr in proyectos:
         c = pr["codigo"]
-        if not pr.get("incluir", True):
-            res[c] = auto["resultado"][c]
-            continue
         req_mes = plan_proyecto(pr, p, lista)
+        if not pr.get("incluir", True):   # excluido: igual se devuelve su plan para poder verlo en la hoja
+            res[c] = {**auto["resultado"][c], "req_mes": {pf: v.round(1).tolist() for pf, v in req_mes.items()}}
+            continue
         if c in hoja["nec"]:
             req = {i["perfil"]: float(i["dias"]) for i in hoja["nec"][c]}
         else:   # aún no se definieron posiciones en la hoja: las del plan

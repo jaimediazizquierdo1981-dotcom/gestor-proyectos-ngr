@@ -53,6 +53,8 @@ create table if not exists gestor.parametros (id int primary key, data jsonb not
 create table if not exists gestor.meta (clave text primary key, valor text);
 create table if not exists gestor.necesidades (
   codigo text not null, perfil text not null, dias numeric not null default 0, primary key (codigo, perfil));
+create table if not exists gestor.observaciones (
+  codigo text primary key, capex text default '', opex text default '', actualizado timestamptz default now());
 create table if not exists gestor.asignaciones (
   codigo text not null, persona text not null, dias jsonb not null default '{{}}'::jsonb,
   actualizado timestamptz default now(), primary key (codigo, persona));
@@ -183,3 +185,18 @@ def actualizar_proyecto(codigo: str, opex_mensual: float | None = None) -> None:
     with _conn() as c:
         if opex_mensual is not None:
             c.execute("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s", (opex_mensual, codigo))
+
+
+# ---------- observaciones de capex y opex por proyecto
+def leer_observaciones() -> dict:
+    with _conn() as c:
+        return {cod: {"capex": cx or "", "opex": op or ""} for cod, cx, op in
+                c.execute("select codigo, capex, opex from gestor.observaciones")}
+
+
+def guardar_observacion(codigo: str, campo: str, texto: str) -> None:
+    if campo not in ("capex", "opex"):
+        raise ValueError("campo")
+    with _conn() as c:
+        c.execute(f"""insert into gestor.observaciones (codigo, {campo}, actualizado) values (%s, %s, now())
+                      on conflict (codigo) do update set {campo} = excluded.{campo}, actualizado = now()""", (codigo, texto))

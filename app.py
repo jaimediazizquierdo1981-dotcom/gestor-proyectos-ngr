@@ -96,6 +96,22 @@ def api_proyecto(body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.get("/api/observaciones")
+def api_observaciones():
+    return db.leer_observaciones() if db.disponible() else {}
+
+
+@app.put("/api/observaciones")
+def api_guardar_observacion(body: dict = Body(...)):
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    campo = str(body.get("campo"))
+    if campo not in ("capex", "opex"):
+        raise HTTPException(400, "Campo no válido.")
+    db.guardar_observacion(str(body["codigo"]), campo, str(body.get("texto", ""))[:4000])
+    return {"ok": True}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()
