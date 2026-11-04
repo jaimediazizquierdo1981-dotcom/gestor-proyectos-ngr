@@ -38,7 +38,7 @@
 <script>
 const NS = "http://www.w3.org/2000/svg";
 let D, P, run = 0, playing = false, mesI = -1, vel = 1, ocupado = false;
-const EJEC = new Map(), ESPERA = [];
+const EJEC = new Map(), ESPERA = [], COLA = new Map(), RECIBIDOS = new Map();   // COLA: PO que aún no ingresan
 const usado = {}, bars = {};
 const sleep = ms => new Promise(r => setTimeout(r, ms / vel));
 const el = (tag, at = {}, padre) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || s).appendChild(e); return e; };
@@ -117,7 +117,7 @@ function dibujarBase() {
   el("rect", {x: 20, y: 385, width: 430, height: 225, rx: 12, fill: "#f0fdf4", stroke: "#bbf7d0"});
   txt(36, 408, "EN EJECUCIÓN", {"font-size": 11, fill: "#1d7a50", "letter-spacing": 1});
   el("rect", {x: 20, y: 622, width: 430, height: 156, rx: 12, fill: "#fef2f2", stroke: "#fecaca"});
-  txt(36, 645, "SALA DE ESPERA · SIN ASIGNACIÓN", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
+  txt(36, 645, "SALA DE ESPERA · POR INGRESAR Y SIN ASIGNACIÓN (●)", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
   // escritorios: una columna por perfil interno + una columna final de terceros (proveedores)
   const internos = D.personas.filter(p => p.tipo !== "tercero");
   const terceros = D.personas.filter(p => p.tipo === "tercero" && Object.keys(p.asignado || {}).length);
@@ -165,16 +165,17 @@ function pintarBarra(p, i) {
 function tablero() {
   const t = document.getElementById("tablero"); if (!t) return;
   t.innerHTML = "";
-  const items = [...[...EJEC.keys()].map(c => ({c, ok: true})), ...ESPERA.map(g => ({c: g.dataset.cod, ok: false}))];
+  const C = {ejecucion: ["#dcfce7", "#86efac", "#16a34a", "#166534"], espera: ["#fee2e2", "#fca5a5", "#dc2626", "#991b1b"],
+             recibido: ["#e0e7ff", "#a5b4fc", "#4f46e5", "#3730a3"], terminado: ["#f1f5f9", "#cbd5e1", "#64748b", "#475569"]};
   let x = 36, y = 106;
-  for (const it of items) {
-    const pr = P.find(p => p.codigo === it.c); if (!pr) continue;
-    const nom = `${pr.codigo} · ${pr.proyecto.split(":")[0]}`.slice(0, 30), w = nom.length * 5.4 + 22;
+  for (const [c, est] of RECIBIDOS) {
+    const pr = P.find(p => p.codigo === c); if (!pr) continue;
+    const nom = `${pr.codigo} · ${pr.proyecto.split(":")[0]}`.slice(0, 30) + (est === "terminado" ? " ✓" : ""), w = nom.length * 5.4 + 22, k = C[est];
     if (x + w > 440) { x = 36; y += 24; }
     if (y > 214) break;
-    el("rect", {x, y, width: w, height: 19, rx: 9.5, fill: it.ok ? "#dcfce7" : "#fee2e2", stroke: it.ok ? "#86efac" : "#fca5a5"}, t);
-    el("circle", {cx: x + 9, cy: y + 9.5, r: 3.2, fill: it.ok ? "#16a34a" : "#dc2626"}, t);
-    txt(x + 16, y + 13.5, nom, {"font-size": 10, "font-weight": 600, fill: it.ok ? "#166534" : "#991b1b"}, t);
+    el("rect", {x, y, width: w, height: 19, rx: 9.5, fill: k[0], stroke: k[1]}, t);
+    el("circle", {cx: x + 9, cy: y + 9.5, r: 3.2, fill: k[2]}, t);
+    txt(x + 16, y + 13.5, nom, {"font-size": 10, "font-weight": 600, fill: k[3]}, t);
     x += w + 6;
   }
 }
@@ -183,12 +184,23 @@ function kpis(i) {
   const m = D.meses[i] || D.meses[0];
   const cap = D.personas.reduce((a, p) => a + (p.capacidad[i] || 0), 0), u = Object.values(usado).reduce((a, v) => a + v, 0);
   kp.innerHTML = [["Mes", i >= 0 ? fmtMes(m) : "–"], ["Capacidad del mes", fmtD(cap) + " días"], ["Asignado", fmtD(u) + " días"],
-    ["Uso", cap ? Math.round(u / cap * 100) + "%" : "–"], ["En ejecución", EJEC.size], ["En espera", ESPERA.length]]
+    ["Uso", cap ? Math.round(u / cap * 100) + "%" : "–"], ["En ejecución", EJEC.size], ["Por ingresar", COLA.size], ["Sin asignación", ESPERA.length]]
     .map(([l, v]) => `<div>${l}<b>${v}</b></div>`).join("");
 }
 
 function slotEjec(k) { return {x: 60 + (k % 6) * 66, y: 448 + Math.floor(k / 6) * 78}; }
-function slotEsp(k) { return {x: 60 + (k % 6) * 66, y: 680 + Math.floor(k / 6) * 60}; }
+function slotEsp(k) { return {x: 60 + (k % 6) * 66, y: 676 + Math.floor(k / 6) * 56}; }
+// sala de espera = rechazados (punto rojo) + todos los PO que aún no ingresan
+function reordenarEspera(ms = 400) { [...ESPERA, ...COLA.values()].forEach((g, k) => { const p = slotEsp(k); mover(g, p.x, p.y, ms); }); }
+function poblarCola() {
+  P.slice().sort((a, b) => a.inicio_plan.localeCompare(b.inicio_plan) || a.prioridad - b.prioridad).forEach(pr => {
+    const col = COL_TIPO[pr.tipo] || "#2f7fc1", g = el("g", {});
+    avatar(g, pr.codigo + pr.proyecto, null, col, 1);
+    txt(0, 44, "PO · " + pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g);
+    g.dataset.cod = pr.codigo; COLA.set(pr.codigo, g);
+  });
+  [...COLA.values()].forEach((g, k) => { const p = slotEsp(k); ubicar(g, p.x, p.y); });
+}
 function reordenarEjec() { [...EJEC.values()].forEach((g, k) => { const p = slotEjec(k); mover(g, p.x, p.y, 400); }); }
 
 async function volarPunto(desde, hasta, color, ms) {
@@ -199,10 +211,14 @@ async function volarPunto(desde, hasta, color, ms) {
 
 async function llegada(pr, i, token) {
   const m = D.meses[i], col = COL_TIPO[pr.tipo] || "#2f7fc1";
-  const g = el("g", {}); ubicar(g, PUERTA.x, PUERTA.y - 10);
-  avatar(g, pr.codigo + pr.proyecto, null, col, 1);
-  const lbl = txt(0, 44, "PO · " + pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g);
-  await sleep(150);
+  // el PO sale de la sala de espera, pasa por la entrada y llega al Dispatcher PMO
+  let g = COLA.get(pr.codigo);
+  if (!g) { g = el("g", {}); avatar(g, pr.codigo + pr.proyecto, null, col, 1);
+    txt(0, 44, "PO · " + pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g); ubicar(g, PUERTA.x, PUERTA.y - 10); }
+  COLA.delete(pr.codigo); reordenarEspera();
+  s.appendChild(g);   // queda encima de todo mientras camina
+  await mover(g, PUERTA.x, PUERTA.y - 10, 900); if (token !== run) return;
+  RECIBIDOS.set(pr.codigo, "recibido"); tablero();
   await mover(g, ROBOT.x - 10, ROBOT.y - 6, 900); if (token !== run) return;
   const nom = pr.proyecto.length > 34 ? pr.proyecto.slice(0, 33) + "…" : pr.proyecto;
   const b1 = burbuja(g, 0, -18, `Necesito «${nom}»\n${pr.tipo === "Tecnologia" ? "Proyecto de tecnología" : "Proyecto transformacional"} · ${pr.marca}\n${fmtD(pr.dias_requeridos)} días-persona · ${pr.duracion_meses} meses`);
@@ -226,11 +242,11 @@ async function llegada(pr, i, token) {
   }
   rb.remove(); if (token !== run) return;
   if (pr.estado === "no_cubierto") {
-    const p = slotEsp(ESPERA.length); ESPERA.push(g); g.dataset.cod = pr.codigo;
+    ESPERA.push(g); RECIBIDOS.set(pr.codigo, "espera");
     el("circle", {cx: 9, cy: -10, r: 6, fill: "#d64545"}, g);
-    await mover(g, p.x, p.y, 800);
+    reordenarEspera(800); await sleep(800);
   } else {
-    EJEC.set(pr.codigo, g);
+    EJEC.set(pr.codigo, g); RECIBIDOS.set(pr.codigo, "ejecucion");
     if (pr.estado === "parcial") el("circle", {cx: 9, cy: -10, r: 6, fill: "#e5a12a"}, g);
     const p = slotEjec(EJEC.size - 1);
     await mover(g, p.x, p.y, 800);
@@ -246,7 +262,7 @@ async function pasoMes(i, token) {
   // terminan los proyectos cuyo fin ya pasó
   for (const [cod, g] of [...EJEC]) {
     const pr = P.find(p => p.codigo === cod);
-    if (pr.fin_plan < m) { g.classList.add("fade"); g.setAttribute("opacity", 0); setTimeout(() => g.remove(), 500); EJEC.delete(cod); }
+    if (pr.fin_plan < m) { g.classList.add("fade"); g.setAttribute("opacity", 0); setTimeout(() => g.remove(), 500); EJEC.delete(cod); RECIBIDOS.set(cod, "terminado"); }
   }
   reordenarEjec();
   // la capacidad se renueva y los proyectos en curso consumen su parte
@@ -297,9 +313,9 @@ function charla() {
 }
 
 function reiniciar() {
-  run++; playing = false; mesI = -1; ocupado = false; EJEC.clear(); ESPERA.length = 0;
+  run++; playing = false; mesI = -1; ocupado = false; EJEC.clear(); ESPERA.length = 0; COLA.clear(); RECIBIDOS.clear();
   for (const k in usado) delete usado[k];
-  bPlay.textContent = "▶ Reproducir"; dibujarBase();
+  bPlay.textContent = "▶ Reproducir"; dibujarBase(); poblarCola();
   D.personas.forEach(p => pintarBarra(p.persona, 0)); kpis(-1);
 }
 
