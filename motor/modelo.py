@@ -40,6 +40,14 @@ def _idx(m: str, lista: list[str]) -> int:
 
 
 def cargar_base() -> dict:
+    from motor import db
+    if db.disponible():
+        b = db.leer()
+        if b["parametros"] is None:
+            b["parametros"] = json.loads((DATA / "parametros.json").read_text(encoding="utf-8"))
+        b["perfiles"] = PERFILES
+        b["origen"] = "base de datos"
+        return b
     params = json.loads((DATA / "parametros.json").read_text(encoding="utf-8"))
     proyectos = pd.read_csv(DATA / "proyectos.csv", dtype={"inicio": str, "fin": str}).fillna(0)
     equipo = pd.read_csv(DATA / "equipo.csv")
@@ -48,7 +56,7 @@ def cargar_base() -> dict:
         columns=["codigo", "mes", "perfil", "horas"])
     return {"parametros": params, "proyectos": proyectos.to_dict(orient="records"),
             "equipo": equipo.to_dict(orient="records"), "feriados": feriados.to_dict(orient="records"),
-            "reales": reales.to_dict(orient="records"), "perfiles": PERFILES}
+            "reales": reales.to_dict(orient="records"), "perfiles": PERFILES, "origen": "archivos"}
 
 
 # ---------------------------------------------------------------- 1. capacidad
@@ -209,7 +217,7 @@ def evm(pr: dict, plan: dict, reales: list[dict], lista: list[str], corte: str) 
 
 
 # ---------------------------------------------------------------- orquestador
-def ejecutar(entrada: dict | None = None) -> dict:
+def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     entrada = entrada or {}
     base = cargar_base()
     p = _fusionar(base["parametros"], entrada.get("parametros", {}))
@@ -230,7 +238,7 @@ def ejecutar(entrada: dict | None = None) -> dict:
     equipo = entrada.get("equipo") or base["equipo"]
     cap = capacidad(equipo, base["feriados"], p, lista)
     a = asignar(proyectos, equipo, cap, p, lista)
-    mc = montecarlo(proyectos, equipo, cap, p, lista)
+    mc = montecarlo(proyectos, equipo, cap, p, lista) if con_mc else {"prob": {}, "dist_cubiertos": [], "n": 0, "media_factor": None}
 
     filas = []
     for pr in proyectos:
@@ -262,7 +270,7 @@ def ejecutar(entrada: dict | None = None) -> dict:
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
     return {"meses": lista, "corte": corte, "parametros": p, "perfiles": PERFILES, "proyectos": filas,
-            "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc}
+            "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc, "origen": base.get("origen")}
 
 
 def base_inicio(base: dict, codigo: str) -> str | None:

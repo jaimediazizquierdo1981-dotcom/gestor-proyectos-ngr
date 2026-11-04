@@ -103,7 +103,7 @@ function tabla() {
       ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtH(p.recursos[f])}</td>`).join("")}<td><b>${fmtH(p.horas_base)}</b></td>
       <td class="sep">${fmtK(p.capex)}</td><td>${fmtS(p.opex_mensual)}</td><td>${fmtK(p.opex_anual)}</td>
       <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${p.incluir ? fmtPct(p.cobertura) : "–"}</td>
-      <td>${p.incluir ? fmtPct(p.prob_cubierto) : "–"}</td></tr>`;
+      <td>${p.incluir ? (p.prob_cubierto == null ? "…" : fmtPct(p.prob_cubierto)) : "–"}</td></tr>`;
   }
   h += `<tr class="tot"><td colspan="7" class="l">Total proyectos incluidos (${inc.length})</td><td></td>
     ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtH(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtH(s("horas_base"))}</td>
@@ -169,8 +169,16 @@ function heat() {
   document.getElementById("heat").innerHTML = h;
 }
 
+let MC = null;
 async function cargar() {
-  D = await calcular(); tabla(); pie(); barras(); heat();
+  cargando(true, "Calculando cobertura…");
+  D = await calcular(); D.proyectos.forEach(p => p.prob_cubierto = null);
+  tabla(); pie(); barras(); heat();
+  sub.textContent = sub.textContent.replace(/^Datos ficticios\./, `Datos ficticios (desde ${D.origen}).`);
+  cargando(true, "Simulando riesgo (Monte Carlo)…");
+  const mc = await montecarlo().catch(() => null);
+  if (mc) { D.proyectos.forEach(p => p.prob_cubierto = mc.prob[p.codigo] ?? null); tabla(); }
+  cargando(false);
 }
 cargar().catch(e => document.querySelector("main").insertAdjacentHTML("beforeend", `<p style="color:#d64545">No se pudo calcular: ${e.message}</p>`));
 </script>

@@ -20,7 +20,7 @@
     "pert_optimista": 0.85,
     "pert_probable": 1.00,
     "pert_pesimista": 1.40,
-    "simulaciones": 400,
+    "simulaciones": 200,
     "semilla": 2027
   },
   "opex": {"inicia_mes_siguiente_al_fin": true}

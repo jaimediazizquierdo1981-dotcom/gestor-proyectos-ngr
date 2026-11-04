@@ -81,7 +81,9 @@
   </section>
 </main>
 <script>
-calcular().then(D => {
+cargando(true, "Calculando ejemplos…");
+Promise.all([calcular(), montecarlo()]).then(([D, mc0]) => {
+  D.montecarlo = mc0; cargando(false);
   const p = D.parametros, c = p.capacidad;
   const per = D.personas[0], i0 = D.meses.indexOf("2027-03") >= 0 ? D.meses.indexOf("2027-03") : 0;
   ej1.innerHTML = `<b>Ejemplo:</b> ${per.persona} (${per.perfil}) en ${fmtMes(D.meses[i0])}: ${fmtH(per.capacidad[i0])} h netas para proyectos, con ${c.horas_por_dia} h/día, ${c.dias_vacaciones_anual} días de vacaciones al año y ${Math.round(c.reserva_operacion_pct * 100)}% reservado para operación.`;

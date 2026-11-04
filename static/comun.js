@@ -4,13 +4,19 @@ const leer = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const borrar = k => { try { localStorage.removeItem(k); } catch (e) {} };
 
-async function calcular(extra = {}) {
+async function calcular(extra = {}, ruta = "/api/calcular") {
   const body = {escenario: leer(ESC_KEY) || {}, parametros: leer(PAR_KEY) || {}, ...extra};
-  const r = await fetch("/api/calcular", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const r = await fetch(ruta, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
   if (!r.ok) throw new Error("Error " + r.status);
   return r.json();
 }
 
+const montecarlo = () => calcular({}, "/api/montecarlo");
+function cargando(on, texto = "Calculando…") {
+  let d = document.getElementById("cargando");
+  if (!d) { d = document.createElement("div"); d.id = "cargando"; d.style.cssText = "position:fixed;right:20px;bottom:20px;background:#1F3864;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.2);z-index:50"; document.body.appendChild(d); }
+  d.textContent = texto; d.style.display = on ? "block" : "none";
+}
 function nav(activa) {
   const tabs = [["/", "Consolidado"], ["/simulador", "Simulador"], ["/criterios", "Criterios"], ["/modelos", "Modelos"]];
   const mod = (leer(ESC_KEY) && Object.keys(leer(ESC_KEY)).length) || (leer(PAR_KEY) && Object.keys(leer(PAR_KEY)).length);
