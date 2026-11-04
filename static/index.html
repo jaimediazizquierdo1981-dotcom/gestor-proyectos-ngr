@@ -23,6 +23,7 @@
   .hold{font:inherit;font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--line);background:#fff;color:#6b7280;cursor:pointer;white-space:nowrap}
   .hold.on{background:#8a8f99;border-color:#8a8f99;color:#fff;font-weight:600}
   .hold:disabled{opacity:.4;cursor:default}
+  .prio{display:inline-grid;place-items:center;min-width:26px;height:24px;border-radius:7px;background:#eef2f8;color:#1F3864;font-weight:700}
   .tag{font-size:11px;padding:1px 7px;border-radius:5px;background:#eef2f8;color:var(--accent)}
   .tag.T{background:#f3ecfb;color:#5b3d8a}
   .sep{border-left:2px solid #e6e1d6}
@@ -57,7 +58,7 @@
 <script>nav("Consolidado")</script>
 <main>
   <h1>Consolidado de proyectos: Capex, Opex y recursos</h1>
-  <div class="sub" id="sub">Datos ficticios. Los proyectos se abren, se ponen On hold o se reactivan desde la Hoja de trabajo; aquí puedes cambiar su prioridad o mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
+  <div class="sub" id="sub">Datos ficticios. Los proyectos se abren, se ponen On hold o se reactivan desde la Hoja de trabajo; la prioridad también se cambia allí; aquí puedes cambiar el mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
   <div class="kpis" id="kpis"></div>
 
   <div class="tbl"><table id="t"></table></div>
@@ -121,7 +122,7 @@ function tabla() {
   <th class="sep l">Estado</th><th>Cobertura</th></tr></thead><tbody>`;
   for (const p of P) {
     h += `<tr class="${activo(p) ? "" : "off"}">
-      <td><input type="number" min="1" value="${p.prioridad}" onchange="cambiar('${p.codigo}','prioridad',+this.value)"></td>
+      <td><span class="prio" title="La prioridad se cambia en la Hoja de trabajo">${p.prioridad}</span></td>
       <td class="l"><b>${p.codigo}</b></td><td class="l nom" title="${p.proyecto} · ${p.marca}">${p.proyecto}</td>
 
       <td class="l"><select onchange="cambiar('${p.codigo}','inicio',this.value)">${D.meses.map(m => `<option value="${m}" ${m === p.inicio ? "selected" : ""}>${fmtMes(m)}</option>`).join("")}</select></td>
