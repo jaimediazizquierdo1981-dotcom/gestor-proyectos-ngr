@@ -2,10 +2,11 @@
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+import time as _time
 from fastapi.staticfiles import StaticFiles
 
-from motor import db
+from motor import db, seguridad as seg
 from motor.modelo import cargar_base, ejecutar
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -16,9 +17,57 @@ db.iniciar()
 
 @app.middleware("http")
 async def sin_cache(request: Request, call_next):
+    ruta = request.url.path
+    if ruta not in seg.LIBRES and not seg.sesion_valida(request.cookies.get("sesion")):
+        if ruta.startswith("/api/"):
+            return JSONResponse({"detail": "Sesión vencida. Vuelve a ingresar."}, status_code=401)
+        return RedirectResponse("/login", status_code=303)
     resp = await call_next(request)
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "same-origin"
     resp.headers["Cache-Control"] = "no-cache, must-revalidate"
     return resp
+
+
+# ---------- login
+@app.get("/login", include_in_schema=False)
+def vista_login():
+    return FileResponse(STATIC / "login.html")
+
+
+@app.get("/api/auth/captcha")
+def api_captcha():
+    svg, cookie, _ = seg.captcha()
+    r = Response(svg, media_type="image/svg+xml")
+    r.set_cookie("captcha", cookie, max_age=300, httponly=True, samesite="lax", secure=seg.SEGURA)
+    r.headers["Cache-Control"] = "no-store"
+    return r
+
+
+@app.post("/api/auth/login")
+def api_login(request: Request, body: dict = Body(...)):
+    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "?").split(",")[0].strip()
+    if seg.bloqueado(ip):
+        return JSONResponse({"detail": "Demasiados intentos. Espera 5 minutos."}, status_code=429)
+    if not seg.captcha_ok(request.cookies.get("captcha", ""), str(body.get("captcha", ""))):
+        seg.fallo(ip)
+        return JSONResponse({"detail": "El código de verificación no coincide."}, status_code=400)
+    if not seg.credenciales_ok(str(body.get("usuario", "")).strip(), str(body.get("password", ""))):
+        seg.fallo(ip); _time.sleep(1)
+        return JSONResponse({"detail": "Usuario o contraseña incorrectos."}, status_code=401)
+    cookie, dur = seg.nueva_sesion()
+    r = JSONResponse({"ok": True})
+    r.set_cookie("sesion", cookie, max_age=dur, httponly=True, samesite="lax", secure=seg.SEGURA)
+    r.delete_cookie("captcha")
+    return r
+
+
+@app.get("/logout", include_in_schema=False)
+def logout():
+    r = RedirectResponse("/login", status_code=303)
+    r.delete_cookie("sesion")
+    return r
 
 
 @app.get("/api/base")

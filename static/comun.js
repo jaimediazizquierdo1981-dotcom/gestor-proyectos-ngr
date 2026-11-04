@@ -4,6 +4,10 @@ const leer = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const borrar = k => { try { localStorage.removeItem(k); } catch (e) {} };
 
+// si la sesión vence, volver al login
+const _fetch = window.fetch.bind(window);
+window.fetch = async (...a) => { const r = await _fetch(...a); if (r.status === 401 && String(a[0]).startsWith("/api/") && !String(a[0]).startsWith("/api/auth")) location.href = "/login"; return r; };
+
 async function calcular(extra = {}, ruta = "/api/calcular") {
   const body = {escenario: leer(ESC_KEY) || {}, parametros: leer(PAR_KEY) || {}, ...extra};
   const r = await fetch(ruta, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
@@ -23,7 +27,7 @@ function nav(activa) {
   const chip = mod ? '<button class="chip-cfg" id="chipReset" title="Volver a los datos y parámetros base">Escenario modificado · restaurar</button>'
                    : '<span class="chip-cfg base">Escenario base</span>';
   document.body.insertAdjacentHTML("afterbegin", `<nav class="tabs"><div class="brand">Gestor de Proyectos · TyT NGR</div>
-    <div class="tablist">${tabs.map(([h, t]) => `<a href="${h}" class="${t === activa ? "on" : ""}">${t}</a>`).join("")}</div>${chip}</nav>`);
+    <div class="tablist">${tabs.map(([h, t]) => `<a href="${h}" class="${t === activa ? "on" : ""}">${t}</a>`).join("")}</div>${chip}<a href="/logout" class="salir">Salir</a></nav>`);
   const b = document.getElementById("chipReset");
   if (b) b.onclick = () => { if (confirm("¿Volver al escenario y parámetros base?")) { borrar(ESC_KEY); borrar(PAR_KEY); location.reload(); } };
 }
