@@ -36,6 +36,15 @@
   .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
   select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
   .heat td{min-width:74px;text-align:center;font-size:11.5px;padding:5px 3px}
+  .fila2b{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:1000px){.fila2b{grid-template-columns:1fr}}
+  .cm{display:grid;grid-template-columns:54px 1fr 190px;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f0ece4;font-size:12.5px}
+  .cm:last-child{border-bottom:0}
+  .cm .b{height:14px;background:#e8edf3;border-radius:7px;overflow:hidden}
+  .cm .b i{display:block;height:100%;border-radius:7px}
+  .cm .t{text-align:right;font-variant-numeric:tabular-nums;color:#475569}
+  .cm .t b{color:#0f172a}
+  .cm.tot{font-weight:700;border-top:2px solid #e6e1d6;margin-top:4px;padding-top:8px}
   .heat td small{color:inherit;opacity:.75}
   .heat td.tot{background:#f6f4ef!important;color:#1f2430!important;border-left:2px solid #e6e1d6}
   .heat th{font-size:11px;padding:5px 3px;text-align:center}
@@ -74,6 +83,12 @@
     <h2>Uso de la capacidad por perfil y mes</h2>
     <div class="sub">Equipo interno: días asignados en la Hoja de trabajo y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
+  </div>
+  <div class="fila2b">
+    <div class="card"><h2>Capacidad consolidada · equipo interno</h2>
+      <div class="sub">Días netos disponibles por mes y, en la barra, los días ya usados en la Hoja de trabajo.</div><div id="capInt"></div></div>
+    <div class="card"><h2>Capacidad consolidada · terceros</h2>
+      <div class="sub">Días disponibles de todos los terceros por mes (22 días hábiles menos feriados) y los días ya usados.</div><div id="capTer"></div></div>
   </div>
   <div class="card" id="cardTer" style="display:none">
     <h2>Uso de terceros por cargo y mes</h2>
@@ -174,7 +189,24 @@ function celda(usado, cap, vacia) {
   const r = cap ? usado / cap : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
   return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(usado)} de ${fmtD(cap)} días">${fmtD(usado)} d <small>(${Math.round(r * 100)}%)</small></td>`;
 }
+function barrasCap(el, cap, usado) {
+  const fila = (lbl, c, u, cls = "") => { const r = c ? u / c : 0, col = r >= .98 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a";
+    return `<div class="cm ${cls}"><span>${lbl}</span><div class="b" title="${fmtD(u)} de ${fmtD(c)} días"><i style="width:${Math.min(r, 1) * 100}%;background:${col}"></i></div>
+      <span class="t"><b>${fmtD(u)}</b> usados de <b>${fmtD(c)}</b> días</span></div>`; };
+  const tc = cap.reduce((a, b) => a + b, 0), tu = usado.reduce((a, b) => a + b, 0);
+  document.getElementById(el).innerHTML = D.meses.map((m, k) => fila(fmtMes(m), cap[k], usado[k])).join("") + fila("Total", tc, tu, "tot");
+}
+function capacidadConsolidada() {
+  const n = D.meses.length, cI = Array(n).fill(0), uI = Array(n).fill(0), cT = Array(n).fill(0), uT = Array(n).fill(0);
+  for (const u of D.uso_perfil) u.capacidad.forEach((c, k) => { cI[k] += c; uI[k] += u.usado[k]; });
+  for (const p of D.personas.filter(x => x.tipo === "tercero")) {
+    p.capacidad.forEach((c, k) => cT[k] += c);
+    D.meses.forEach((m, k) => uT[k] += Object.values(p.asignado[m] || {}).reduce((a, b) => a + b, 0));
+  }
+  barrasCap("capInt", cI, uI); barrasCap("capTer", cT, uT);
+}
 function heat() {
+  capacidadConsolidada();
   const cab = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th></tr>`;
   const total = u => { const us = u.usado.reduce((a, b) => a + b, 0), c = u.capacidad.reduce((a, b) => a + b, 0);
     return `<td class="tot"><b>${fmtD(us)} d</b> <small>(${c ? Math.round(us / c * 100) : 0}%)</small></td>`; };
