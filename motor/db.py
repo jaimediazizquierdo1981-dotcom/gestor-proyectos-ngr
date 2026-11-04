@@ -14,7 +14,7 @@ import pandas as pd
 
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
-DATOS_VERSION = "4"  # subir este número fuerza recargar los datos ficticios
+DATOS_VERSION = "5"  # subir este número fuerza recargar los datos ficticios
 PERFILES = ["PM", "Arquitecto", "Desarrollador", "Data Engineer", "QA", "Infra"]
 COL = {"PM": "h_pm", "Arquitecto": "h_arquitecto", "Desarrollador": "h_desarrollador",
        "Data Engineer": "h_data_engineer", "QA": "h_qa", "Infra": "h_infra"}
@@ -41,6 +41,8 @@ create table if not exists gestor.proyectos (
   actualizado timestamptz default now());
 create table if not exists gestor.equipo (
   persona text primary key, perfil text not null, horas_semana numeric default 40, genero text);
+alter table gestor.equipo add column if not exists area text;
+alter table gestor.equipo add column if not exists cargo text;
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -70,8 +72,8 @@ def sembrar(c) -> None:
             f"insert into gestor.proyectos ({', '.join(cols + list(COL.values()))}) values ({', '.join(['%s'] * (len(cols) + 6))})",
             [[r[k] for k in cols] + [r[p] for p in PERFILES] for r in pr.to_dict(orient="records")])
         eq = pd.read_csv(DATA / "equipo.csv")
-        cur.executemany("insert into gestor.equipo values (%s,%s,%s,%s) on conflict do nothing",
-                        eq[["persona", "perfil", "horas_semana", "genero"]].values.tolist())
+        cur.executemany("insert into gestor.equipo (persona, perfil, horas_semana, genero, area, cargo) values (%s,%s,%s,%s,%s,%s) on conflict do nothing",
+                        eq[["persona", "perfil", "horas_semana", "genero", "area", "cargo"]].values.tolist())
         fe = pd.read_csv(DATA / "feriados.csv")
         cur.executemany("insert into gestor.feriados values (%s,%s) on conflict do nothing", fe.values.tolist())
         cur.execute("insert into gestor.parametros (id, data) values (1, %s) on conflict (id) do nothing",
@@ -90,8 +92,8 @@ def leer() -> dict:
             for k in ["capex", "opex_mensual"]:
                 d[k] = float(d[k] or 0)
             proyectos.append(d)
-        equipo = [dict(zip(["persona", "perfil", "horas_semana", "genero"], (a, b, float(h), g)))
-                  for a, b, h, g in cur.execute("select persona, perfil, horas_semana, genero from gestor.equipo order by perfil, persona")]
+        equipo = [{"persona": a, "perfil": b, "horas_semana": float(h), "genero": g, "area": ar, "cargo": cg}
+                  for a, b, h, g, ar, cg in cur.execute("select persona, perfil, horas_semana, genero, area, cargo from gestor.equipo order by area, persona")]
         feriados = [{"fecha": str(f), "motivo": m} for f, m in cur.execute("select fecha, motivo from gestor.feriados order by fecha")]
         par = cur.execute("select data from gestor.parametros where id = 1").fetchone()
     return {"proyectos": proyectos, "equipo": equipo, "feriados": feriados,
@@ -111,3 +113,12 @@ def estado() -> dict:
     with _conn() as c:
         n = {t: c.execute(f"select count(*) from gestor.{t}").fetchone()[0] for t in ["proyectos", "equipo", "feriados"]}
     return {"base_de_datos": True, "filas": n}
+
+
+def actualizar_colaborador(persona: str, perfil: str | None = None, horas_semana: float | None = None) -> bool:
+    with _conn() as c:
+        if perfil is not None:
+            c.execute("update gestor.equipo set perfil = %s where persona = %s", (perfil, persona))
+        if horas_semana is not None:
+            c.execute("update gestor.equipo set horas_semana = %s where persona = %s", (horas_semana, persona))
+        return c.execute("select 1 from gestor.equipo where persona = %s", (persona,)).fetchone() is not None

@@ -18,7 +18,7 @@ function cargando(on, texto = "Calculando…") {
   d.textContent = texto; d.style.display = on ? "block" : "none";
 }
 function nav(activa) {
-  const tabs = [["/", "Consolidado"], ["/simulador", "Simulador"], ["/criterios", "Criterios"], ["/modelos", "Modelos"]];
+  const tabs = [["/", "Consolidado"], ["/colaboradores", "Colaboradores"], ["/simulador", "Simulador"], ["/criterios", "Criterios"], ["/modelos", "Modelos"]];
   const mod = (leer(ESC_KEY) && Object.keys(leer(ESC_KEY)).length) || (leer(PAR_KEY) && Object.keys(leer(PAR_KEY)).length);
   const chip = mod ? '<button class="chip-cfg" id="chipReset" title="Volver a los datos y parámetros base">Escenario modificado · restaurar</button>'
                    : '<span class="chip-cfg base">Escenario base</span>';

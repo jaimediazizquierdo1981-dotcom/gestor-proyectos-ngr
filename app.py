@@ -1,7 +1,7 @@
 """Gestor de Proyectos NGR: API y vistas."""
 from pathlib import Path
 
-from fastapi import Body, FastAPI, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -38,12 +38,27 @@ def api_montecarlo(entrada: dict = Body(default={})):
     return ejecutar(entrada, con_mc=True)["montecarlo"]
 
 
+@app.put("/api/colaborador")
+def api_colaborador(body: dict = Body(...)):
+    """Cambia el rol (perfil) o las horas semanales de un colaborador."""
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    from motor.modelo import PERFILES
+    rol = body.get("perfil")
+    if rol is not None and rol not in PERFILES:
+        raise HTTPException(400, "Rol no válido.")
+    hs = body.get("horas_semana")
+    if not db.actualizar_colaborador(str(body.get("persona", "")), rol, float(hs) if hs is not None else None):
+        raise HTTPException(404, "Colaborador no encontrado.")
+    return {"ok": True}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()
 
 
-VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/modelos": "modelos.html", "/simulador": "simulador.html"}
+VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/modelos": "modelos.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html"}
 for ruta, archivo in VISTAS.items():
     app.add_api_route(ruta, (lambda a=archivo: FileResponse(STATIC / a)), methods=["GET"], include_in_schema=False)
 

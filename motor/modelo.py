@@ -249,6 +249,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         uso.append({"perfil": pf, "personas": len(gente[pf]), "capacidad": c.round(1).tolist(),
                     "usado": (c - l).round(1).tolist()})
     personas = [{"persona": e["persona"], "perfil": e["perfil"], "genero": e.get("genero", ""),
+                 "area": e.get("area") or "", "cargo": e.get("cargo") or "", "horas_semana": e.get("horas_semana", 40),
                  "capacidad": cap[e["persona"]].round(1).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colaboradores · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1250px}
+  .roles{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
+  .roles div{background:#fff;border:1px solid var(--line);border-left:5px solid var(--c);border-radius:9px;padding:6px 12px;font-size:12px;color:var(--muted);min-width:120px}
+  .roles b{display:block;font-size:18px;color:var(--ink)}
+  .grid{display:grid;grid-template-columns:1fr;gap:0}
+  .card h2{display:flex;justify-content:space-between;align-items:baseline}
+  .card h2 small{font-size:12px;color:var(--muted);font-weight:400}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+  th,td{padding:7px 8px;border-bottom:1px solid #f0ece4;text-align:left;white-space:nowrap}
+  th{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .av{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;color:#fff;font-size:11px;font-weight:700;margin-right:8px;vertical-align:middle}
+  .cargo{color:var(--muted);font-size:12px}
+  select{font:inherit;padding:4px 6px;border-radius:7px;border:1px solid var(--line);background:#fff}
+  select.mod{border-color:var(--ok);background:#effaf4}
+  input[type=number]{width:54px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;font:inherit;text-align:right}
+  .uso{display:inline-block;width:70px;height:7px;background:#ece9e2;border-radius:4px;vertical-align:middle;margin-right:6px;overflow:hidden}
+  .uso i{display:block;height:100%}
+  #msg{font-size:12.5px;color:var(--ok);margin-left:8px}
+  .ojo{background:#fff7e6;border-left:4px solid var(--warn);border-radius:6px;padding:9px 14px;margin:10px 0;font-size:13px}
+</style>
+</head>
+<body>
+<script src="/static/comun.js"></script>
+<script>nav("Colaboradores")</script>
+<main>
+  <h1>Colaboradores de Tecnología y Transformación</h1>
+  <div class="sub">Equipo que ejecuta los proyectos, por área del organigrama de TI (sin el director, las gerencias ni Soporte). Elige el rol de cada persona: el rol define qué horas de proyecto puede tomar. Los cambios se guardan en la base y recalculan el consolidado y el simulador.<span id="msg"></span></div>
+  <div class="ojo" id="aviso">Nombres ficticios hasta cargar el organigrama real.</div>
+  <div class="roles" id="roles"></div>
+  <div class="grid" id="areas"></div>
+</main>
+<script>
+const ROLES = ["PM", "Arquitecto", "Desarrollador", "Data Engineer", "QA", "Infra"];
+const ORDEN_AREAS = ["Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"];
+let D;
+const ini = n => n.split(" ").slice(0, 2).map(x => x[0]).join("");
+
+function pintar() {
+  const P = D.personas;
+  roles.innerHTML = ROLES.map(r => {
+    const g = P.filter(p => p.perfil === r), cap = g.reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0) / p.capacidad.length, 0);
+    return `<div style="--c:${COL_PERFIL[r]}">${r}<b>${g.length} pers.</b>${fmtH(cap)} h netas/mes</div>`;
+  }).join("");
+  const areasL = [...new Set([...ORDEN_AREAS.filter(a => P.some(p => p.area === a)), ...P.map(p => p.area || "Sin área")])];
+  areas.innerHTML = areasL.map(a => {
+    const g = P.filter(p => (p.area || "Sin área") === a);
+    return `<div class="card"><h2>${a}<small>${g.length} colaboradores</small></h2><table>
+      <tr><th>Colaborador</th><th>Rol</th><th>h/sem</th><th class="n">Capacidad neta/mes</th><th>Uso en proyectos</th></tr>` +
+      g.map(p => {
+        const cap = p.capacidad.reduce((x, y) => x + y, 0), usado = Object.values(p.asignado).reduce((s, m) => s + Object.values(m).reduce((x, y) => x + y, 0), 0);
+        const u = cap ? usado / cap : 0, col = u >= .95 ? "#d64545" : u >= .8 ? "#e8833a" : u >= .5 ? "#e5a12a" : "#2e9e6a";
+        return `<tr><td><span class="av" style="background:${COL_PERFIL[p.perfil]}">${ini(p.persona)}</span><b>${p.persona}</b><br><span class="cargo" style="margin-left:36px">${p.cargo || ""}</span></td>
+          <td><select data-p="${p.persona}" onchange="cambiar(this,'perfil',this.value)">${ROLES.map(r => `<option ${r === p.perfil ? "selected" : ""}>${r}</option>`).join("")}</select></td>
+          <td><input type="number" min="0" max="48" value="${p.horas_semana}" onchange="cambiar(this,'horas_semana',+this.value)"></td>
+          <td class="n">${fmtH(cap / p.capacidad.length)} h</td>
+          <td><span class="uso"><i style="width:${Math.min(u, 1) * 100}%;background:${col}"></i></span>${Math.round(u * 100)}%</td></tr>`;
+      }).join("") + "</table></div>";
+  }).join("");
+}
+
+async function cambiar(el, campo, valor) {
+  const persona = el.closest("tr").querySelector("select").dataset.p;
+  const r = await fetch("/api/colaborador", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({persona, [campo]: valor})});
+  if (!r.ok) { msg.style.color = "#d64545"; msg.textContent = (await r.json()).detail || "No se pudo guardar."; return; }
+  msg.style.color = "#2e9e6a"; msg.textContent = `Guardado: ${persona}.`;
+  await cargar();
+}
+
+async function cargar() {
+  cargando(true, "Cargando equipo…");
+  D = await calcular(); cargando(false); pintar();
+  if (D.origen !== "base de datos") msg.textContent = " (sin base de datos: los cambios no se guardan)";
+}
+cargar();
+</script>
+</body>
+</html>
