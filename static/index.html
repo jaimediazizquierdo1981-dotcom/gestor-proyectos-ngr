@@ -89,7 +89,7 @@
     <div class="card"><h2>Capacidad consolidada · equipo interno</h2>
       <div class="sub">Días netos disponibles por mes y, en la barra, los días ya usados en la Hoja de trabajo.</div><div id="capInt"></div></div>
     <div class="card"><h2>Capacidad consolidada · terceros</h2>
-      <div class="sub">Días disponibles de todos los terceros por mes (22 días hábiles menos feriados) y los días ya usados.</div><div id="capTer"></div></div>
+      <div class="sub">Solo los terceros asignados en la Hoja y en los meses en que trabajan: sus días disponibles (22 días hábiles menos feriados) y los días ya usados.</div><div id="capTer"></div></div>
   </div>
   <div class="card" id="cardTer" style="display:none">
     <h2>Uso de terceros por cargo y mes</h2>
@@ -200,10 +200,9 @@ function barrasCap(el, cap, usado) {
 function capacidadConsolidada() {
   const n = D.meses.length, cI = Array(n).fill(0), uI = Array(n).fill(0), cT = Array(n).fill(0), uT = Array(n).fill(0);
   for (const u of D.uso_perfil) u.capacidad.forEach((c, k) => { cI[k] += c; uI[k] += u.usado[k]; });
-  for (const p of D.personas.filter(x => x.tipo === "tercero")) {
-    p.capacidad.forEach((c, k) => cT[k] += c);
-    D.meses.forEach((m, k) => uT[k] += Object.values(p.asignado[m] || {}).reduce((a, b) => a + b, 0));
-  }
+  // terceros: solo los asignados y solo en los meses en que trabajan
+  for (const p of D.personas.filter(x => x.tipo === "tercero"))
+    D.meses.forEach((m, k) => { const u = Object.values(p.asignado[m] || {}).reduce((a, b) => a + b, 0); if (u > 0) { cT[k] += p.capacidad[k]; uT[k] += u; } });
   barrasCap("capInt", cI, uI); barrasCap("capTer", cT, uT);
 }
 function heat() {
