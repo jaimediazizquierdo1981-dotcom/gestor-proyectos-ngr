@@ -38,7 +38,7 @@
 <script>
 const NS = "http://www.w3.org/2000/svg";
 let D, P, run = 0, playing = false, mesI = -1, vel = 1, ocupado = false;
-const EJEC = new Map(), ESPERA = [], COLA = new Map(), RECIBIDOS = new Map();   // COLA: PO que aún no ingresan
+const EJEC = new Map(), FIN = new Map(), ESPERA = [], COLA = new Map(), RECIBIDOS = new Map();   // COLA: PO que aún no ingresan
 const usado = {}, bars = {};
 const sleep = ms => new Promise(r => setTimeout(r, ms / vel));
 const el = (tag, at = {}, padre) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); (padre || s).appendChild(e); return e; };
@@ -115,7 +115,7 @@ function dibujarBase() {
   txt(0, 80, "Dispatcher PMO", {"text-anchor": "middle", "font-size": 11.5, fill: "#1F3864", "font-weight": 700}, r);
   // en ejecución y espera
   el("rect", {x: 20, y: 385, width: 430, height: 225, rx: 12, fill: "#f0fdf4", stroke: "#bbf7d0"});
-  txt(36, 408, "EN EJECUCIÓN", {"font-size": 11, fill: "#1d7a50", "letter-spacing": 1});
+  txt(36, 408, "EN EJECUCIÓN · ★ TERMINADOS", {"font-size": 11, fill: "#1d7a50", "letter-spacing": 1});
   el("rect", {x: 20, y: 622, width: 430, height: 156, rx: 12, fill: "#fef2f2", stroke: "#fecaca"});
   txt(36, 645, "SALA DE ESPERA · POR INGRESAR Y SIN ASIGNACIÓN (●)", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
   // escritorios: una columna por perfil interno + una columna final de terceros (proveedores)
@@ -184,7 +184,7 @@ function kpis(i) {
   const m = D.meses[i] || D.meses[0];
   const cap = D.personas.reduce((a, p) => a + (p.capacidad[i] || 0), 0), u = Object.values(usado).reduce((a, v) => a + v, 0);
   kp.innerHTML = [["Mes", i >= 0 ? fmtMes(m) : "–"], ["Capacidad del mes", fmtD(cap) + " días"], ["Asignado", fmtD(u) + " días"],
-    ["Uso", cap ? Math.round(u / cap * 100) + "%" : "–"], ["En ejecución", EJEC.size], ["Por ingresar", COLA.size], ["Sin asignación", ESPERA.length]]
+    ["Uso", cap ? Math.round(u / cap * 100) + "%" : "–"], ["En ejecución", EJEC.size], ["Terminados", FIN.size], ["Por ingresar", COLA.size], ["Sin asignación", ESPERA.length]]
     .map(([l, v]) => `<div>${l}<b>${v}</b></div>`).join("");
 }
 
@@ -201,7 +201,11 @@ function poblarCola() {
   });
   [...COLA.values()].forEach((g, k) => { const p = slotEsp(k); ubicar(g, p.x, p.y); });
 }
-function reordenarEjec() { [...EJEC.values()].forEach((g, k) => { const p = slotEjec(k); mover(g, p.x, p.y, 400); }); }
+function reordenarEjec() { [...EJEC.values(), ...FIN.values()].forEach((g, k) => { const p = slotEjec(k); mover(g, p.x, p.y, 400); }); }
+function estrella(g) {   // proyecto terminado: estrella dorada sobre la cabeza
+  const pts = [...Array(10)].map((_, i) => { const r = i % 2 ? 4 : 9, a = -Math.PI / 2 + i * Math.PI / 5; return `${(r * Math.cos(a)).toFixed(1)},${(-26 + r * Math.sin(a)).toFixed(1)}`; }).join(" ");
+  el("polygon", {points: pts, fill: "#facc15", stroke: "#ca8a04", "stroke-width": 1}, g);
+}
 
 async function volarPunto(desde, hasta, color, ms) {
   const c = el("circle", {r: 5, fill: color, class: "mov"});
@@ -248,8 +252,7 @@ async function llegada(pr, i, token) {
   } else {
     EJEC.set(pr.codigo, g); RECIBIDOS.set(pr.codigo, "ejecucion");
     if (pr.estado === "parcial") el("circle", {cx: 9, cy: -10, r: 6, fill: "#e5a12a"}, g);
-    const p = slotEjec(EJEC.size - 1);
-    await mover(g, p.x, p.y, 800);
+    reordenarEjec(); await sleep(800);
   }
   kpis(i);
 }
@@ -262,7 +265,7 @@ async function pasoMes(i, token) {
   // terminan los proyectos cuyo fin ya pasó
   for (const [cod, g] of [...EJEC]) {
     const pr = P.find(p => p.codigo === cod);
-    if (pr.fin_plan < m) { g.classList.add("fade"); g.setAttribute("opacity", 0); setTimeout(() => g.remove(), 500); EJEC.delete(cod); RECIBIDOS.set(cod, "terminado"); }
+    if (pr.fin_plan < m) { estrella(g); EJEC.delete(cod); FIN.set(cod, g); RECIBIDOS.set(cod, "terminado"); }
   }
   reordenarEjec();
   // la capacidad se renueva y los proyectos en curso consumen su parte
@@ -313,7 +316,7 @@ function charla() {
 }
 
 function reiniciar() {
-  run++; playing = false; mesI = -1; ocupado = false; EJEC.clear(); ESPERA.length = 0; COLA.clear(); RECIBIDOS.clear();
+  run++; playing = false; mesI = -1; ocupado = false; EJEC.clear(); FIN.clear(); ESPERA.length = 0; COLA.clear(); RECIBIDOS.clear();
   for (const k in usado) delete usado[k];
   bPlay.textContent = "▶ Reproducir"; dibujarBase(); poblarCola();
   D.personas.forEach(p => pintarBarra(p.persona, 0)); kpis(-1);
