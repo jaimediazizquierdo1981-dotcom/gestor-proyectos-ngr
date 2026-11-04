@@ -90,6 +90,12 @@ const CAMPOS = [
     ["riesgo.pert_probable", "Factor más probable", "Normalmente 1,0.", "num"],
     ["riesgo.pert_pesimista", "Factor pesimista", "Si se complica: múltiplo del estimado.", "num"],
     ["riesgo.simulaciones", "Número de simulaciones", "Más simulaciones = resultado más estable pero más lento.", "num"]]],
+  ["6", "Costo de terceros (S/ por mes)", [
+    ["costos_terceros.Desarrollador", "Desarrollador", "Costo mensual de un tercero a tiempo completo. Capex = días asignados ÷ días hábiles del mes × este costo.", "num"],
+    ["costos_terceros.QA", "QA", "Costo mensual de un tercero a tiempo completo.", "num"],
+    ["costos_terceros.Analista Funcional", "Analista Funcional", "Costo mensual de un tercero a tiempo completo.", "num"],
+    ["costos_terceros.Analista Técnico", "Analista Técnico", "Costo mensual de un tercero a tiempo completo.", "num"],
+    ["capacidad.dias_habiles_mes_tercero", "Días hábiles por mes de un tercero", "Se le restan los feriados del mes.", "num"]]],
 ];
 let BASE = null;
 const get = (o, r) => r.split(".").reduce((a, k) => a?.[k], o);

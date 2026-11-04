@@ -28,5 +28,11 @@
   },
   "opex": {
     "inicia_mes_siguiente_al_fin": true
+  },
+  "costos_terceros": {
+    "Desarrollador": 12000,
+    "QA": 9000,
+    "Analista Funcional": 11000,
+    "Analista Técnico": 11500
   }
 }

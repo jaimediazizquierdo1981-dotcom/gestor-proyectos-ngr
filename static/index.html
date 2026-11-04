@@ -88,11 +88,11 @@ function tabla() {
   const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
   const inc = P.filter(p => p.incluir);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th colspan="7"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="3" class="sep">Inversión y soporte</th><th colspan="3" class="sep">Cobertura</th></tr>
+  let h = `<thead><tr class="g"><th colspan="7"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="3" class="sep">Cobertura</th></tr>
   <tr><th>Incl.</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
   ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   ${TF.map((t, i) => `<th class="${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th>Total</th>
-  <th class="sep">Capex</th><th>Opex/mes</th><th>Opex anual</th>
+  <th class="sep">Capex</th><th title="Días de terceros asignados en la Hoja × costo mensual del cargo (Criterios)">Capex terceros</th><th>Opex/mes</th><th title="Opex mensual × meses desde el fin del proyecto hasta diciembre">Opex hasta dic.</th>
   <th class="sep l">Estado</th><th>Cobertura</th><th title="Probabilidad de que el proyecto sea viable con la capacidad del equipo (modelo automático + Monte Carlo)">P(viable)</th></tr></thead><tbody>`;
   for (const p of P) {
     h += `<tr class="${p.incluir ? "" : "off"}">
@@ -104,19 +104,19 @@ function tabla() {
       <td class="l">${fmtMes(p.fin_plan)}</td><td>${p.duracion_meses}</td>
       ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.recursos[f])}</td>`).join("")}<td><b>${fmtD(p.dias_base)}</b></td>
       ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.terceros[t])}</td>`).join("")}<td><b>${fmtD(p.dias_terceros)}</b></td>
-      <td class="sep">${fmtK(p.capex)}</td><td>${fmtS(p.opex_mensual)}</td><td>${fmtK(p.opex_anual)}</td>
+      <td class="sep">${fmtK(p.capex)}</td><td>${p.capex_terceros ? fmtK(p.capex_terceros) : "–"}</td><td>${fmtS(p.opex_mensual)}</td><td>${p.opex_horizonte ? fmtK(p.opex_horizonte) : "–"}</td>
       <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${p.incluir ? fmtPct(p.cobertura) : "–"}</td>
       <td>${p.incluir ? (p.prob_cubierto == null ? "…" : fmtPct(p.prob_cubierto)) : "–"}</td></tr>`;
   }
   h += `<tr class="tot"><td colspan="6" class="l">Total proyectos incluidos (${inc.length})</td><td></td>
     ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtD(s("dias_base"))}</td>
     ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.terceros[t]))}</td>`).join("")}<td>${fmtD(s("dias_terceros"))}</td>
-    <td class="sep">${fmtK(s("capex"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_anual"))}</td><td class="sep" colspan="3"></td></tr></tbody>`;
+    <td class="sep">${fmtK(s("capex"))}</td><td>${fmtK(s("capex_terceros"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_horizonte"))}</td><td class="sep" colspan="3"></td></tr></tbody>`;
   t.innerHTML = h;
   const cub = inc.filter(p => p.estado === "cubierto");
   kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
     ["Cubiertos al 100%", cub.length + " de " + inc.length],
-    ["Capex total", fmtK(s("capex"))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex, 0))],
+    ["Capex total", fmtK(s("capex"))], ["Capex terceros", fmtK(s("capex_terceros"))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex, 0))],
     ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Días requeridos", fmtD(s("dias_requeridos"))]]
     .map(([l, v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
 }

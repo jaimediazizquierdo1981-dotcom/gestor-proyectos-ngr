@@ -177,3 +177,9 @@ def guardar_necesidades(codigo: str, items: list[dict]) -> None:
             filas = [(codigo, "_vacio", 0)]
         with c.cursor() as cur:
             cur.executemany("insert into gestor.necesidades values (%s, %s, %s)", filas)
+
+
+def actualizar_proyecto(codigo: str, opex_mensual: float | None = None) -> None:
+    with _conn() as c:
+        if opex_mensual is not None:
+            c.execute("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s", (opex_mensual, codigo))

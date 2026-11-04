@@ -44,8 +44,8 @@ def cargar_base() -> dict:
     from motor import db
     if db.disponible():
         b = db.leer()
-        if b["parametros"] is None:
-            b["parametros"] = json.loads((DATA / "parametros.json").read_text(encoding="utf-8"))
+        archivo = json.loads((DATA / "parametros.json").read_text(encoding="utf-8"))
+        b["parametros"] = _fusionar(archivo, b["parametros"] or {})   # parámetros nuevos del archivo + los guardados
         b["perfiles"] = PERFILES
         b["origen"] = "base de datos"
         return b
@@ -294,7 +294,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                       "terceros": {t: float(pr.get("T " + t, 0) or 0) for t in TERCEROS},
                       "dias_terceros": float(sum(float(pr.get("T " + t, 0) or 0) for t in TERCEROS)),
                       "dias_base": float(sum(float(pr.get(pf, 0) or 0) for pf in PERFILES)),
-                      "opex_anual": float(pr["opex_mensual"]) * 12, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses,
+                      "opex_anual": float(pr["opex_mensual"]) * 12, "capex_terceros": 0.0, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses,
                       **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "dias_requeridos"]},
                       "req_mes": r["req_mes"], "prob_cubierto": mc["prob"].get(pr["codigo"]),
                       "dias_proyectados": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
@@ -318,6 +318,18 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                     rec[perfil_de[n]] += d
             f["recursos"], f["terceros"] = rec, ter
             f["dias_base"], f["dias_terceros"] = sum(rec.values()), sum(ter.values())
+            # capex de terceros = días asignados ÷ días hábiles del mes × costo mensual del cargo
+            costos = p.get("costos_terceros", {})
+            cx = 0.0
+            for n, ms in a["asignacion"].items():
+                if tipo_de.get(n) != "tercero":
+                    continue
+                for mes, x in ms.items():
+                    d = x.get(f["codigo"], 0)
+                    c_mes = cap[n][lista.index(mes)] if mes in lista else 0
+                    if d and c_mes:
+                        cx += d / c_mes * float(costos.get(perfil_de[n], 0))
+            f["capex_terceros"] = round(cx, 2)
 
     # capacidad vs. uso por perfil y mes
     gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}

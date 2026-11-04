@@ -87,6 +87,15 @@ def api_guardar_necesidades(body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.put("/api/proyecto")
+def api_proyecto(body: dict = Body(...)):
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    op = body.get("opex_mensual")
+    db.actualizar_proyecto(str(body["codigo"]), float(op) if op is not None else None)
+    return {"ok": True}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()
