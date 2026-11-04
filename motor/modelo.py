@@ -264,7 +264,10 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     base = cargar_base()
     p = _fusionar(base["parametros"], entrada.get("parametros", {}))
     lista = meses(p["horizonte"]["inicio"], p["horizonte"]["fin"])
-    escenario = entrada.get("escenario", {})  # {codigo: {incluir, inicio, fin, prioridad}}
+    from motor import db as _db
+    guardado = _db.leer_escenario()["data"] if _db.disponible() else {}
+    escenario = {k: {**guardado.get(k, {}), **entrada.get("escenario", {}).get(k, {})}
+                 for k in set(guardado) | set(entrada.get("escenario", {}))}  # {codigo: {incluir, on_hold, inicio, prioridad}}
     proyectos = []
     for pr in entrada.get("proyectos") or base["proyectos"]:
         pr = {**pr, **escenario.get(pr["codigo"], {})}

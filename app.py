@@ -112,6 +112,19 @@ def api_guardar_observacion(body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.get("/api/escenario")
+def api_escenario():
+    return db.leer_escenario() if db.disponible() else {"data": {}, "guardado": None}
+
+
+@app.post("/api/hoja/guardar")
+def api_guardar_hoja(body: dict = Body(...)):
+    """Guarda en la base toda la hoja: asignaciones, posiciones, observaciones, opex y escenario (incluir, on hold, prioridad, inicio)."""
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    return {"ok": True, "guardado": db.guardar_hoja(body)}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()

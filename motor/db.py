@@ -55,6 +55,8 @@ create table if not exists gestor.necesidades (
   codigo text not null, perfil text not null, dias numeric not null default 0, primary key (codigo, perfil));
 create table if not exists gestor.observaciones (
   codigo text primary key, capex text default '', opex text default '', actualizado timestamptz default now());
+create table if not exists gestor.escenario (
+  id int primary key, data jsonb not null default '{{}}'::jsonb, guardado timestamptz default now());
 create table if not exists gestor.asignaciones (
   codigo text not null, persona text not null, dias jsonb not null default '{{}}'::jsonb,
   actualizado timestamptz default now(), primary key (codigo, persona));
@@ -225,3 +227,37 @@ def restaurar_libelula(c) -> None:
             cur.executemany("insert into gestor.necesidades values ('P01', %s, %s)",
                             [("PM", 10), ("Arquitecto", 6), ("Analista Funcional", 11)])
     c.execute("insert into gestor.meta values ('restaurado_p01', '1') on conflict do nothing")
+
+
+# ---------- guardado completo de la hoja de trabajo (una sola transacción)
+def leer_escenario() -> dict:
+    with _conn() as c:
+        r = c.execute("select data, guardado from gestor.escenario where id = 1").fetchone()
+    return {"data": r[0], "guardado": r[1].isoformat()} if r else {"data": {}, "guardado": None}
+
+
+def guardar_hoja(body: dict) -> str:
+    import psycopg
+    with psycopg.connect(URL) as c:   # transacción: o se guarda todo o nada
+        with c.cursor() as cur:
+            cur.execute("delete from gestor.asignaciones")
+            cur.executemany("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s)",
+                            [(a["codigo"], a["persona"], json.dumps({m: float(v) for m, v in (a.get("dias") or {}).items() if v and float(v) > 0}))
+                             for a in body.get("asignaciones", [])])
+            cur.execute("delete from gestor.necesidades")
+            filas = []
+            for cod, items in (body.get("necesidades") or {}).items():
+                its = [(cod, i["perfil"], float(i["dias"])) for i in items if float(i.get("dias", 0)) > 0]
+                filas += its or [(cod, "_vacio", 0)]
+            cur.executemany("insert into gestor.necesidades values (%s, %s, %s)", filas)
+            cur.executemany("""insert into gestor.observaciones (codigo, capex, opex, actualizado) values (%s, %s, %s, now())
+                               on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
+                            [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])
+            cur.executemany("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s",
+                            [(float(v or 0), cod) for cod, v in (body.get("opex") or {}).items()])
+            cur.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
+                           on conflict (id) do update set data = excluded.data, guardado = now() returning guardado""",
+                        (json.dumps(body.get("escenario") or {}),))
+            g = cur.fetchone()[0]
+        c.commit()
+    return g.isoformat()
