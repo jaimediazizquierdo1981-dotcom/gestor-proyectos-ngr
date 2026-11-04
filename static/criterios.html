@@ -28,6 +28,14 @@
   td:first-child{font-weight:600;white-space:nowrap}
   td.ej{color:var(--muted);font-size:12.5px}
   .ojo{background:#fff7e6;border-left:4px solid var(--warn);border-radius:6px;padding:9px 14px;margin:10px 0;font-size:13px}
+  .pl{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .pl .btn{display:inline-block;text-decoration:none;font-weight:600;padding:7px 14px;border-radius:8px;background:#2e9e6a;color:#fff}
+  .pl .file{display:inline-flex;gap:6px;align-items:center;border:1px dashed #9aa6b8;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:400;margin:0}
+  .pl .file input{display:none}
+  .pl select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
+  .res{margin-top:10px;font-size:13px}
+  .res .e{color:#a52f2f}
+  .res table{margin-top:6px}
   .tipos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:8px}
   .tipos div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px}
   .tipos b{display:block;margin-bottom:3px}
@@ -52,8 +60,20 @@
   <div class="acciones"><button id="bGuardar">Guardar y recalcular</button><button class="sec" id="bBase">Volver a valores base</button><span id="msg"></span></div>
   <div class="grid" id="form"></div>
 
+  <div class="card" id="cardPlantilla">
+    <h2><span class="n">B</span>Plantilla de colaboradores propios</h2>
+    <div class="sub" style="margin:2px 0 10px">Descarga la plantilla con el equipo actual, complétala en Excel (nombre, rol, área, cargo, días por semana, género) y súbela. Los terceros no se cargan aquí.</div>
+    <div class="pl">
+      <a class="btn" href="/api/plantilla/colaboradores">⬇ Descargar plantilla (.xlsx)</a>
+      <label class="file">📎 <span id="nomArch">Elegir archivo…</span><input type="file" id="arch" accept=".xlsx"></label>
+      <select id="modo"><option value="actualizar">Actualizar: agrega y actualiza</option><option value="reemplazar">Reemplazar: además quita a los que no estén</option></select>
+      <button class="sec" id="bValidar">Validar</button><button id="bCargar" disabled>Cargar a la base</button>
+    </div>
+    <div id="resCarga" class="res"></div>
+  </div>
+
   <div class="card">
-    <h2><span class="n">B</span>Cómo llenar cada campo del consolidado</h2>
+    <h2><span class="n">C</span>Cómo llenar cada campo del consolidado</h2>
     <table>
       <tr><th>Campo</th><th>Qué es</th><th>Criterio para llenarlo</th><th>Ejemplo</th></tr>
       <tr><td>Código</td><td>Identificador único del proyecto.</td><td>P + correlativo. No se reutiliza aunque el proyecto se cancele.</td><td class="ej">P04</td></tr>
@@ -120,6 +140,24 @@ bGuardar.onclick = () => {
 bBase.onclick = () => { borrar(PAR_KEY); pintar(); msg.textContent = "Se restauraron los valores base."; };
 
 fetch("/api/base").then(r => r.json()).then(b => { BASE = b.parametros; pintar(); });
+
+// ---------- carga de colaboradores
+arch.onchange = () => { nomArch.textContent = arch.files[0]?.name || "Elegir archivo…"; bCargar.disabled = true; resCarga.innerHTML = ""; };
+async function enviar(confirmar) {
+  if (!arch.files[0]) { resCarga.innerHTML = '<span class="e">Elige primero el archivo .xlsx</span>'; return; }
+  const fd = new FormData(); fd.append("archivo", arch.files[0]);
+  resCarga.textContent = confirmar ? "Cargando…" : "Validando…";
+  const r = await fetch(`/api/cargar/colaboradores?modo=${modo.value}&confirmar=${confirmar}`, {method: "POST", body: fd});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { resCarga.innerHTML = `<span class="e">${d.detail || "Error " + r.status}</span>`; return; }
+  let h = `<b>${d.filas_validas}</b> filas válidas` + (d.errores.length ? ` · <span class="e">${d.errores.length} con error</span>` : "");
+  if (d.errores.length) h += "<ul class='e'>" + d.errores.slice(0, 10).map(e => `<li>${e}</li>`).join("") + "</ul>";
+  if (!confirmar && d.muestra.length) h += "<table><tr><th>Nombre</th><th>Rol</th><th>Área</th><th>Días/sem</th></tr>" + d.muestra.map(f => `<tr><td>${f.persona}</td><td>${f.perfil}</td><td>${f.area}</td><td>${f.dias_semana}</td></tr>`).join("") + "</table>";
+  if (confirmar && d.guardado) h = `✅ Cargado: ${d.nuevos.length} nuevos, ${d.actualizados.length} actualizados${d.quitados.length ? `, ${d.quitados.length} quitados` : ""}.` + (d.errores.length ? ` <span class="e">${d.errores.length} filas con error no se cargaron.</span>` : "");
+  resCarga.innerHTML = h; bCargar.disabled = confirmar || !d.filas_validas;
+}
+bValidar.onclick = () => enviar(false);
+bCargar.onclick = () => { if (modo.value !== "reemplazar" || confirm("Se quitarán los colaboradores propios que no estén en el archivo. ¿Continuar?")) enviar(true); };
 </script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 """Gestor de Proyectos NGR: API y vistas."""
 from pathlib import Path
 
-from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 import time as _time
 from fastapi.staticfiles import StaticFiles
@@ -172,6 +172,33 @@ def api_guardar_hoja(body: dict = Body(...)):
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     return {"ok": True, "guardado": db.guardar_hoja(body)}
+
+
+@app.get("/api/plantilla/colaboradores")
+def api_plantilla_colaboradores():
+    from motor import plantillas
+    from motor.modelo import PERFILES
+    data = plantillas.plantilla(cargar_base()["equipo"], PERFILES)
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="plantilla_colaboradores.xlsx"'})
+
+
+@app.post("/api/cargar/colaboradores")
+async def api_cargar_colaboradores(archivo: UploadFile = File(...), modo: str = "actualizar", confirmar: bool = False):
+    from motor import plantillas
+    from motor.modelo import PERFILES
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    try:
+        filas, errores = plantillas.leer(await archivo.read(), PERFILES)
+    except Exception as e:  # archivo ilegible
+        raise HTTPException(400, f"No se pudo leer el archivo: {e}")
+    resp = {"filas_validas": len(filas), "errores": errores, "muestra": filas[:8], "guardado": False}
+    if confirmar:
+        if not filas:
+            raise HTTPException(400, "No hay filas válidas para cargar.")
+        resp.update(db.cargar_colaboradores(filas, "reemplazar" if modo == "reemplazar" else "actualizar"), guardado=True)
+    return resp
 
 
 @app.get("/api/estado")

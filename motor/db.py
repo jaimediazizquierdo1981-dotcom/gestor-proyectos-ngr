@@ -54,6 +54,8 @@ create table if not exists gestor.parametros (id int primary key, data jsonb not
 create table if not exists gestor.meta (clave text primary key, valor text);
 create table if not exists gestor.necesidades (
   codigo text not null, perfil text not null, dias numeric not null default 0, primary key (codigo, perfil));
+alter table gestor.necesidades add column if not exists mes_ini text;
+alter table gestor.necesidades add column if not exists mes_fin text;
 create table if not exists gestor.observaciones (
   codigo text primary key, capex text default '', opex text default '', actualizado timestamptz default now());
 create table if not exists gestor.escenario (
@@ -77,12 +79,11 @@ def iniciar() -> None:
         restaurar_libelula(c)
         if nueva:
             sembrar(c)
-        else:
-            altas_equipo(c)
-            if DATOS_VERSION == "12":   # arranque limpio pedido: sin posiciones ni asignaciones de prueba en la hoja
-                c.execute("delete from gestor.necesidades; delete from gestor.asignaciones; delete from gestor.observaciones;")
             c.execute("insert into gestor.meta values ('datos_version', %s) on conflict (clave) do update set valor = excluded.valor",
                       (DATOS_VERSION,))
+        else:
+            altas_equipo(c)
+        # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
 
 def sembrar(c) -> None:
@@ -172,21 +173,21 @@ def borrar_asignacion(codigo: str, persona: str) -> None:
 def leer_necesidades() -> dict:
     out = {}
     with _conn() as c:
-        for cod, pf, dias in c.execute("select codigo, perfil, dias from gestor.necesidades order by codigo, perfil"):
+        for cod, pf, dias, ini, fin in c.execute("select codigo, perfil, dias, mes_ini, mes_fin from gestor.necesidades order by codigo, perfil"):
             out.setdefault(cod, [])
             if pf != "_vacio":
-                out[cod].append({"perfil": pf, "dias": float(dias)})
+                out[cod].append({"perfil": pf, "dias": float(dias), "desde": ini, "hasta": fin})
     return out
 
 
 def guardar_necesidades(codigo: str, items: list[dict]) -> None:
     with _conn() as c:
         c.execute("delete from gestor.necesidades where codigo = %s", (codigo,))
-        filas = [(codigo, str(i["perfil"]), float(i["dias"])) for i in items if float(i.get("dias", 0)) > 0]
+        filas = [(codigo, str(i["perfil"]), float(i["dias"]), i.get("desde"), i.get("hasta")) for i in items if float(i.get("dias", 0)) > 0]
         if not filas:   # el usuario quitó todas: se recuerda que está vacío
-            filas = [(codigo, "_vacio", 0)]
+            filas = [(codigo, "_vacio", 0, None, None)]
         with c.cursor() as cur:
-            cur.executemany("insert into gestor.necesidades values (%s, %s, %s)", filas)
+            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin) values (%s, %s, %s, %s, %s)", filas)
 
 
 def actualizar_proyecto(codigo: str, opex_mensual: float | None = None) -> None:
@@ -212,7 +213,7 @@ def guardar_observacion(codigo: str, campo: str, texto: str) -> None:
 
 def restaurar_libelula(c) -> None:
     """Restaura una sola vez lo que el usuario había cargado en P01 (borrado por error en la versión 12)."""
-    if c.execute("select 1 from gestor.meta where clave = 'restaurado_p01'").fetchone():
+    if c.execute("select 1 from gestor.meta where clave = 'restaurado_p01_v2'").fetchone():
         return
     if c.execute("select count(*) from gestor.asignaciones where codigo = 'P01'").fetchone()[0] == 0:
         meses = [f"2027-{m:02d}" for m in range(1, 10)]
@@ -227,9 +228,9 @@ def restaurar_libelula(c) -> None:
                             [(n, json.dumps(v)) for n, v in filas.items()])
         c.execute("delete from gestor.necesidades where codigo = 'P01'")
         with c.cursor() as cur:
-            cur.executemany("insert into gestor.necesidades values ('P01', %s, %s)",
+            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias) values ('P01', %s, %s)",
                             [("PM", 10), ("Arquitecto", 6), ("Analista Funcional", 11)])
-    c.execute("insert into gestor.meta values ('restaurado_p01', '1') on conflict do nothing")
+    c.execute("insert into gestor.meta values ('restaurado_p01_v2', '1') on conflict do nothing")
 
 
 # ---------- guardado completo de la hoja de trabajo (una sola transacción)
@@ -250,9 +251,9 @@ def guardar_hoja(body: dict) -> str:
             cur.execute("delete from gestor.necesidades")
             filas = []
             for cod, items in (body.get("necesidades") or {}).items():
-                its = [(cod, i["perfil"], float(i["dias"])) for i in items if float(i.get("dias", 0)) > 0]
-                filas += its or [(cod, "_vacio", 0)]
-            cur.executemany("insert into gestor.necesidades values (%s, %s, %s)", filas)
+                its = [(cod, i["perfil"], float(i["dias"]), i.get("desde"), i.get("hasta")) for i in items if float(i.get("dias", 0)) > 0]
+                filas += its or [(cod, "_vacio", 0, None, None)]
+            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin) values (%s, %s, %s, %s, %s)", filas)
             cur.executemany("""insert into gestor.observaciones (codigo, capex, opex, actualizado) values (%s, %s, %s, now())
                                on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
                             [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])
@@ -272,3 +273,25 @@ def altas_equipo(c) -> None:
     with c.cursor() as cur:
         cur.executemany("insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo, tipo) values (%s,%s,%s,%s,%s,%s,%s) on conflict do nothing",
                         eq[["persona", "perfil", "dias_semana", "genero", "area", "cargo", "tipo"]].fillna("").values.tolist())
+
+
+def cargar_colaboradores(filas: list[dict], modo: str) -> dict:
+    """Actualiza/inserta colaboradores propios; en modo 'reemplazar' quita a los internos que no vengan en el archivo."""
+    import psycopg
+    with psycopg.connect(URL) as c:
+        with c.cursor() as cur:
+            antes = {r[0] for r in cur.execute("select persona from gestor.equipo where coalesce(tipo,'interno') <> 'tercero'")}
+            for f in filas:
+                cur.execute("""insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo, tipo)
+                               values (%s,%s,%s,%s,%s,%s,'interno')
+                               on conflict (persona) do update set perfil = excluded.perfil, dias_semana = excluded.dias_semana,
+                               genero = excluded.genero, area = excluded.area, cargo = excluded.cargo""",
+                            (f["persona"], f["perfil"], f["dias_semana"], f["genero"], f["area"], f["cargo"]))
+            quitados = []
+            if modo == "reemplazar":
+                quitados = sorted(antes - {f["persona"] for f in filas})
+                if quitados:
+                    cur.execute("delete from gestor.equipo where persona = any(%s) and coalesce(tipo,'interno') <> 'tercero'", (quitados,))
+        c.commit()
+    nombres = {f["persona"] for f in filas}
+    return {"nuevos": sorted(nombres - antes), "actualizados": sorted(nombres & antes), "quitados": quitados}

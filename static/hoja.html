@@ -43,6 +43,9 @@
   .need .add select{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);border-radius:6px}
   .need .add input{width:64px;font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);border-radius:6px}
   .need .add button{font:inherit;font-size:12px;font-weight:600;padding:3px 9px;border:0;border-radius:6px;background:#1F3864;color:#fff;cursor:pointer}
+  .need .add .lbl{font-size:11.5px;color:#6b7280}
+  .need .rng{font:inherit;font-size:11px;padding:0 2px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:rgba(255,255,255,.7)}
+  .need small{opacity:.75}
   .need .dreq{width:52px;font:inherit;font-size:11.5px;padding:0 2px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:rgba(255,255,255,.7);text-align:right}
   .need .xs{border:0;background:none;cursor:pointer;color:inherit;opacity:.6;font-size:11px;margin-left:3px}
   .need span.ok{background:#e3f4ec;border-color:#bfe3cf;color:#1d7a50}
@@ -127,6 +130,13 @@ function libre(nombre) {
   return D.meses.map((m, i) => (p?.capacidad[i] || 0) - usadoMes(nombre, m));
 }
 function mesesProyecto(p) { return D.meses.filter(m => m >= p.inicio_plan && m <= p.fin_plan); }
+// meses en que trabaja una posición (rol) del proyecto: su rango propio o, si no tiene, la ventana del proyecto
+function mesesPos(p, pf) {
+  const x = (NEC[p.codigo] || []).find(i => i.perfil === pf);
+  if (x && x.desde && x.hasta) return D.meses.filter(m => m >= x.desde && m <= x.hasta);
+  return mesesProyecto(p);
+}
+const opcMeses = (sel) => D.meses.map(m => `<option value="${m}" ${m === sel ? "selected" : ""}>${fmtMes(m)}</option>`).join("");
 
 // ---------- lista de colaboradores
 function tarjeta(p) {
@@ -176,11 +186,13 @@ function pintarProyectos() {
       <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <button class="xs-proy" title="Cerrar sección (quitar del consolidado)" onclick="quitarProyecto('${p.codigo}')">Cerrar sección ✕</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
-      <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
-        ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
+      <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><span class="lbl">de</span><select id="desde-${p.codigo}">${opcMeses(p.inicio_plan)}</select><span class="lbl">a</span><select id="hasta-${p.codigo}">${opcMeses(p.fin_plan)}</select><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
+        ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${(() => { const it = (NEC[p.codigo] || []).find(i => i.perfil === pf); if (!it) return "";
+          const mm = mesesPos(p, pf);
+          return ` · <select class="rng" onchange="editarRango('${p.codigo}','${pf}','desde',this.value)">${opcMeses(it.desde || p.inicio_plan)}</select>–<select class="rng" onchange="editarRango('${p.codigo}','${pf}','hasta',this.value)">${opcMeses(it.hasta || p.fin_plan)}</select> <small>(${mm.length ? fmtD(v.req / mm.length) : 0} d/mes)</small>`; })()}${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
       ${filas.length ? `<table><tr><th class="l">Colaborador</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th><th></th><th></th></tr>` +
         filas.map(a => { const pe = persona(a.persona); if (!pe) return "";
-          const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
+          const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0), vm = mesesPos(p, pe.perfil);
           return `<tr><td class="l"><div class="persona-cell">${muneco(COL_PERFIL[pe.perfil], 22)}<div><b>${pe.persona}</b>${D.meses.some((m, i) => (a.dias[m] || 0) && usadoMes(pe.persona, m) > (pe.capacidad[i] || 0) + 0.01) ? '<span class="warn" title="Algún mes supera los días que tiene disponibles">⚠ Warning!</span>' : ""}<br><small>${pe.perfil}${pe.tipo === "tercero" ? " · tercero" : ""}</small></div></div></td>` +
             D.meses.map((m, i) => { const v = a.dias[m] || "", sobre = (usadoMes(pe.persona, m) > (pe.capacidad[i] || 0) + 0.01) && v;
               return `<td class="${vm.includes(m) ? "" : "fuera"}"><input type="number" min="0" step="0.5" value="${v}" class="${sobre ? "sobre" : v ? "lleno" : ""}"
@@ -306,7 +318,7 @@ function agregar(codigo, nombre) {
   if (ASIG.some(a => a.codigo === codigo && a.persona === nombre)) { aviso(`${nombre} ya está en ${codigo}.`, false); return; }
   // propuesta: promedio simple de lo que falta del rol; el último mes ajusta para cumplir el número exacto
   const idx = m => D.meses.indexOf(m);
-  const dias = repartir(faltaRol(codigo, pe.perfil), mesesProyecto(p),
+  const dias = repartir(faltaRol(codigo, pe.perfil), mesesPos(p, pe.perfil),
                         m => Math.max((pe.capacidad[idx(m)] || 0) - usadoMes(nombre, m), 0));
   const a = {codigo, persona: nombre, dias};
   ASIG.push(a); pintar(); guardarA(a);
@@ -319,7 +331,7 @@ function editar(codigo, nombre, mes, valor) {
   pintar(); guardarA(a);
 }
 function promediar(codigo, nombre) {
-  const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre), pe = persona(nombre), vm = mesesProyecto(proyecto(codigo));
+  const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre), pe = persona(nombre), vm = mesesPos(proyecto(codigo), pe.perfil);
   const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
   const objetivo = faltaRol(codigo, pe.perfil, a) || tot;   // lo que el rol necesita (sin contar a esta persona)
   const idx = m => D.meses.indexOf(m);
@@ -333,11 +345,19 @@ async function guardarPos(codigo, items) {
 }
 function agregarPos(codigo) {
   const pf = document.getElementById("sel-" + codigo).value, d = r1(+document.getElementById("dias-" + codigo).value || 0);
+  let desde = document.getElementById("desde-" + codigo).value, hasta = document.getElementById("hasta-" + codigo).value;
   if (d <= 0) { aviso("Indica la cantidad de días de la posición.", false); return; }
+  if (desde > hasta) [desde, hasta] = [hasta, desde];
   const items = posiciones(proyecto(codigo)).map(x => ({...x}));
   const ex = items.find(x => x.perfil === pf);
-  if (ex) ex.dias = r1(ex.dias + d); else items.push({perfil: pf, dias: d});
+  if (ex) { ex.dias = r1(ex.dias + d); ex.desde = desde; ex.hasta = hasta; } else items.push({perfil: pf, dias: d, desde, hasta});
   items.sort((a, b) => ROLES.indexOf(a.perfil) - ROLES.indexOf(b.perfil));
+  guardarPos(codigo, items);
+}
+function editarRango(codigo, pf, campo, valor) {
+  const items = posiciones(proyecto(codigo)).map(x => ({...x})), it = items.find(x => x.perfil === pf); if (!it) return;
+  const p = proyecto(codigo); it.desde = it.desde || p.inicio_plan; it.hasta = it.hasta || p.fin_plan; it[campo] = valor;
+  if (it.desde > it.hasta) [it.desde, it.hasta] = [it.hasta, it.desde];
   guardarPos(codigo, items);
 }
 function editarPos(codigo, pf, valor) {
