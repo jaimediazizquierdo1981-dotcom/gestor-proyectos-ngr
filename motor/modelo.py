@@ -4,7 +4,7 @@
 2. Distribución del esfuerzo de cada proyecto en el tiempo (uniforme o curva de Rayleigh / Norden-Putnam).
 3. Asignación con recursos limitados por prioridad (RCPSP, esquema serial con regla de prioridad).
 4. Riesgo: Monte Carlo con esfuerzo PERT-Beta -> probabilidad de que cada proyecto quede cubierto.
-5. Horas proyectadas vs. capacidad real que el equipo le puede asignar a cada proyecto.
+5. Días proyectados vs. capacidad real que el equipo le puede asignar a cada proyecto.
 """
 from __future__ import annotations
 
@@ -59,19 +59,19 @@ def cargar_base() -> dict:
 
 # ---------------------------------------------------------------- 1. capacidad
 def capacidad(equipo: list[dict], feriados: list[dict], p: dict, lista: list[str]) -> dict:
-    """Horas netas disponibles para proyectos, por persona y mes."""
+    """Días netos disponibles para proyectos, por persona y mes."""
     c = p["capacidad"]
     fer = {pd.Timestamp(f["fecha"]).date() for f in feriados} if c.get("descontar_feriados", True) else set()
     out = {}
     for e in equipo:
         fila = []
-        hd = float(c["horas_por_dia"]) * float(e.get("horas_semana", 40) or 40) / 40
+        fd = float(e.get("dias_semana", 5) or 5) / 5   # fracción de cada día hábil que trabaja
         for m in lista:
             per = pd.Period(m, "M")
             dias = pd.bdate_range(per.start_time, per.end_time)
             habiles = sum(1 for d in dias if d.date() not in fer)
             vac = float(c.get("dias_vacaciones_anual", 0)) / 12
-            bruto = max(habiles - vac, 0) * hd
+            bruto = max(habiles - vac, 0) * fd
             fila.append(bruto * (1 - float(c.get("reserva_operacion_pct", 0))))
         out[e["persona"]] = np.array(fila)
     return out
@@ -92,7 +92,7 @@ def pesos(n: int, metodo: str, pico: float) -> np.ndarray:
 
 
 def plan_proyecto(pr: dict, p: dict, lista: list[str], desplazo: int = 0, factor: float = 1.0) -> dict:
-    """Horas requeridas por perfil y mes (vector sobre el horizonte)."""
+    """Días requeridos por perfil y mes (vector sobre el horizonte)."""
     ini = pd.Period(pr["inicio"], "M") + desplazo
     fin = pd.Period(pr["fin"], "M") + desplazo
     pm = [str(x) for x in pd.period_range(ini, fin, freq="M")]
@@ -150,15 +150,15 @@ def asignar(proyectos: list[dict], equipo: list[dict], cap: dict, p: dict, lista
                     reparto = disp / disp.sum() * usar
                     for n, h in zip(gente, reparto):
                         libre[n][i] -= h
-                        if detalle and h > 0.05:
-                            asign.setdefault(n, {}).setdefault(lista[i], {})[pr["codigo"]] = round(float(h), 1)
+                        if detalle and h > 0.01:
+                            asign.setdefault(n, {}).setdefault(lista[i], {})[pr["codigo"]] = round(float(h), 2)
         res[pr["codigo"]] = {"estado": estado, "cobertura": round(float(ratio), 4), "desplazo_meses": d,
-                             "horas_requeridas": round(float(tot), 1),
+                             "dias_requeridos": round(float(tot), 1),
                              "req_mes": {pf: v.round(1).tolist() for pf, v in req.items()} if detalle else None}
     for pr in proyectos:
         if not pr.get("incluir", True):
             res[pr["codigo"]] = {"estado": "excluido", "cobertura": 0, "desplazo_meses": 0,
-                                 "horas_requeridas": 0, "req_mes": None}
+                                 "dias_requeridos": 0, "req_mes": None}
     return {"resultado": res, "asignacion": asign, "libre": libre}
 
 
@@ -234,11 +234,11 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                                               "capex", "opex_mensual", "incluir"]},
                       "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real,
                       "duracion_meses": dur, "recursos": {pf: float(pr.get(pf, 0) or 0) for pf in PERFILES},
-                      "horas_base": float(sum(float(pr.get(pf, 0) or 0) for pf in PERFILES)),
+                      "dias_base": float(sum(float(pr.get(pf, 0) or 0) for pf in PERFILES)),
                       "opex_anual": float(pr["opex_mensual"]) * 12, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses,
-                      **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "horas_requeridas"]},
+                      **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "dias_requeridos"]},
                       "req_mes": r["req_mes"], "prob_cubierto": mc["prob"].get(pr["codigo"]),
-                      "horas_proyectadas": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
+                      "dias_proyectados": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
 
     # capacidad vs. uso por perfil y mes
     gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf] for pf in PERFILES}
@@ -249,8 +249,8 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         uso.append({"perfil": pf, "personas": len(gente[pf]), "capacidad": c.round(1).tolist(),
                     "usado": (c - l).round(1).tolist()})
     personas = [{"persona": e["persona"], "perfil": e["perfil"], "genero": e.get("genero", ""),
-                 "area": e.get("area") or "", "cargo": e.get("cargo") or "", "horas_semana": e.get("horas_semana", 40),
-                 "capacidad": cap[e["persona"]].round(1).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
+                 "area": e.get("area") or "", "cargo": e.get("cargo") or "", "dias_semana": e.get("dias_semana", 5),
+                 "capacidad": cap[e["persona"]].round(2).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
     return {"meses": lista, "parametros": p, "perfiles": PERFILES, "proyectos": filas,

@@ -30,7 +30,7 @@ function nav(activa) {
 
 const MES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const fmtMes = m => MES[+m.slice(5) - 1] + "-" + m.slice(2, 4);
-const fmtH = n => Math.round(n).toLocaleString("es-PE");
+const fmtD = n => (Math.abs(n) < 10 && Math.round(n) !== n ? n.toFixed(1).replace(".", ",") : Math.round(n).toLocaleString("es-PE"));
 const fmtS = n => "S/ " + Math.round(n).toLocaleString("es-PE");
 const fmtK = n => n >= 1e6 ? "S/ " + (n / 1e6).toFixed(2) + " M" : "S/ " + Math.round(n / 1000) + " k";
 const fmtPct = n => n == null ? "–" : Math.round(n * 100) + "%";

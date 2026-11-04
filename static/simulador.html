@@ -27,7 +27,7 @@
 <script>nav("Simulador")</script>
 <main>
   <h1>Simulador: ingreso de proyectos y consumo de la capacidad del equipo</h1>
-  <div class="sub">Cada mes llegan los proyectos que arrancan. El dispatcher los recibe y, según la prioridad y las horas libres, los reparte entre las personas de cada perfil. La barra de cada escritorio muestra las horas libres del mes y se va vaciando.</div>
+  <div class="sub">Cada mes llegan los proyectos que arrancan. El dispatcher los recibe y, según la prioridad y los días libres, los reparte entre las personas de cada perfil. La barra de cada escritorio muestra los días libres del mes y se va vaciando.</div>
   <div class="barra">
     <button class="pri" id="bPlay">▶ Reproducir</button><button id="bSig">Mes siguiente ⏭</button><button id="bRe">↺ Reiniciar</button>
     <select id="selVel"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
@@ -127,14 +127,14 @@ function pintarBarra(p, i) {
   const libre = Math.max(cap - u, 0), r = cap ? u / cap : 0, {b, t} = bars[p];
   const w = cap ? libre / cap * 112 : 0; b.setAttribute("width", w); b.style.width = w + "px";
   b.setAttribute("fill", r >= .98 ? "#d64545" : r >= .85 ? "#e8833a" : r >= .6 ? "#e5a12a" : "#2e9e6a");
-  t.textContent = `${fmtH(libre)} h libres de ${fmtH(cap)}`;
+  t.textContent = `${fmtD(libre)} días libres de ${fmtD(cap)}`;
   t.setAttribute("fill", r >= .98 ? "#d64545" : "#6b7280");
 }
 
 function kpis(i) {
   const m = D.meses[i] || D.meses[0];
   const cap = D.personas.reduce((a, p) => a + (p.capacidad[i] || 0), 0), u = Object.values(usado).reduce((a, v) => a + v, 0);
-  kp.innerHTML = [["Mes", i >= 0 ? fmtMes(m) : "–"], ["Capacidad del mes", fmtH(cap) + " h"], ["Asignado", fmtH(u) + " h"],
+  kp.innerHTML = [["Mes", i >= 0 ? fmtMes(m) : "–"], ["Capacidad del mes", fmtD(cap) + " días"], ["Asignado", fmtD(u) + " días"],
     ["Uso", cap ? Math.round(u / cap * 100) + "%" : "–"], ["En ejecución", EJEC.size], ["En espera", ESPERA.length]]
     .map(([l, v]) => `<div>${l}<b>${v}</b></div>`).join("");
 }
@@ -157,11 +157,11 @@ async function llegada(pr, i, token) {
   await sleep(150);
   await mover(g, ROBOT.x - 10, ROBOT.y - 6, 900); if (token !== run) return;
   const nom = pr.proyecto.length > 34 ? pr.proyecto.slice(0, 33) + "…" : pr.proyecto;
-  const b1 = burbuja(g, 0, -18, `Necesito «${nom}»\n${pr.tipo === "Tecnologia" ? "Proyecto de tecnología" : "Proyecto transformacional"} · ${pr.marca}\n${fmtH(pr.horas_requeridas)} h · ${pr.duracion_meses} meses`);
+  const b1 = burbuja(g, 0, -18, `Necesito «${nom}»\n${pr.tipo === "Tecnologia" ? "Proyecto de tecnología" : "Proyecto transformacional"} · ${pr.marca}\n${fmtD(pr.dias_requeridos)} días-persona · ${pr.duracion_meses} meses`);
   await sleep(1500); if (token !== run) return;
   b1.remove();
   const rb = el("g", {}); ubicar(rb, ROBOT.x + 70, ROBOT.y - 60);
-  const res = pr.estado === "cubierto" ? "Cubierto ✔" : pr.estado === "parcial" ? `Parcial: ${fmtPct(pr.cobertura)} de las horas` : "Sin capacidad: a la sala de espera";
+  const res = pr.estado === "cubierto" ? "Cubierto ✔" : pr.estado === "parcial" ? `Parcial: ${fmtPct(pr.cobertura)} de los días` : "Sin capacidad: a la sala de espera";
   burbuja(rb, 0, 0, `Prioridad ${pr.prioridad} · ${res}${pr.desplazo_meses ? `\nPostergado ${pr.desplazo_meses} mes(es)` : ""}`,
     pr.estado === "no_cubierto" ? "#a52f2f" : pr.estado === "parcial" ? "#8a5a00" : "#1d7a50");
   await sleep(1100); if (token !== run) { rb.remove(); return; }

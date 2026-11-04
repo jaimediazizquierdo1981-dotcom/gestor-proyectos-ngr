@@ -34,7 +34,7 @@
 <script>nav("Colaboradores")</script>
 <main>
   <h1>Colaboradores de Tecnología y Transformación</h1>
-  <div class="sub">Equipo que ejecuta los proyectos, por área del organigrama de TI (sin el director, las gerencias ni Soporte). Elige el rol de cada persona: el rol define qué horas de proyecto puede tomar. Los cambios se guardan en la base y recalculan el consolidado y el simulador.<span id="msg"></span></div>
+  <div class="sub">Equipo que ejecuta los proyectos, por área del organigrama de TI (sin el director, las gerencias ni Soporte). Elige el rol de cada persona: el rol define qué días de proyecto puede tomar. Los cambios se guardan en la base y recalculan el consolidado y el simulador.<span id="msg"></span></div>
   <div class="ojo" id="aviso">Nombres ficticios hasta cargar el organigrama real.</div>
   <div class="roles" id="roles"></div>
   <div class="grid" id="areas"></div>
@@ -49,20 +49,20 @@ function pintar() {
   const P = D.personas;
   roles.innerHTML = ROLES.map(r => {
     const g = P.filter(p => p.perfil === r), cap = g.reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0) / p.capacidad.length, 0);
-    return `<div style="--c:${COL_PERFIL[r]}">${r}<b>${g.length} pers.</b>${fmtH(cap)} h netas/mes</div>`;
+    return `<div style="--c:${COL_PERFIL[r]}">${r}<b>${g.length} pers.</b>${fmtD(cap)} días netos/mes</div>`;
   }).join("");
   const areasL = [...new Set([...ORDEN_AREAS.filter(a => P.some(p => p.area === a)), ...P.map(p => p.area || "Sin área")])];
   areas.innerHTML = areasL.map(a => {
     const g = P.filter(p => (p.area || "Sin área") === a);
     return `<div class="card"><h2>${a}<small>${g.length} colaboradores</small></h2><table>
-      <tr><th>Colaborador</th><th>Rol</th><th>h/sem</th><th class="n">Capacidad neta/mes</th><th>Uso en proyectos</th></tr>` +
+      <tr><th>Colaborador</th><th>Rol</th><th>Días/sem</th><th class="n">Días netos/mes</th><th>Uso en proyectos</th></tr>` +
       g.map(p => {
         const cap = p.capacidad.reduce((x, y) => x + y, 0), usado = Object.values(p.asignado).reduce((s, m) => s + Object.values(m).reduce((x, y) => x + y, 0), 0);
         const u = cap ? usado / cap : 0, col = u >= .95 ? "#d64545" : u >= .8 ? "#e8833a" : u >= .5 ? "#e5a12a" : "#2e9e6a";
         return `<tr><td><span class="av" style="background:${COL_PERFIL[p.perfil]}">${ini(p.persona)}</span><b>${p.persona}</b><br><span class="cargo" style="margin-left:36px">${p.cargo || ""}</span></td>
           <td><select data-p="${p.persona}" onchange="cambiar(this,'perfil',this.value)">${ROLES.map(r => `<option ${r === p.perfil ? "selected" : ""}>${r}</option>`).join("")}</select></td>
-          <td><input type="number" min="0" max="48" value="${p.horas_semana}" onchange="cambiar(this,'horas_semana',+this.value)"></td>
-          <td class="n">${fmtH(cap / p.capacidad.length)} h</td>
+          <td><input type="number" min="0" max="6" step="0.5" value="${p.dias_semana}" onchange="cambiar(this,'dias_semana',+this.value)"></td>
+          <td class="n">${fmtD(cap / p.capacidad.length)} días</td>
           <td><span class="uso"><i style="width:${Math.min(u, 1) * 100}%;background:${col}"></i></span>${Math.round(u * 100)}%</td></tr>`;
       }).join("") + "</table></div>";
   }).join("");

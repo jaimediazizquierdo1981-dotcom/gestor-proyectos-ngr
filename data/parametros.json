@@ -4,7 +4,6 @@
     "fin": "2027-12"
   },
   "capacidad": {
-    "horas_por_dia": 8,
     "descontar_feriados": true,
     "dias_vacaciones_anual": 22,
     "reserva_operacion_pct": 0.3

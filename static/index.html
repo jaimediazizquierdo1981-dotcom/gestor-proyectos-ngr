@@ -47,7 +47,7 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="tbl"><table id="t"></table></div>
-  <div class="note">Horas por perfil = esfuerzo base del proyecto (sin contingencia). <b>Cobertura</b> = horas que el equipo puede atender ÷ horas requeridas (con contingencia). <b>P(cubierto)</b> = probabilidad Monte Carlo de quedar 100% cubierto si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
+  <div class="note">Días por perfil = esfuerzo base del proyecto en días-persona (sin contingencia). <b>Cobertura</b> = días que el equipo puede atender ÷ días requeridos (con contingencia). <b>P(cubierto)</b> = probabilidad Monte Carlo de quedar 100% cubierto si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
   <div class="fila2">
     <div class="card">
@@ -57,17 +57,17 @@
       <div class="pie-ley" id="pieLey"></div>
     </div>
     <div class="card">
-      <h2>Capacidad utilizada por proyecto: horas proyectadas vs. capacidad real</h2>
+      <h2>Capacidad utilizada por proyecto: días proyectados vs. capacidad real</h2>
       <div class="sub" id="subAv"></div>
       <div class="ctrl">Perfil <select id="selPerfil"><option value="">Todos</option></select></div>
-      <svg id="barras" viewBox="0 0 900 420" role="img" aria-label="Horas proyectadas y capacidad real por proyecto"></svg>
-      <div class="ley"><span><i style="background:#1F3864"></i>Horas proyectadas</span><span><i style="background:#2e9e6a"></i>Capacidad real asignada (verde cubierto · ámbar parcial · rojo sin capacidad)</span></div>
+      <svg id="barras" viewBox="0 0 900 420" role="img" aria-label="Días proyectados y capacidad real por proyecto"></svg>
+      <div class="ley"><span><i style="background:#1F3864"></i>Días proyectados</span><span><i style="background:#2e9e6a"></i>Capacidad real asignada (verde cubierto · ámbar parcial · rojo sin capacidad)</span></div>
     </div>
   </div>
 
   <div class="card">
     <h2>Uso de la capacidad por perfil y mes</h2>
-    <div class="sub">Horas asignadas a proyectos ÷ horas netas disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
+    <div class="sub">Días asignados a proyectos ÷ días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
   </div>
 </main>
@@ -87,9 +87,9 @@ function tabla() {
   const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
   const inc = P.filter(p => p.incluir);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th colspan="8"></th><th colspan="7" class="sep">Recursos (horas por tipo)</th><th colspan="3" class="sep">Inversión y soporte</th><th colspan="3" class="sep">Cobertura</th></tr>
+  let h = `<thead><tr class="g"><th colspan="8"></th><th colspan="7" class="sep">Recursos (días por tipo)</th><th colspan="3" class="sep">Inversión y soporte</th><th colspan="3" class="sep">Cobertura</th></tr>
   <tr><th>Incl.</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Tipo</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
-  ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total h</th>
+  ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   <th class="sep">Capex</th><th>Opex/mes</th><th>Opex anual</th>
   <th class="sep l">Estado</th><th>Cobertura</th><th>P(cubierto)</th></tr></thead><tbody>`;
   for (const p of P) {
@@ -100,20 +100,20 @@ function tabla() {
       <td class="l"><span class="tag ${p.tipo[0] === "T" && p.tipo !== "Tecnologia" ? "T" : ""}">${p.tipo === "Tecnologia" ? "Tecnología" : "Transf."}</span></td>
       <td class="l"><select onchange="cambiar('${p.codigo}','inicio',this.value)">${D.meses.map(m => `<option value="${m}" ${m === p.inicio ? "selected" : ""}>${fmtMes(m)}</option>`).join("")}</select></td>
       <td class="l">${fmtMes(p.fin_plan)}</td><td>${p.duracion_meses}</td>
-      ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtH(p.recursos[f])}</td>`).join("")}<td><b>${fmtH(p.horas_base)}</b></td>
+      ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.recursos[f])}</td>`).join("")}<td><b>${fmtD(p.dias_base)}</b></td>
       <td class="sep">${fmtK(p.capex)}</td><td>${fmtS(p.opex_mensual)}</td><td>${fmtK(p.opex_anual)}</td>
       <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${p.incluir ? fmtPct(p.cobertura) : "–"}</td>
       <td>${p.incluir ? (p.prob_cubierto == null ? "…" : fmtPct(p.prob_cubierto)) : "–"}</td></tr>`;
   }
   h += `<tr class="tot"><td colspan="7" class="l">Total proyectos incluidos (${inc.length})</td><td></td>
-    ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtH(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtH(s("horas_base"))}</td>
+    ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(s(p => p.recursos[f]))}</td>`).join("")}<td>${fmtD(s("dias_base"))}</td>
     <td class="sep">${fmtK(s("capex"))}</td><td>${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_anual"))}</td><td class="sep" colspan="3"></td></tr></tbody>`;
   t.innerHTML = h;
   const cub = inc.filter(p => p.estado === "cubierto");
   kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
     ["Cubiertos al 100%", cub.length + " de " + inc.length],
     ["Capex total", fmtK(s("capex"))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex, 0))],
-    ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Horas requeridas", fmtH(s("horas_requeridas"))]]
+    ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Días requeridos", fmtD(s("dias_requeridos"))]]
     .map(([l, v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
 }
 
@@ -138,8 +138,8 @@ function pie() {
 function barras() {
   const pf = selPerfil.value, P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
   const suma = o => Object.values(o).reduce((a, v) => a + v, 0);
-  const val = p => pf ? {py: p.horas_proyectadas[pf] || 0, ca: p.capacidad_asignada[pf] || 0}
-                      : {py: suma(p.horas_proyectadas), ca: suma(p.capacidad_asignada)};
+  const val = p => pf ? {py: p.dias_proyectados[pf] || 0, ca: p.capacidad_asignada[pf] || 0}
+                      : {py: suma(p.dias_proyectados), ca: suma(p.capacidad_asignada)};
   const mx = Math.max(1, ...P.map(p => Math.max(val(p).py, val(p).ca)));
   const L = 250, W = 420, fh = 34, H = 16 + P.length * fh;
   const svg = document.getElementById("barras"); svg.setAttribute("viewBox", `0 0 900 ${H}`);
@@ -149,11 +149,11 @@ function barras() {
     h += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12.5" fill="#1f2430">${p.codigo} · ${p.proyecto.length > 30 ? p.proyecto.slice(0, 29) + "…" : p.proyecto}</text>
       <rect x="${L}" y="${y + 2}" width="${sc(v.py)}" height="11" rx="2" fill="#1F3864"/>
       <rect x="${L}" y="${y + 15}" width="${sc(v.ca)}" height="11" rx="2" fill="${COL[p.estado]}"/>
-      <text x="${L + Math.max(sc(v.py), sc(v.ca)) + 6}" y="${y + 18}" font-size="11.5" fill="${falta > 1 ? "#d64545" : "#6b7280"}">${
-        falta > 1 ? `${fmtH(v.ca)} de ${fmtH(v.py)} h · faltan ${fmtH(falta)} h` : `${fmtH(v.ca)} h · cubierto`}</text>`;
+      <text x="${L + Math.max(sc(v.py), sc(v.ca)) + 6}" y="${y + 18}" font-size="11.5" fill="${falta > 0.5 && p.estado !== "cubierto" ? "#d64545" : "#6b7280"}">${
+        falta > 0.5 && p.estado !== "cubierto" ? `${fmtD(v.ca)} de ${fmtD(v.py)} días · faltan ${fmtD(falta)} días` : `${fmtD(v.ca)} días · cubierto`}</text>`;
   });
   svg.innerHTML = h;
-  subAv.textContent = "Horas proyectadas = lo que tomará el proyecto (con contingencia). Capacidad real = horas que el equipo le puede asignar con la gente y la disponibilidad que tiene, según la prioridad.";
+  subAv.textContent = "Días proyectados = lo que tomará el proyecto en días-persona (con contingencia). Capacidad real = días que el equipo le puede asignar con la gente y la disponibilidad que tiene, según la prioridad.";
 }
 
 function heat() {
@@ -161,7 +161,7 @@ function heat() {
   for (const u of D.uso_perfil) {
     h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => {
       const r = c ? u.usado[i] / c : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
-      return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtH(u.usado[i])} de ${fmtH(c)} h">${Math.round(r * 100)}%</td>`;
+      return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(u.usado[i])} de ${fmtD(c)} días">${Math.round(r * 100)}%</td>`;
     }).join("") + "</tr>";
   }
   document.getElementById("heat").innerHTML = h;

@@ -1,18 +1,18 @@
-persona,perfil,horas_semana,genero,area,cargo
-Ana Torres,PM,40,Mujer,Operaciones,Jefe de Proyectos
-Miguel Paredes,Arquitecto,40,Hombre,Operaciones,Arquitecto de Soluciones
-Diego Salas,Desarrollador,40,Hombre,Operaciones,Analista Desarrollador
-Valeria Quispe,Desarrollador,40,Mujer,Operaciones,Analista Desarrollador
-Martín León,Infra,40,Hombre,Operaciones,Especialista de Infraestructura
-Carlos Vega,PM,40,Hombre,Continuidad del Negocio,Jefe de Proyectos
-Renato Flores,Desarrollador,40,Hombre,Continuidad del Negocio,Analista Desarrollador
-Paola Ríos,QA,40,Mujer,Continuidad del Negocio,Analista de Calidad
-Camila Díaz,Infra,40,Mujer,Continuidad del Negocio,Especialista de Infraestructura
-Rosa Medina,PM,40,Mujer,Nuevas Soluciones Digitales,Product Owner
-Lucía Ramos,Arquitecto,40,Mujer,Nuevas Soluciones Digitales,Arquitecta de Soluciones
-Sofía Huamán,Desarrollador,40,Mujer,Nuevas Soluciones Digitales,Desarrolladora Full Stack
-Andrés Castillo,Desarrollador,40,Hombre,Nuevas Soluciones Digitales,Desarrollador Full Stack
-Kevin Rojas,QA,40,Hombre,Nuevas Soluciones Digitales,Analista de Calidad
-Jorge Nuñez,Data Engineer,40,Hombre,Data,Analytics Engineer
-Diana Sebastián,Data Engineer,40,Mujer,Data,Analytics Engineer
-Luis Chávez,Data Engineer,40,Hombre,Data,Analytics Engineer
+persona,perfil,dias_semana,genero,area,cargo
+Ana Torres,PM,5,Mujer,Operaciones,Jefe de Proyectos
+Miguel Paredes,Arquitecto,5,Hombre,Operaciones,Arquitecto de Soluciones
+Diego Salas,Desarrollador,5,Hombre,Operaciones,Analista Desarrollador
+Valeria Quispe,Desarrollador,5,Mujer,Operaciones,Analista Desarrollador
+Martín León,Infra,5,Hombre,Operaciones,Especialista de Infraestructura
+Carlos Vega,PM,5,Hombre,Continuidad del Negocio,Jefe de Proyectos
+Renato Flores,Desarrollador,5,Hombre,Continuidad del Negocio,Analista Desarrollador
+Paola Ríos,QA,5,Mujer,Continuidad del Negocio,Analista de Calidad
+Camila Díaz,Infra,5,Mujer,Continuidad del Negocio,Especialista de Infraestructura
+Rosa Medina,PM,5,Mujer,Nuevas Soluciones Digitales,Product Owner
+Lucía Ramos,Arquitecto,5,Mujer,Nuevas Soluciones Digitales,Arquitecta de Soluciones
+Sofía Huamán,Desarrollador,5,Mujer,Nuevas Soluciones Digitales,Desarrolladora Full Stack
+Andrés Castillo,Desarrollador,5,Hombre,Nuevas Soluciones Digitales,Desarrollador Full Stack
+Kevin Rojas,QA,5,Hombre,Nuevas Soluciones Digitales,Analista de Calidad
+Jorge Nuñez,Data Engineer,5,Hombre,Data,Analytics Engineer
+Diana Sebastián,Data Engineer,5,Mujer,Data,Analytics Engineer
+Luis Chávez,Data Engineer,5,Hombre,Data,Analytics Engineer
