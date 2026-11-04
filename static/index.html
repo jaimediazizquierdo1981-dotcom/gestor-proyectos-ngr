@@ -48,7 +48,7 @@
 <script>nav("Consolidado")</script>
 <main>
   <h1>Consolidado de proyectos: Capex, Opex y recursos</h1>
-  <div class="sub" id="sub">Datos ficticios. Marca o desmarca proyectos, cambia su prioridad o mes de inicio para armar escenarios; se recalcula al instante y queda guardado en este navegador.</div>
+  <div class="sub" id="sub">Datos ficticios. Marca los proyectos que entran (una vez marcados solo pueden pasar a On hold), cambia su prioridad o mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
   <div class="kpis" id="kpis"></div>
 
   <div class="tbl"><table id="t"></table></div>
@@ -106,7 +106,7 @@ function tabla() {
   <th class="sep l">Estado</th><th>Cobertura</th></tr></thead><tbody>`;
   for (const p of P) {
     h += `<tr class="${activo(p) ? "" : "off"}">
-      <td><input type="checkbox" ${p.incluir ? "checked" : ""} onchange="cambiar('${p.codigo}','incluir',this.checked)"></td>
+      <td><input type="checkbox" ${p.incluir ? "checked disabled title=\"Ya incluido: para sacarlo del cálculo usa On hold\"" : ""} onchange="cambiar('${p.codigo}','incluir',this.checked)"></td>
       <td><button class="hold ${p.on_hold ? "on" : ""}" ${p.incluir ? "" : "disabled"} title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: queda en gris y no descuenta días"}" onclick="cambiar('${p.codigo}','on_hold',${!p.on_hold})">${p.on_hold ? "⏸ On hold" : "On hold"}</button></td>
       <td><input type="number" min="1" value="${p.prioridad}" onchange="cambiar('${p.codigo}','prioridad',+this.value)"></td>
       <td class="l"><b>${p.codigo}</b></td><td class="l nom" title="${p.proyecto} · ${p.marca}">${p.proyecto}</td>
