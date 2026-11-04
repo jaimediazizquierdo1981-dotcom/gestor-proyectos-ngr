@@ -29,6 +29,13 @@
   .ph .cob{margin-left:auto;font-weight:700;font-size:14px}
   .need{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 0}
   .need span{font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line);background:#faf8f4}
+  .need{align-items:center}
+  .need .add{display:inline-flex;gap:4px;align-items:center;background:#fff!important;border:1px solid #c9d6ea!important;border-radius:9px!important;padding:3px 4px!important;margin-right:6px}
+  .need .add select{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);border-radius:6px}
+  .need .add input{width:64px;font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);border-radius:6px}
+  .need .add button{font:inherit;font-size:12px;font-weight:600;padding:3px 9px;border:0;border-radius:6px;background:#1F3864;color:#fff;cursor:pointer}
+  .need .dreq{width:52px;font:inherit;font-size:11.5px;padding:0 2px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:rgba(255,255,255,.7);text-align:right}
+  .need .xs{border:0;background:none;cursor:pointer;color:inherit;opacity:.6;font-size:11px;margin-left:3px}
   .need span.ok{background:#e3f4ec;border-color:#bfe3cf;color:#1d7a50}
   .need span.falta{background:#fdf1d9;border-color:#f2d9a2;color:#8a5a00}
   .need span.cero{background:#fbe3e3;border-color:#f0c4c4;color:#a52f2f}
@@ -72,7 +79,7 @@
   </div>
 </main>
 <script>
-let D, ASIG = [];
+let D, ASIG = [], NEC = {};
 const ROLES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"];
 ROLES.forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
 buscar.oninput = filtroRol.onchange = () => pintarLista();
@@ -112,10 +119,16 @@ function pintarLista() {
 }
 
 // ---------- secciones de proyecto
+// posiciones que necesita el proyecto: las que definió el usuario en la hoja o, si aún no las tocó, las del consolidado
+function posiciones(p) {
+  if (NEC[p.codigo]) return NEC[p.codigo];
+  return ROLES.map(pf => ({perfil: pf, dias: r1((p.req_mes?.[pf] || []).reduce((a, b) => a + b, 0))})).filter(x => x.dias > 0);
+}
+function diasRol(p, pf) { return posiciones(p).filter(x => x.perfil === pf).reduce((a, x) => a + x.dias, 0); }
 function necesidad(p) {
   const out = {};
   for (const pf of ROLES) {
-    const req = (p.req_mes?.[pf] || []).reduce((a, b) => a + b, 0);
+    const req = diasRol(p, pf);
     const asig = ASIG.filter(a => a.codigo === p.codigo && persona(a.persona)?.perfil === pf).reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
     if (req > 0.01 || asig > 0) out[pf] = {req, asig};
   }
@@ -130,7 +143,8 @@ function pintarProyectos() {
     return `<div class="proy" data-c="${p.codigo}">
       <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
-      <div class="need">${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig >= v.req - .5 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="Asignado / requerido">${pf}: ${fmtD(v.asig)} / ${fmtD(v.req)} d</span>`).join("")}</div>
+      <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
+        ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="Asignado / requerido">${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${v.req > 0 ? `<button class="xs" title="Quitar posición" onclick="editarPos('${p.codigo}','${pf}',0)">✕</button>` : ""}</span>`).join("") || '<em style="font-size:12px;color:#6b7280">Sin posiciones: agrégalas con la caja de la izquierda</em>'}</div>
       ${filas.length ? `<table><tr><th class="l">Colaborador</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th><th></th><th></th></tr>` +
         filas.map(a => { const pe = persona(a.persona); if (!pe) return "";
           const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
@@ -173,7 +187,7 @@ function repartir(total, meses, libreMes) {
   return out;
 }
 function faltaRol(codigo, perfil, excepto) {
-  const p = proyecto(codigo), req = (p.req_mes?.[perfil] || []).reduce((a, b) => a + b, 0);
+  const p = proyecto(codigo), req = diasRol(p, perfil);
   const ya = ASIG.filter(a => a.codigo === codigo && a !== excepto && persona(a.persona)?.perfil === perfil)
     .reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
   return Math.max(Math.round((req - ya) * 2) / 2, 0);
@@ -211,6 +225,27 @@ function promediar(codigo, nombre) {
   a.dias = repartir(objetivo, vm, m => Math.max((pe.capacidad[idx(m)] || 0) - usadoMes(nombre, m, a), 0));
   pintar(); guardarA(a);
 }
+async function guardarPos(codigo, items) {
+  NEC[codigo] = items; pintar();
+  const r = await fetch("/api/necesidades", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo, items})});
+  aviso(r.ok ? "Posiciones guardadas." : "No se pudieron guardar las posiciones.", r.ok);
+}
+function agregarPos(codigo) {
+  const pf = document.getElementById("sel-" + codigo).value, d = r1(+document.getElementById("dias-" + codigo).value || 0);
+  if (d <= 0) { aviso("Indica la cantidad de días de la posición.", false); return; }
+  const items = posiciones(proyecto(codigo)).map(x => ({...x}));
+  const ex = items.find(x => x.perfil === pf);
+  if (ex) ex.dias = r1(ex.dias + d); else items.push({perfil: pf, dias: d});
+  items.sort((a, b) => ROLES.indexOf(a.perfil) - ROLES.indexOf(b.perfil));
+  guardarPos(codigo, items);
+}
+function editarPos(codigo, pf, valor) {
+  const d = r1(Math.max(0, +valor || 0));
+  let items = posiciones(proyecto(codigo)).map(x => ({...x}));
+  if (d > 0) { const ex = items.find(x => x.perfil === pf); if (ex) ex.dias = d; else items.push({perfil: pf, dias: d}); }
+  else items = items.filter(x => x.perfil !== pf);
+  guardarPos(codigo, items);
+}
 async function quitar(codigo, nombre) {
   ASIG = ASIG.filter(a => !(a.codigo === codigo && a.persona === nombre)); pintar();
   const r = await fetch(`/api/asignaciones?codigo=${encodeURIComponent(codigo)}&persona=${encodeURIComponent(nombre)}`, {method: "DELETE"});
@@ -219,7 +254,8 @@ async function quitar(codigo, nombre) {
 
 (async () => {
   cargando(true, "Cargando hoja de trabajo…");
-  [D, ASIG] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => [])]);
+  [D, ASIG, NEC] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => []),
+                                      fetch("/api/necesidades").then(r => r.json()).catch(() => ({}))]);
   cargando(false); pintar();
 })();
 </script>

@@ -50,6 +50,8 @@ drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
 create table if not exists gestor.meta (clave text primary key, valor text);
+create table if not exists gestor.necesidades (
+  codigo text not null, perfil text not null, dias numeric not null default 0, primary key (codigo, perfil));
 create table if not exists gestor.asignaciones (
   codigo text not null, persona text not null, dias jsonb not null default '{{}}'::jsonb,
   actualizado timestamptz default now(), primary key (codigo, persona));
@@ -153,3 +155,24 @@ def guardar_asignacion(codigo: str, persona: str, dias: dict) -> None:
 def borrar_asignacion(codigo: str, persona: str) -> None:
     with _conn() as c:
         c.execute("delete from gestor.asignaciones where codigo = %s and persona = %s", (codigo, persona))
+
+
+# ---------- hoja de trabajo: posiciones que necesita cada proyecto (días), definidas por el usuario
+def leer_necesidades() -> dict:
+    out = {}
+    with _conn() as c:
+        for cod, pf, dias in c.execute("select codigo, perfil, dias from gestor.necesidades order by codigo, perfil"):
+            out.setdefault(cod, [])
+            if pf != "_vacio":
+                out[cod].append({"perfil": pf, "dias": float(dias)})
+    return out
+
+
+def guardar_necesidades(codigo: str, items: list[dict]) -> None:
+    with _conn() as c:
+        c.execute("delete from gestor.necesidades where codigo = %s", (codigo,))
+        filas = [(codigo, str(i["perfil"]), float(i["dias"])) for i in items if float(i.get("dias", 0)) > 0]
+        if not filas:   # el usuario quitó todas: se recuerda que está vacío
+            filas = [(codigo, "_vacio", 0)]
+        with c.cursor() as cur:
+            cur.executemany("insert into gestor.necesidades values (%s, %s, %s)", filas)

@@ -74,6 +74,19 @@ def api_borrar_asignacion(codigo: str, persona: str):
     return {"ok": True}
 
 
+@app.get("/api/necesidades")
+def api_necesidades():
+    return db.leer_necesidades() if db.disponible() else {}
+
+
+@app.put("/api/necesidades")
+def api_guardar_necesidades(body: dict = Body(...)):
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    db.guardar_necesidades(str(body["codigo"]), body.get("items") or [])
+    return {"ok": True}
+
+
 @app.get("/api/estado")
 def api_estado():
     return db.estado()
