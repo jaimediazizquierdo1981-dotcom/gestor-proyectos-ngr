@@ -64,10 +64,12 @@ def capacidad(equipo: list[dict], feriados: list[dict], p: dict, lista: list[str
     c = p["capacidad"]
     fer = {pd.Timestamp(f["fecha"]).date() for f in feriados} if c.get("descontar_feriados", True) else set()
     out = {}
-    dias_ter = float(c.get("horas_mes_tercero", 160)) / float(c.get("horas_por_dia_tercero", 8))
     for e in equipo:
-        if e.get("tipo") == "tercero":   # terceros: capacidad contratada fija (160 h = 20 días al mes)
-            out[e["persona"]] = np.full(len(lista), dias_ter)
+        if e.get("tipo") == "tercero":   # terceros: 22 días hábiles al mes menos los feriados del mes (sin vacaciones ni reserva)
+            base = float(c.get("dias_habiles_mes_tercero", 22))
+            out[e["persona"]] = np.array([
+                max(base - sum(1 for d in pd.bdate_range(pd.Period(m, "M").start_time, pd.Period(m, "M").end_time) if d.date() in fer), 0)
+                for m in lista])
             continue
         fila = []
         fd = float(e.get("dias_semana", 5) or 5) / 5   # fracción de cada día hábil que trabaja
@@ -296,6 +298,26 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                       **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "dias_requeridos"]},
                       "req_mes": r["req_mes"], "prob_cubierto": mc["prob"].get(pr["codigo"]),
                       "dias_proyectados": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
+
+    # en modo hoja, las columnas de recursos muestran los días asignados en la Hoja de trabajo
+    if modo == "hoja":
+        tipo_de = {e["persona"]: e.get("tipo") or "interno" for e in equipo}
+        perfil_de = {e["persona"]: e["perfil"] for e in equipo}
+        a_tercero = {"Desarrollador": "Dev", "QA": "QA", "Analista Funcional": "Analista Funcional", "Analista Técnico": "Analista Técnico"}
+        for f in filas:
+            rec, ter = {pf: 0.0 for pf in PERFILES}, {t: 0.0 for t in TERCEROS}
+            for n, ms in a["asignacion"].items():
+                d = sum(x.get(f["codigo"], 0) for x in ms.values())
+                if not d:
+                    continue
+                if tipo_de.get(n) == "tercero":
+                    t = a_tercero.get(perfil_de[n])
+                    if t:
+                        ter[t] += d
+                else:
+                    rec[perfil_de[n]] += d
+            f["recursos"], f["terceros"] = rec, ter
+            f["dias_base"], f["dias_terceros"] = sum(rec.values()), sum(ter.values())
 
     # capacidad vs. uso por perfil y mes
     gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}

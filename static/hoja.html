@@ -119,7 +119,7 @@ function pintarLista() {
     if (g.length) h += `<div class="grupo" style="color:${COL_PERFIL[r]}">${r}</div>` + g.map(tarjeta).join("");
   }
   const t = D.personas.filter(p => p.tipo === "tercero" && ok(p));
-  if (t.length) h += `<div class="grupo ter-h">Terceros · ${fmtD(t[0].capacidad[0])} días/mes c/u (160 h)</div>` +
+  if (t.length) h += `<div class="grupo ter-h">Terceros · 22 días hábiles/mes menos feriados</div>` +
     ROLES.map(r => t.filter(p => p.perfil === r)).filter(g => g.length).map(g => `<div class="grupo" style="color:${COL_PERFIL[g[0].perfil]};margin-top:4px">${g[0].perfil}</div>` + g.map(tarjeta).join("")).join("");
   lista.innerHTML = h;
   lista.querySelectorAll(".col").forEach(el => el.ondragstart = e => { e.dataTransfer.setData("text/plain", el.dataset.p); e.dataTransfer.effectAllowed = "copy"; });

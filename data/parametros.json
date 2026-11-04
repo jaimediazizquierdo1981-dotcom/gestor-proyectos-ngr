@@ -7,8 +7,7 @@
     "descontar_feriados": true,
     "dias_vacaciones_anual": 22,
     "reserva_operacion_pct": 0.3,
-    "horas_mes_tercero": 160,
-    "horas_por_dia_tercero": 8
+    "dias_habiles_mes_tercero": 22
   },
   "estimacion": {
     "contingencia_pct": 0.1,

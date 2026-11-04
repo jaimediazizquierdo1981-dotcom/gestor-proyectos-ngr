@@ -47,7 +47,7 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="tbl"><table id="t"></table></div>
-  <div class="note">Recursos internos = esfuerzo base del equipo propio en días-persona (sin contingencia). Terceros = días de proveedores externos: no consumen capacidad del equipo. <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. <b>P(viable)</b> = probabilidad (modelo automático + Monte Carlo) de que el equipo pueda cubrirlo al 100% si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
+  <div class="note"><span id="notaRec">Recursos internos y Terceros = días asignados a personas en la Hoja de trabajo, por rol.</span> <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. <b>P(viable)</b> = probabilidad (modelo automático + Monte Carlo) de que el equipo pueda cubrirlo al 100% si el esfuerzo varía según PERT. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
   <div class="fila2">
     <div class="card">
@@ -177,6 +177,7 @@ async function cargar() {
   D = await calcular(); D.proyectos.forEach(p => p.prob_cubierto = null);
   tabla(); pie(); barras(); heat();
   sub.textContent = sub.textContent.replace(/^Datos ficticios\./, `Datos ficticios (desde ${D.origen}).`);
+  if (D.modo !== "hoja") notaRec.textContent = "Recursos internos = esfuerzo base del equipo propio en días-persona (sin contingencia). Terceros = días de proveedores externos.";
   if (D.modo !== "hoja") subPie.textContent = "Según la capacidad del equipo y el orden de prioridad (modelo automático).";
   cargando(true, "Simulando riesgo (Monte Carlo)…");
   const mc = await montecarlo().catch(() => null);
