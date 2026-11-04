@@ -41,6 +41,8 @@
   td input.sobre{border-color:#d64545;background:#fdecec;color:#a52f2f;font-weight:700}
   td input.lleno{background:#eef4fb;border-color:#c9d6ea}
   td input::-webkit-inner-spin-button,td input::-webkit-outer-spin-button{opacity:1;height:22px}
+  .prom{font:inherit;font-size:11.5px;padding:3px 8px;border:1px solid #c9d6ea;background:#eef4fb;color:#1F3864;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .prom:hover{background:#dfe9f6}
   .x{border:0;background:none;color:#b0b5bf;cursor:pointer;font-size:15px}
   .x:hover{color:#d64545}
   .drop{padding:12px 16px;color:var(--muted);font-size:12.5px;border-top:1px dashed #e3ddd0;text-align:center}
@@ -129,7 +131,7 @@ function pintarProyectos() {
       <div class="ph"><span class="pr">${p.prioridad}</span><h3>${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
       <div class="need">${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig >= v.req - .5 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="Asignado / requerido">${pf}: ${fmtD(v.asig)} / ${fmtD(v.req)} d</span>`).join("")}</div>
-      ${filas.length ? `<table><tr><th class="l">Colaborador</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th><th></th></tr>` +
+      ${filas.length ? `<table><tr><th class="l">Colaborador</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th><th></th><th></th></tr>` +
         filas.map(a => { const pe = persona(a.persona); if (!pe) return "";
           const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
           return `<tr><td class="l"><div class="persona-cell">${muneco(COL_PERFIL[pe.perfil], 22)}<div><b>${pe.persona}</b><br><small>${pe.perfil}</small></div></div></td>` +
@@ -137,7 +139,7 @@ function pintarProyectos() {
               return `<td class="${vm.includes(m) ? "" : "fuera"}"><input type="number" min="0" step="0.5" value="${v}" class="${sobre ? "sobre" : v ? "lleno" : ""}"
                 title="${fmtMes(m)} · libres sin este proyecto: ${fmtD((pe.capacidad[i] || 0) - usadoMes(pe.persona, m, a))} días"
                 onchange="editar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}','${m}',this.value)"></td>`; }).join("") +
-            `<td><b>${fmtD(tot)}</b></td><td><button class="x" title="Quitar del proyecto" onclick="quitar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">✕</button></td></tr>`; }).join("") + "</table>" : ""}
+            `<td><b>${fmtD(tot)}</b></td><td><button class="prom" title="Repartir el total en partes iguales entre los meses del proyecto" onclick="promediar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">⚖ Promediar</button></td><td><button class="x" title="Quitar del proyecto" onclick="quitar('${a.codigo}','${a.persona.replace(/'/g, "\\'")}')">✕</button></td></tr>`; }).join("") + "</table>" : ""}
       <div class="drop">Arrastra aquí a los colaboradores que necesita este proyecto</div></div>`;
   }).join("");
   proyectos.querySelectorAll(".proy").forEach(el => {
@@ -188,6 +190,16 @@ function editar(codigo, nombre, mes, valor) {
   const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre);
   const v = Math.max(0, +valor || 0);
   if (v) a.dias[mes] = v; else delete a.dias[mes];
+  pintar(); guardarA(a);
+}
+function promediar(codigo, nombre) {
+  const a = ASIG.find(x => x.codigo === codigo && x.persona === nombre), vm = mesesProyecto(proyecto(codigo));
+  const tot = Object.values(a.dias).reduce((x, y) => x + +y, 0);
+  if (!vm.length || !tot) return;
+  const base = Math.floor(tot / vm.length * 2) / 2;          // medio día
+  let resto = Math.round((tot - base * vm.length) * 2) / 2;   // lo que sobra se reparte de medio en medio desde el primer mes
+  a.dias = {};
+  vm.forEach(m => { let v = base; if (resto > 0) { v += 0.5; resto -= 0.5; } if (v > 0) a.dias[m] = v; });
   pintar(); guardarA(a);
 }
 async function quitar(codigo, nombre) {
