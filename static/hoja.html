@@ -37,9 +37,10 @@
   th{font-size:11px;color:var(--muted);font-weight:600}
   td.l,th.l{text-align:left;padding-left:16px}
   td.fuera input{background:#f3f1ec;color:#aaa}
-  td input{width:42px;padding:3px 2px;border:1px solid #e3ddd0;border-radius:5px;font:inherit;text-align:center}
+  td input{width:62px;padding:3px 2px 3px 6px;border:1px solid #e3ddd0;border-radius:5px;font:inherit;text-align:center}
   td input.sobre{border-color:#d64545;background:#fdecec;color:#a52f2f;font-weight:700}
   td input.lleno{background:#eef4fb;border-color:#c9d6ea}
+  td input::-webkit-inner-spin-button,td input::-webkit-outer-spin-button{opacity:1;height:22px}
   .x{border:0;background:none;color:#b0b5bf;cursor:pointer;font-size:15px}
   .x:hover{color:#d64545}
   .drop{padding:12px 16px;color:var(--muted);font-size:12.5px;border-top:1px dashed #e3ddd0;text-align:center}
@@ -56,7 +57,7 @@
 <script>nav("Hoja de trabajo")</script>
 <main>
   <h1>Hoja de trabajo: quién trabaja en qué proyecto y en qué meses</h1>
-  <div class="sub">Arrastra a un colaborador desde la lista de la izquierda hasta la sección del proyecto. Se propone cuántos días por mes según lo que el proyecto necesita de su rol y lo que la persona tiene libre; ajusta cada mes a mano. La disponibilidad de cada persona parte de sus días netos (ya descontados feriados, vacaciones y la reserva para operación) y baja con cada asignación. <span id="msg"></span></div>
+  <div class="sub">Arrastra a un colaborador desde la lista de la izquierda hasta la sección del proyecto. Se propone el promedio simple (días que el proyecto necesita de su rol ÷ meses del proyecto), sin pasar lo que la persona tiene libre; sube o baja cada mes con las flechas (de medio día en medio día). La disponibilidad de cada persona parte de sus días netos (ya descontados feriados, vacaciones y la reserva para operación) y baja con cada asignación. <span id="msg"></span></div>
   <div class="barra" id="kpis"></div>
   <div class="wrap">
     <aside>
@@ -166,13 +167,17 @@ function agregar(codigo, nombre) {
   const p = proyecto(codigo), pe = persona(nombre);
   if (!p || !pe) return;
   if (ASIG.some(a => a.codigo === codigo && a.persona === nombre)) { aviso(`${nombre} ya está en ${codigo}.`, false); return; }
-  // propuesta: lo que falta del rol en cada mes del proyecto, sin pasar los días libres de la persona
-  const dias = {}, req = p.req_mes?.[pe.perfil] || [];
+  // propuesta: promedio simple = días que faltan del rol en el proyecto ÷ meses del proyecto (sin curva),
+  // sin pasar los días libres de la persona en cada mes; el usuario ajusta luego mes a mes
+  const dias = {}, vm = mesesProyecto(p);
+  const reqRol = (p.req_mes?.[pe.perfil] || []).reduce((a, b) => a + b, 0);
+  const yaRol = ASIG.filter(a => a.codigo === codigo && persona(a.persona)?.perfil === pe.perfil)
+    .reduce((s, a) => s + Object.values(a.dias).reduce((x, y) => x + +y, 0), 0);
+  const prom = vm.length ? Math.max(reqRol - yaRol, 0) / vm.length : 0;
   D.meses.forEach((m, i) => {
-    if (!mesesProyecto(p).includes(m)) return;
-    const yaRol = ASIG.filter(a => a.codigo === codigo && persona(a.persona)?.perfil === pe.perfil).reduce((s, a) => s + (+a.dias[m] || 0), 0);
-    const falta = Math.max((req[i] || 0) - yaRol, 0), lib = Math.max((pe.capacidad[i] || 0) - usadoMes(nombre, m), 0);
-    const v = r1(Math.min(falta, lib));
+    if (!vm.includes(m)) return;
+    const lib = Math.max((pe.capacidad[i] || 0) - usadoMes(nombre, m), 0);
+    const v = r1(Math.min(prom, lib));
     if (v > 0) dias[m] = v;
   });
   const a = {codigo, persona: nombre, dias};
