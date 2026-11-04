@@ -30,11 +30,11 @@
 <main>
   <h1>Base teórica: qué modelos usa el gestor</h1>
   <div class="sub">Cinco modelos encadenados, todos de uso estándar en gestión de portafolios y planificación de capacidad. Los ejemplos se calculan en vivo con los datos y criterios actuales.</div>
-  <div class="flujo"><span>1 · Capacidad neta</span><b>→</b><span>2 · Curva de Rayleigh</span><b>→</b><span>3 · Asignación con recursos limitados (RCPSP)</span><b>→</b><span>4 · PERT + Monte Carlo</span><b>→</b><span>5 · Valor Ganado (EVM)</span></div>
+  <div class="flujo"><span>1 · Capacidad neta</span><b>→</b><span>2 · Curva de Rayleigh</span><b>→</b><span>3 · Asignación con recursos limitados (RCPSP)</span><b>→</b><span>4 · PERT + Monte Carlo</span><b>→</b><span>5 · Proyectado vs. capacidad real</span></div>
 
   <section class="card">
     <h2><span class="n">1</span>Capacidad neta disponible (modelo determinístico de capacidad)</h2>
-    <div class="rol">Responde: ¿cuántas horas reales tiene cada persona para proyectos cada mes?</div>
+    <div class="rol">Responde: ¿cuántas horas tiene realmente cada persona para proyectos cada mes?</div>
     <p>La capacidad no es 40 h × 4 semanas. Se parte de los días hábiles del mes, se restan feriados y vacaciones, y se reserva un porcentaje para la operación (requerimientos e incidencias), que se proyecta en la app de Demanda TI.</p>
     <div class="f">C<sub>p,m</sub> = (días hábiles<sub>m</sub> − feriados<sub>m</sub> − vacaciones/12) × horas/día × (1 − reserva)</div>
     <div class="ej" id="ej1"></div>
@@ -72,12 +72,12 @@
   </section>
 
   <section class="card">
-    <h2><span class="n">5</span>Real vs. proyectado: Valor Ganado (EVM)</h2>
-    <div class="rol">Responde: ¿los proyectos en curso consumen la capacidad que se planificó?</div>
-    <p>Se comparan, a la fecha de corte, las horas planificadas (PV), las reales (AC) y el valor del avance logrado (EV = % avance × horas totales). Dos índices resumen la salud del proyecto y permiten reproyectar la capacidad que todavía va a consumir.</p>
-    <div class="f">SPI = EV / PV &nbsp;(plazo) &nbsp;&nbsp; CPI = EV / AC &nbsp;(eficiencia en horas) &nbsp;&nbsp; EAC = horas totales / CPI</div>
+    <h2><span class="n">5</span>Horas proyectadas vs. capacidad real</h2>
+    <div class="rol">Responde: ¿cuánto de lo que necesita cada proyecto le puede dar realmente el equipo?</div>
+    <p>Las horas proyectadas son lo que tomará el proyecto. La capacidad real es lo que el modelo 3 le logra asignar con la gente y la disponibilidad neta del modelo 1. La diferencia es la brecha de capacidad: se cierra con más personas, terceros, postergando el inicio o bajando la prioridad de otro proyecto.</p>
+    <div class="f">Brecha<sub>j</sub> = Horas proyectadas<sub>j</sub> − Capacidad asignada<sub>j</sub> &nbsp;&nbsp; Uso<sub>perfil,mes</sub> = Asignado / Capacidad neta</div>
     <div id="ej5"></div>
-    <div class="ref">PMI (2019). <i>The Standard for Earned Value Management</i>. ANSI/EIA-748. Fleming y Koppelman (2010). <i>Earned Value Project Management</i>.</div>
+    <div class="ref">Fundamento: análisis de brecha capacidad-demanda (<i>Rough-Cut Capacity Planning</i>, APICS/ASCM) y gestión de recursos del portafolio (PMI, <i>The Standard for Portfolio Management</i>).</div>
   </section>
 </main>
 <script>
@@ -112,12 +112,12 @@ Promise.all([calcular(), montecarlo()]).then(([D, mc0]) => {
   const acum = dist.reduce((a, v, k) => k >= E.cubierto ? a + v : a, 0) / mc.n;
   ej4.innerHTML = `<b>${mc.n} simulaciones</b> con factores ${p.riesgo.pert_optimista} / ${p.riesgo.pert_probable} / ${p.riesgo.pert_pesimista} (factor esperado ${mc.media_factor.toFixed(2)}). Probabilidad de cubrir al menos los ${E.cubierto} proyectos del plan determinístico: <b>${Math.round(acum * 100)}%</b>. Por eso un plan con poco margen es frágil: el esfuerzo real tiende a pasarse del estimado.`;
 
-  // 5 · EVM
-  const ev = D.proyectos.filter(x => x.evm.ac > 0);
-  ej5.innerHTML = ev.length ? `<table><tr><th>Proyecto</th><th>Plan total (h)</th><th>PV</th><th>AC</th><th>EV</th><th>SPI</th><th>CPI</th><th>EAC (h)</th></tr>` +
-    ev.map(x => `<tr><td>${x.codigo} · ${x.proyecto}</td><td>${fmtH(x.evm.horas_plan_total)}</td><td>${fmtH(x.evm.pv)}</td><td>${fmtH(x.evm.ac)}</td><td>${fmtH(x.evm.ev)}</td>
-      <td style="color:${x.evm.spi < .95 ? "#d64545" : "#2e9e6a"}">${x.evm.spi ?? "–"}</td><td style="color:${x.evm.cpi < .95 ? "#d64545" : "#2e9e6a"}">${x.evm.cpi ?? "–"}</td><td>${x.evm.eac ? fmtH(x.evm.eac) : "–"}</td></tr>`).join("") + "</table>"
-    : `<div class="ej">Aún no hay horas reales registradas hasta el corte.</div>`;
+  // 5 · brecha
+  const suma = o => Object.values(o).reduce((a, v) => a + v, 0);
+  const br = D.proyectos.filter(x => x.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  ej5.innerHTML = `<table><tr><th>Proyecto</th><th>Horas proyectadas</th><th>Capacidad real</th><th>Brecha</th><th>Estado</th></tr>` +
+    br.map(x => { const py = suma(x.horas_proyectadas), ca = suma(x.capacidad_asignada);
+      return `<tr><td>${x.codigo} · ${x.proyecto}</td><td>${fmtH(py)}</td><td>${fmtH(ca)}</td><td style="color:${py - ca > 1 ? "#d64545" : "#2e9e6a"}">${fmtH(py - ca)}</td><td><span class="est ${x.estado}">${ETQ[x.estado]}</span></td></tr>`; }).join("") + "</table>";
 });
 </script>
 </body>

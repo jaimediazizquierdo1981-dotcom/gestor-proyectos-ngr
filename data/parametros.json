@@ -1,8 +1,7 @@
 {
   "horizonte": {
     "inicio": "2026-07",
-    "fin": "2027-12",
-    "corte": "2027-12"
+    "fin": "2027-12"
   },
   "capacidad": {
     "horas_por_dia": 8,

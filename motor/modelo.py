@@ -4,7 +4,7 @@
 2. Distribución del esfuerzo de cada proyecto en el tiempo (uniforme o curva de Rayleigh / Norden-Putnam).
 3. Asignación con recursos limitados por prioridad (RCPSP, esquema serial con regla de prioridad).
 4. Riesgo: Monte Carlo con esfuerzo PERT-Beta -> probabilidad de que cada proyecto quede cubierto.
-5. Avance: Valor Ganado (EVM) con horas planificadas vs. reales a la fecha de corte.
+5. Horas proyectadas vs. capacidad real que el equipo le puede asignar a cada proyecto.
 """
 from __future__ import annotations
 
@@ -52,11 +52,9 @@ def cargar_base() -> dict:
     proyectos = pd.read_csv(DATA / "proyectos.csv", dtype={"inicio": str, "fin": str}).fillna(0)
     equipo = pd.read_csv(DATA / "equipo.csv")
     feriados = pd.read_csv(DATA / "feriados.csv")
-    reales = pd.read_csv(DATA / "horas_reales.csv") if (DATA / "horas_reales.csv").exists() else pd.DataFrame(
-        columns=["codigo", "mes", "perfil", "horas"])
     return {"parametros": params, "proyectos": proyectos.to_dict(orient="records"),
             "equipo": equipo.to_dict(orient="records"), "feriados": feriados.to_dict(orient="records"),
-            "reales": reales.to_dict(orient="records"), "perfiles": PERFILES, "origen": "archivos"}
+            "perfiles": PERFILES, "origen": "archivos"}
 
 
 # ---------------------------------------------------------------- 1. capacidad
@@ -198,31 +196,12 @@ def montecarlo(proyectos, equipo, cap, p, lista) -> dict:
             "dist_cubiertos": np.bincount(dist, minlength=len(act) + 1).tolist(), "n": n, "media_factor": mu}
 
 
-# ---------------------------------------------------------------- 5. valor ganado
-def evm(pr: dict, plan: dict, reales: list[dict], lista: list[str], corte: str) -> dict:
-    i = _idx(corte, lista)
-    total = sum(v.sum() for v in plan.values())
-    pv = sum(v[: i + 1].sum() for v in plan.values()) if i >= 0 else 0.0
-    ac_perfil = {pf: 0.0 for pf in PERFILES}
-    for r in reales:
-        if r["codigo"] == pr["codigo"] and str(r["mes"]) <= corte:
-            ac_perfil[r["perfil"]] = ac_perfil.get(r["perfil"], 0) + float(r["horas"])
-    ac = sum(ac_perfil.values())
-    ev = float(pr.get("avance_pct", 0) or 0) * total
-    pv_perfil = {pf: round(float(v[: i + 1].sum()), 1) if i >= 0 else 0 for pf, v in plan.items()}
-    return {"horas_plan_total": round(total, 1), "pv": round(pv, 1), "ac": round(ac, 1), "ev": round(ev, 1),
-            "spi": round(ev / pv, 2) if pv else None, "cpi": round(ev / ac, 2) if ac else None,
-            "eac": round(total / (ev / ac), 1) if ac and ev else None,
-            "pv_perfil": pv_perfil, "ac_perfil": {k: round(v, 1) for k, v in ac_perfil.items()}}
-
-
 # ---------------------------------------------------------------- orquestador
 def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     entrada = entrada or {}
     base = cargar_base()
     p = _fusionar(base["parametros"], entrada.get("parametros", {}))
     lista = meses(p["horizonte"]["inicio"], p["horizonte"]["fin"])
-    corte = p["horizonte"]["corte"]
     escenario = entrada.get("escenario", {})  # {codigo: {incluir, inicio, fin, prioridad}}
     proyectos = []
     for pr in entrada.get("proyectos") or base["proyectos"]:
@@ -243,19 +222,23 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     filas = []
     for pr in proyectos:
         r = a["resultado"][pr["codigo"]]
-        plan = plan_proyecto(pr, p, lista, r["desplazo_meses"])
-        e = evm(pr, plan, base["reales"], lista, corte)
+        asig = {pf: 0.0 for pf in PERFILES}
+        for e_ in equipo:
+            for d_ in a["asignacion"].get(e_["persona"], {}).values():
+                asig[e_["perfil"]] += d_.get(pr["codigo"], 0)
+        proy = {pf: round(float(sum(v)), 1) for pf, v in (r["req_mes"] or {}).items()}
         fin_real = str(pd.Period(pr["fin"], "M") + r["desplazo_meses"])
         dur = (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
         opex_meses = sum(1 for m in lista if m > fin_real) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
         filas.append({**{k: pr[k] for k in ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin",
-                                              "capex", "opex_mensual", "avance_pct", "incluir"]},
+                                              "capex", "opex_mensual", "incluir"]},
                       "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real,
                       "duracion_meses": dur, "recursos": {pf: float(pr.get(pf, 0) or 0) for pf in PERFILES},
                       "horas_base": float(sum(float(pr.get(pf, 0) or 0) for pf in PERFILES)),
                       "opex_anual": float(pr["opex_mensual"]) * 12, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses,
                       **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "horas_requeridas"]},
-                      "req_mes": r["req_mes"], "prob_cubierto": mc["prob"].get(pr["codigo"]), "evm": e})
+                      "req_mes": r["req_mes"], "prob_cubierto": mc["prob"].get(pr["codigo"]),
+                      "horas_proyectadas": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
 
     # capacidad vs. uso por perfil y mes
     gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf] for pf in PERFILES}
@@ -269,7 +252,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                  "capacidad": cap[e["persona"]].round(1).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
-    return {"meses": lista, "corte": corte, "parametros": p, "perfiles": PERFILES, "proyectos": filas,
+    return {"meses": lista, "parametros": p, "perfiles": PERFILES, "proyectos": filas,
             "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc, "origen": base.get("origen")}
 
 
