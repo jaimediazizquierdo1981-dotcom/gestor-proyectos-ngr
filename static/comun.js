@@ -37,7 +37,7 @@ const fmtMes = m => MES[+m.slice(5) - 1] + "-" + m.slice(2, 4);
 const activo = p => p.incluir && !p.on_hold;
 const fmtD = n => (Math.abs(n) < 10 && Math.round(n) !== n ? n.toFixed(1).replace(".", ",") : Math.round(n).toLocaleString("es-PE"));
 const fmtS = n => "S/ " + Math.round(n).toLocaleString("es-PE");
-const fmtK = n => n >= 1e6 ? "S/ " + (n / 1e6).toFixed(2) + " M" : "S/ " + Math.round(n / 1000) + " k";
+const fmtK = n => fmtS(n);   // siempre el número completo (sin k ni M)
 const fmtPct = n => n == null ? "–" : Math.round(n * 100) + "%";
 const ETQ = {cubierto: "Cubierto", parcial: "Parcial", no_cubierto: "No cubierto", on_hold: "On hold", excluido: "Excluido"};
 const COL = {cubierto: "#2e9e6a", parcial: "#e5a12a", no_cubierto: "#d64545", on_hold: "#8a8f99", excluido: "#a7adb8"};
