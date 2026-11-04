@@ -14,10 +14,13 @@ import pandas as pd
 
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
-DATOS_VERSION = "6"  # subir este número fuerza recargar los datos ficticios
-PERFILES = ["PM", "Arquitecto", "Desarrollador", "Data Engineer", "QA", "Infra"]
-COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Desarrollador": "d_desarrollador",
-       "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra"}  # días por perfil
+DATOS_VERSION = "7"  # subir este número fuerza recargar los datos ficticios
+PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"]
+COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
+       "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
+       "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra"}  # días por perfil interno
+TERC = {"T Dev": "t_dev", "T QA": "t_qa", "T Analista Funcional": "t_analista_funcional",
+        "T Analista Técnico": "t_analista_tecnico"}  # días de terceros
 
 
 def disponible() -> bool:
@@ -37,7 +40,7 @@ create table if not exists gestor.proyectos (
   codigo text primary key, proyecto text not null, tipo text not null, marca text,
   prioridad int not null, inicio text not null, fin text not null,
   capex numeric default 0, opex_mensual numeric default 0,
-  {", ".join(f"{c} numeric default 0" for c in COL.values())},
+  {", ".join(f"{c} numeric default 0" for c in list(COL.values()) + list(TERC.values()))},
   actualizado timestamptz default now());
 create table if not exists gestor.equipo (
   persona text primary key, perfil text not null, dias_semana numeric default 5, genero text);
@@ -72,8 +75,9 @@ def sembrar(c) -> None:
     cols = ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin", "capex", "opex_mensual"]
     with c.cursor() as cur:
         cur.executemany(
-            f"insert into gestor.proyectos ({', '.join(cols + list(COL.values()))}) values ({', '.join(['%s'] * (len(cols) + 6))})",
-            [[r[k] for k in cols] + [r[p] for p in PERFILES] for r in pr.to_dict(orient="records")])
+            f"insert into gestor.proyectos ({', '.join(cols + list(COL.values()) + list(TERC.values()))}) "
+            f"values ({', '.join(['%s'] * (len(cols) + len(COL) + len(TERC)))})",
+            [[r[k] for k in cols] + [r[p] for p in PERFILES] + [r[t] for t in TERC] for r in pr.to_dict(orient="records")])
         eq = pd.read_csv(DATA / "equipo.csv")
         cur.executemany("insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo) values (%s,%s,%s,%s,%s,%s) on conflict do nothing",
                         eq[["persona", "perfil", "dias_semana", "genero", "area", "cargo"]].values.tolist())
@@ -87,11 +91,12 @@ def leer() -> dict:
     with _conn() as c:
         cur = c.cursor()
         pr = cur.execute(f"select codigo, proyecto, tipo, marca, prioridad, inicio, fin, capex, opex_mensual, "
-                         f"{', '.join(COL.values())} from gestor.proyectos order by prioridad").fetchall()
+                         f"{', '.join(list(COL.values()) + list(TERC.values()))} from gestor.proyectos order by prioridad").fetchall()
         proyectos = []
         for r in pr:
             d = dict(zip(["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin", "capex", "opex_mensual"], r[:9]))
-            d.update({p: float(v or 0) for p, v in zip(PERFILES, r[9:])})
+            d.update({p: float(v or 0) for p, v in zip(PERFILES, r[9:9 + len(PERFILES)])})
+            d.update({t: float(v or 0) for t, v in zip(TERC, r[9 + len(PERFILES):])})
             for k in ["capex", "opex_mensual"]:
                 d[k] = float(d[k] or 0)
             proyectos.append(d)

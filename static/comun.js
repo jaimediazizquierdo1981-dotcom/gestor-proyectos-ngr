@@ -36,4 +36,4 @@ const fmtK = n => n >= 1e6 ? "S/ " + (n / 1e6).toFixed(2) + " M" : "S/ " + Math.
 const fmtPct = n => n == null ? "–" : Math.round(n * 100) + "%";
 const ETQ = {cubierto: "Cubierto", parcial: "Parcial", no_cubierto: "No cubierto", excluido: "Excluido"};
 const COL = {cubierto: "#2e9e6a", parcial: "#e5a12a", no_cubierto: "#d64545", excluido: "#a7adb8"};
-const COL_PERFIL = {"PM": "#1F3864", "Arquitecto": "#7b5ea7", "Desarrollador": "#2f7fc1", "Data Engineer": "#1a9a8f", "QA": "#d8833a", "Infra": "#6b7a8f"};
+const COL_PERFIL = {"PM": "#1F3864", "Arquitecto": "#7b5ea7", "Analista Funcional": "#c2547a", "Analista Técnico": "#8a6d3b", "Desarrollador": "#2f7fc1", "Data Engineer": "#1a9a8f", "QA": "#d8833a", "Infra": "#6b7a8f"};

@@ -17,7 +17,8 @@ import numpy as np
 import pandas as pd
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-PERFILES = ["PM", "Arquitecto", "Desarrollador", "Data Engineer", "QA", "Infra"]
+PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"]
+TERCEROS = ["Dev", "QA", "Analista Funcional", "Analista Técnico"]  # días de terceros: no consumen capacidad interna
 
 
 # ---------------------------------------------------------------- utilidades
@@ -234,6 +235,8 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                                               "capex", "opex_mensual", "incluir"]},
                       "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real,
                       "duracion_meses": dur, "recursos": {pf: float(pr.get(pf, 0) or 0) for pf in PERFILES},
+                      "terceros": {t: float(pr.get("T " + t, 0) or 0) for t in TERCEROS},
+                      "dias_terceros": float(sum(float(pr.get("T " + t, 0) or 0) for t in TERCEROS)),
                       "dias_base": float(sum(float(pr.get(pf, 0) or 0) for pf in PERFILES)),
                       "opex_anual": float(pr["opex_mensual"]) * 12, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses,
                       **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "dias_requeridos"]},
@@ -253,7 +256,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                  "capacidad": cap[e["persona"]].round(2).tolist(), "asignado": a["asignacion"].get(e["persona"], {})}
                 for e in equipo]
     estados = {k: sum(1 for f in filas if f["estado"] == k) for k in ["cubierto", "parcial", "no_cubierto", "excluido"]}
-    return {"meses": lista, "parametros": p, "perfiles": PERFILES, "proyectos": filas,
+    return {"meses": lista, "parametros": p, "perfiles": PERFILES, "terceros": TERCEROS, "proyectos": filas,
             "estados": estados, "uso_perfil": uso, "personas": personas, "montecarlo": mc, "origen": base.get("origen")}
 
 

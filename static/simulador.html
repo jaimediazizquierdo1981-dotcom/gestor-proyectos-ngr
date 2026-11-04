@@ -98,14 +98,15 @@ function dibujarBase() {
   el("rect", {x: 20, y: 622, width: 430, height: 156, rx: 14, fill: "#fbecec"});
   txt(36, 645, "SALA DE ESPERA · SIN CAPACIDAD", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
   // escritorios por perfil
-  const pf = D.perfiles, cw = 150, x0 = 478;
+  const pf = D.perfiles, x0 = 470, cw = (1395 - x0) / pf.length, BW = cw - 22;
+  window.BW = BW;
   DESK = {};
   pf.forEach((f, c) => {
     const x = x0 + c * cw, gente = D.personas.filter(p => p.perfil === f);
     el("rect", {x: x, y: 70, width: cw - 10, height: 708, rx: 14, fill: "#fff", stroke: "#e6e1d6"});
     el("rect", {x: x, y: 70, width: cw - 10, height: 30, rx: 14, fill: COL_PERFIL[f]});
     el("rect", {x: x, y: 86, width: cw - 10, height: 14, fill: COL_PERFIL[f]});
-    txt(x + (cw - 10) / 2, 90, f, {"text-anchor": "middle", "font-size": 12.5, fill: "#fff", "font-weight": 700});
+    txt(x + (cw - 10) / 2, 90, f, {"text-anchor": "middle", "font-size": f.length > 12 ? 10.5 : 12.5, fill: "#fff", "font-weight": 700});
     gente.forEach((p, k) => {
       const paso = gente.length > 1 ? Math.min(132, 540 / (gente.length - 1)) : 132, y = 116 + k * paso, cx = x + (cw - 10) / 2;
       el("rect", {x: cx - 46, y: y + 58, width: 92, height: 10, rx: 3, fill: "#c9b79c"});
@@ -113,10 +114,10 @@ function dibujarBase() {
       el("rect", {x: cx - 15, y: y + 41, width: 30, height: 15, rx: 2, fill: "#9fd3ff", id: "pant_" + D.personas.indexOf(p)});
       const fig = personita(null, COL_PERFIL[f], 0.9, p.genero === "Mujer" ? "#e9b994" : "#e2b48c");
       ubicar(fig, cx - 30, y + 30);
-      txt(cx, y + 84, p.persona, {"text-anchor": "middle", "font-size": 11.5, "font-weight": 600});
-      el("rect", {x: cx - 56, y: y + 92, width: 112, height: 10, rx: 5, fill: "#ece9e2"});
-      const b = el("rect", {x: cx - 56, y: y + 92, width: 112, height: 10, rx: 5, fill: "#2e9e6a", class: "bar"});
-      const t = txt(cx, y + 118, "", {"text-anchor": "middle", "font-size": 11, fill: "#6b7280"});
+      txt(cx, y + 84, p.persona, {"text-anchor": "middle", "font-size": 10.5, "font-weight": 600});
+      el("rect", {x: cx - BW / 2, y: y + 92, width: BW, height: 10, rx: 5, fill: "#ece9e2"});
+      const b = el("rect", {x: cx - BW / 2, y: y + 92, width: BW, height: 10, rx: 5, fill: "#2e9e6a", class: "bar"});
+      const t = txt(cx, y + 118, "", {"text-anchor": "middle", "font-size": 10, fill: "#6b7280"});
       DESK[p.persona] = {x: cx, y: y + 40}; bars[p.persona] = {b, t};
     });
   });
@@ -125,9 +126,9 @@ function dibujarBase() {
 function pintarBarra(p, i) {
   const cap = D.personas.find(x => x.persona === p).capacidad[i] || 0, u = usado[p] || 0;
   const libre = Math.max(cap - u, 0), r = cap ? u / cap : 0, {b, t} = bars[p];
-  const w = cap ? libre / cap * 112 : 0; b.setAttribute("width", w); b.style.width = w + "px";
+  const w = cap ? libre / cap * window.BW : 0; b.setAttribute("width", w); b.style.width = w + "px";
   b.setAttribute("fill", r >= .98 ? "#d64545" : r >= .85 ? "#e8833a" : r >= .6 ? "#e5a12a" : "#2e9e6a");
-  t.textContent = `${fmtD(libre)} días libres de ${fmtD(cap)}`;
+  t.textContent = `${fmtD(libre)} de ${fmtD(cap)} días libres`;
   t.setAttribute("fill", r >= .98 ? "#d64545" : "#6b7280");
 }
 
