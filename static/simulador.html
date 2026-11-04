@@ -15,8 +15,8 @@
   .kp{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
   .kp div{background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 12px;font-size:12px;color:var(--muted)}
   .kp b{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
-  .esc{background:#fbfaf7;border:1px solid var(--line);border-radius:14px;overflow:hidden}
-  svg{width:100%;height:auto;display:block;font-family:"Segoe UI",system-ui,Arial,sans-serif}
+  .esc{background:#f4f6f9;box-shadow:0 1px 3px rgba(15,23,42,.06);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  svg{width:100%;height:auto;display:block;font-family:"Inter","Segoe UI",system-ui,Arial,sans-serif}
   .mov{transition-property:transform;transition-timing-function:ease-in-out}
   .bar{transition:width .5s ease, fill .5s}
   .fade{transition:opacity .5s}
@@ -45,12 +45,32 @@ const el = (tag, at = {}, padre) => { const e = document.createElementNS(NS, tag
 const txt = (x, y, t, at = {}, padre) => { const e = el("text", {x, y, ...at}, padre); e.textContent = t; return e; };
 const COL_TIPO = {Transformacional: "#7b5ea7", Tecnologia: "#2f7fc1"};
 
-function personita(padre, color, esc = 1, piel = "#f1c9a5") {
-  const g = el("g", {}, padre);
-  el("path", {d: `M${-11 * esc},${26 * esc} Q${-11 * esc},${6 * esc} 0,${6 * esc} Q${11 * esc},${6 * esc} ${11 * esc},${26 * esc} Z`, fill: color}, g);
-  el("circle", {cx: 0, cy: -3 * esc, r: 8 * esc, fill: piel}, g);
+// avatar diverso y determinístico por nombre: tono de piel, cabello y estilo varían
+const PIELES = ["#f6d3b3", "#eab98f", "#d39a6a", "#b07548", "#8a5a36", "#5e3a22"];
+const PELOS = ["#1f1a17", "#3b2618", "#5a3a22", "#8a5a2b", "#b8893d", "#6e6e6e", "#2b2b3a"];
+const hash = t => { let h = 0; for (const c of String(t)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
+function avatar(padre, semilla, genero, color, esc = 1) {
+  const h = hash(semilla), piel = PIELES[h % PIELES.length], pelo = PELOS[(h >> 3) % PELOS.length];
+  const mujer = genero ? genero === "Mujer" : (h >> 7) % 2 === 0;
+  const estilo = mujer ? ["largo", "moño", "melena", "rizado"][(h >> 5) % 4] : ["corto", "corto", "rapado", "rizado", "calvo"][(h >> 5) % 5];
+  const g = el("g", {}, padre), k = esc;
+  if (estilo === "largo" || estilo === "melena") el("path", {d: `M${-10*k},${-4*k} Q${-11*k},${estilo === "largo" ? 18*k : 8*k} ${-6*k},${estilo === "largo" ? 18*k : 9*k} L${6*k},${estilo === "largo" ? 18*k : 9*k} Q${11*k},${estilo === "largo" ? 18*k : 8*k} ${10*k},${-4*k} Z`, fill: pelo}, g);
+  el("path", {d: `M${-12*k},${26*k} Q${-12*k},${8*k} 0,${7*k} Q${12*k},${8*k} ${12*k},${26*k} Z`, fill: color}, g);           // torso
+  el("path", {d: `M${-3.5*k},${7*k} L0,${11*k} L${3.5*k},${7*k} Z`, fill: "#fff", opacity: .85}, g);                          // cuello de camisa
+  el("rect", {x: -2.6*k, y: 2*k, width: 5.2*k, height: 6*k, rx: 1.5*k, fill: piel}, g);                                     // cuello
+  el("ellipse", {cx: 0, cy: -4*k, rx: 7.6*k, ry: 8.4*k, fill: piel}, g);                                                   // cara
+  if (estilo === "corto") el("path", {d: `M${-7.8*k},${-5*k} Q${-8*k},${-14*k} 0,${-13.2*k} Q${8*k},${-14*k} ${7.8*k},${-5*k} Q${4*k},${-10*k} ${-7.8*k},${-5*k} Z`, fill: pelo}, g);
+  if (estilo === "rapado") el("path", {d: `M${-7.6*k},${-6*k} Q0,${-15*k} ${7.6*k},${-6*k} Q0,${-11*k} ${-7.6*k},${-6*k} Z`, fill: pelo, opacity: .8}, g);
+  if (estilo === "rizado") for (let i = -3; i <= 3; i++) el("circle", {cx: i * 2.4 * k, cy: (-11.5 + Math.abs(i) * 0.9) * k, r: 3.1 * k, fill: pelo}, g);
+  if (estilo === "largo" || estilo === "melena") el("path", {d: `M${-8*k},${-3*k} Q${-8.5*k},${-14*k} 0,${-13.5*k} Q${8.5*k},${-14*k} ${8*k},${-3*k} Q${3*k},${-11*k} ${-8*k},${-3*k} Z`, fill: pelo}, g);
+  if (estilo === "moño") { el("circle", {cx: 0, cy: -14.5*k, r: 4*k, fill: pelo}, g);
+    el("path", {d: `M${-8*k},${-4*k} Q${-8.5*k},${-13.5*k} 0,${-13*k} Q${8.5*k},${-13.5*k} ${8*k},${-4*k} Q${3*k},${-10*k} ${-8*k},${-4*k} Z`, fill: pelo}, g); }
+  if (estilo === "calvo") el("path", {d: `M${-7.7*k},${-2*k} Q${-8.2*k},${-6*k} ${-6.5*k},${-7*k} L${-6.5*k},${-2*k} Z M${7.7*k},${-2*k} Q${8.2*k},${-6*k} ${6.5*k},${-7*k} L${6.5*k},${-2*k} Z`, fill: pelo}, g);
+  el("circle", {cx: -2.7*k, cy: -3.5*k, r: 0.95*k, fill: "#2a211c"}, g); el("circle", {cx: 2.7*k, cy: -3.5*k, r: 0.95*k, fill: "#2a211c"}, g);
+  el("path", {d: `M${-2.2*k},${0.6*k} Q0,${2.2*k} ${2.2*k},${0.6*k}`, stroke: "#8a4a3a", "stroke-width": 0.9*k, fill: "none", "stroke-linecap": "round"}, g);
   return g;
 }
+function personita(padre, color, esc = 1, semilla = Math.random(), genero = null) { return avatar(padre, semilla, genero, color, esc); }
 function burbuja(padre, x, y, texto, color = "#1f2430", fondo = "#fff") {
   const g = el("g", {class: "fade", opacity: 0}, padre), lineas = texto.split("\n");
   const w = Math.max(...lineas.map(l => l.length)) * 6.3 + 20, h = lineas.length * 15 + 10;
@@ -69,22 +89,22 @@ const ROBOT = {x: 300, y: 300}, PUERTA = {x: 60, y: 300};
 let DESK = {};
 function dibujarBase() {
   s.innerHTML = "";
-  el("rect", {x: 0, y: 0, width: 1400, height: 790, fill: "#fbfaf7"});
+  el("rect", {x: 0, y: 0, width: 1400, height: 790, fill: "#f4f6f9"});
   // línea de tiempo
   const n = D.meses.length, tw = 1320 / n;
   D.meses.forEach((m, i) => {
-    el("rect", {x: 40 + i * tw + 2, y: 16, width: tw - 4, height: 30, rx: 6, fill: "#eceae4", id: "tm" + i});
+    el("rect", {x: 40 + i * tw + 2, y: 16, width: tw - 4, height: 30, rx: 15, fill: "#e6eaf0", id: "tm" + i});
     txt(40 + i * tw + tw / 2, 36, fmtMes(m), {"text-anchor": "middle", "font-size": 12, fill: "#6b7280", id: "tt" + i});
   });
   // zona izquierda
-  el("rect", {x: 20, y: 70, width: 430, height: 300, rx: 14, fill: "#f1eee6"});
+  el("rect", {x: 20, y: 66, width: 430, height: 304, rx: 12, fill: "#ffffff", stroke: "#e2e6ec"});
   txt(36, 94, "RECEPCIÓN", {"font-size": 11, fill: "#6b7280", "letter-spacing": 1});
-  el("rect", {x: PUERTA.x - 26, y: PUERTA.y - 70, width: 52, height: 100, rx: 6, fill: "#c9b79c", stroke: "#a8946f"});
-  el("circle", {cx: PUERTA.x + 16, cy: PUERTA.y - 20, r: 3, fill: "#6d5a3a"});
+  el("rect", {x: PUERTA.x - 26, y: PUERTA.y - 70, width: 52, height: 100, rx: 6, fill: "#cbd5e1", stroke: "#94a3b8"});
+  el("circle", {cx: PUERTA.x + 16, cy: PUERTA.y - 20, r: 3, fill: "#475569"});
   txt(PUERTA.x, PUERTA.y + 48, "Entrada", {"text-anchor": "middle", "font-size": 11, fill: "#6b7280"});
   // robot dispatcher
   const r = el("g", {transform: `translate(${ROBOT.x + 70},${ROBOT.y})`});
-  el("rect", {x: -48, y: 24, width: 96, height: 40, rx: 6, fill: "#d6d0c3"}, r);
+  el("rect", {x: -48, y: 24, width: 96, height: 40, rx: 8, fill: "#e2e8f0"}, r);
   el("line", {x1: 0, y1: -42, x2: 0, y2: -30, stroke: "#1F3864", "stroke-width": 3}, r);
   el("circle", {cx: 0, cy: -45, r: 5, fill: "#f6c344"}, r);
   el("rect", {x: -22, y: -30, width: 44, height: 32, rx: 9, fill: "#1F3864"}, r);
@@ -93,42 +113,50 @@ function dibujarBase() {
   el("rect", {x: -16, y: 4, width: 32, height: 22, rx: 5, fill: "#2a4a80"}, r);
   txt(0, 80, "Dispatcher IA", {"text-anchor": "middle", "font-size": 11.5, fill: "#1F3864", "font-weight": 700}, r);
   // en ejecución y espera
-  el("rect", {x: 20, y: 385, width: 430, height: 225, rx: 14, fill: "#eaf5ef"});
+  el("rect", {x: 20, y: 385, width: 430, height: 225, rx: 12, fill: "#f0fdf4", stroke: "#bbf7d0"});
   txt(36, 408, "EN EJECUCIÓN", {"font-size": 11, fill: "#1d7a50", "letter-spacing": 1});
-  el("rect", {x: 20, y: 622, width: 430, height: 156, rx: 14, fill: "#fbecec"});
+  el("rect", {x: 20, y: 622, width: 430, height: 156, rx: 12, fill: "#fef2f2", stroke: "#fecaca"});
   txt(36, 645, "SALA DE ESPERA · SIN ASIGNACIÓN", {"font-size": 11, fill: "#a52f2f", "letter-spacing": 1});
-  // escritorios por perfil
-  const pf = D.perfiles, x0 = 470, cw = (1395 - x0) / pf.length, BW = cw - 22;
-  window.BW = BW;
-  DESK = {};
-  pf.forEach((f, c) => {
-    const x = x0 + c * cw, gente = D.personas.filter(p => p.perfil === f);
-    el("rect", {x: x, y: 70, width: cw - 10, height: 708, rx: 14, fill: "#fff", stroke: "#e6e1d6"});
-    el("rect", {x: x, y: 70, width: cw - 10, height: 30, rx: 14, fill: COL_PERFIL[f]});
-    el("rect", {x: x, y: 86, width: cw - 10, height: 14, fill: COL_PERFIL[f]});
-    txt(x + (cw - 10) / 2, 90, f, {"text-anchor": "middle", "font-size": f.length > 12 ? 10.5 : 12.5, fill: "#fff", "font-weight": 700});
-    gente.forEach((p, k) => {
-      const paso = gente.length > 1 ? Math.min(132, 540 / (gente.length - 1)) : 132, y = 116 + k * paso, cx = x + (cw - 10) / 2;
-      el("rect", {x: cx - 46, y: y + 58, width: 92, height: 10, rx: 3, fill: "#c9b79c"});
-      el("rect", {x: cx - 18, y: y + 38, width: 36, height: 22, rx: 3, fill: "#3a4252"});
-      el("rect", {x: cx - 15, y: y + 41, width: 30, height: 15, rx: 2, fill: "#9fd3ff", id: "pant_" + D.personas.indexOf(p)});
-      const fig = personita(null, COL_PERFIL[f], 0.9, p.genero === "Mujer" ? "#e9b994" : "#e2b48c");
-      ubicar(fig, cx - 30, y + 30);
-      txt(cx, y + 84, p.persona, {"text-anchor": "middle", "font-size": 10.5, "font-weight": 600});
-      el("rect", {x: cx - BW / 2, y: y + 92, width: BW, height: 10, rx: 5, fill: "#ece9e2"});
-      const b = el("rect", {x: cx - BW / 2, y: y + 92, width: BW, height: 10, rx: 5, fill: "#2e9e6a", class: "bar"});
-      const t = txt(cx, y + 118, "", {"text-anchor": "middle", "font-size": 10, fill: "#6b7280"});
-      DESK[p.persona] = {x: cx, y: y + 40}; bars[p.persona] = {b, t};
+  // escritorios: una columna por perfil interno + una columna final de terceros (proveedores)
+  const internos = D.personas.filter(p => p.tipo !== "tercero");
+  const terceros = D.personas.filter(p => p.tipo === "tercero" && Object.keys(p.asignado || {}).length);
+  const cols = [...D.perfiles.map(f => ({t: f, color: COL_PERFIL[f], gente: internos.filter(p => p.perfil === f)})),
+                {t: "Terceros", color: "#475569", gente: terceros, ter: true}];
+  const x0 = 470, cw = (1395 - x0) / cols.length, BW = cw - 54;
+  window.BW = BW; DESK = {};
+  cols.forEach((col, c) => {
+    const x = x0 + c * cw, w = cw - 8;
+    el("rect", {x, y: 66, width: w, height: 712, rx: 12, fill: "#ffffff", stroke: "#e2e6ec"});
+    el("rect", {x, y: 66, width: w, height: 34, rx: 12, fill: col.color});
+    el("rect", {x, y: 88, width: w, height: 12, fill: col.color});
+    txt(x + w / 2, 84, col.t, {"text-anchor": "middle", "font-size": col.t.length > 12 ? 10 : 11.5, fill: "#fff", "font-weight": 700, "letter-spacing": .2});
+    txt(x + w / 2, 96, `${col.gente.length} ${col.ter ? "asignados" : "personas"}`, {"text-anchor": "middle", "font-size": 8.5, fill: "rgba(255,255,255,.8)"});
+    if (col.ter && !col.gente.length) txt(x + w / 2, 140, "Sin terceros asignados", {"text-anchor": "middle", "font-size": 9.5, fill: "#94a3b8"});
+    const max = 10;
+    col.gente.slice(0, max).forEach((p, k) => {
+      const y = 108 + k * 66, cx = x + 22;
+      el("rect", {x: x + 5, y, width: w - 10, height: 60, rx: 9, fill: "#f8fafc", stroke: "#e8ecf1"});
+      const fig = avatar(null, p.persona, p.genero || null, col.ter ? COL_PERFIL[p.perfil] || "#64748b" : col.color, 0.9);
+      ubicar(fig, cx, y + 20);
+      const nombre = col.ter ? `Proveedor ${k + 1}` : p.persona;
+      txt(x + 40, y + 17, nombre.length > 12 ? nombre.slice(0, 11) + "…" : nombre, {"font-size": 10, "font-weight": 700, fill: "#1e293b"});
+      txt(x + 40, y + 29, col.ter ? p.perfil : (p.area || "").split(" ")[0], {"font-size": 8.5, fill: "#64748b"});
+      el("rect", {x: x + 40, y: y + 36, width: BW, height: 6, rx: 3, fill: "#e5e9ef"});
+      const b = el("rect", {x: x + 40, y: y + 36, width: BW, height: 6, rx: 3, fill: "#16a34a", class: "bar"});
+      const t = txt(x + 40, y + 53, "", {"font-size": 8.5, fill: "#64748b"});
+      DESK[p.persona] = {x: cx, y: y + 24}; bars[p.persona] = {b, t};
     });
+    if (col.gente.length > max) txt(x + w / 2, 108 + max * 66 + 8, `+${col.gente.length - max} más`, {"text-anchor": "middle", "font-size": 9.5, fill: "#64748b"});
   });
 }
 
 function pintarBarra(p, i) {
+  if (!bars[p]) return;
   const cap = D.personas.find(x => x.persona === p).capacidad[i] || 0, u = usado[p] || 0;
   const libre = Math.max(cap - u, 0), r = cap ? u / cap : 0, {b, t} = bars[p];
   const w = cap ? libre / cap * window.BW : 0; b.setAttribute("width", w); b.style.width = w + "px";
-  b.setAttribute("fill", r >= .98 ? "#d64545" : r >= .85 ? "#e8833a" : r >= .6 ? "#e5a12a" : "#2e9e6a");
-  t.textContent = `${fmtD(libre)} de ${fmtD(cap)} días libres`;
+  b.setAttribute("fill", r >= .98 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a");
+  t.textContent = `${fmtD(libre)}/${fmtD(cap)} d libres`;
   t.setAttribute("fill", r >= .98 ? "#d64545" : "#6b7280");
 }
 
@@ -153,7 +181,7 @@ async function volarPunto(desde, hasta, color, ms) {
 async function llegada(pr, i, token) {
   const m = D.meses[i], col = COL_TIPO[pr.tipo] || "#2f7fc1";
   const g = el("g", {}); ubicar(g, PUERTA.x, PUERTA.y - 10);
-  personita(g, col);
+  avatar(g, pr.codigo + pr.proyecto, null, col, 1);
   const lbl = txt(0, 44, pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g);
   await sleep(150);
   await mover(g, ROBOT.x - 10, ROBOT.y - 6, 900); if (token !== run) return;
@@ -194,7 +222,7 @@ async function llegada(pr, i, token) {
 async function pasoMes(i, token) {
   ocupado = true;
   const m = D.meses[i];
-  D.meses.forEach((_, k) => { document.getElementById("tm" + k).setAttribute("fill", k < i ? "#c9d6ea" : k === i ? "#1F3864" : "#eceae4");
+  D.meses.forEach((_, k) => { document.getElementById("tm" + k).setAttribute("fill", k < i ? "#cbd5e1" : k === i ? "#1F3864" : "#e6eaf0");
     document.getElementById("tt" + k).setAttribute("fill", k === i ? "#fff" : "#6b7280"); });
   // terminan los proyectos cuyo fin ya pasó
   for (const [cod, g] of [...EJEC]) {
