@@ -1,13 +1,13 @@
-codigo,proyecto,tipo,marca,prioridad,inicio,fin,capex,opex_mensual,PM,Arquitecto,Desarrollador,Data Engineer,QA,Infra,Analista Funcional,Analista Técnico,T Dev,T QA,T Analista Funcional,T Analista Técnico
-P01,Libélula: migración POS a Simphony,Transformacional,Todas,1,2027-01,2027-09,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P02,Kioscos de autoservicio,Transformacional,Bembos,2,2027-01,2027-08,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P03,Data Governance,Transformacional,Todas,3,2027-01,2027-08,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P09,Cambio de plataforma contact center,Transformacional,Todas,4,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P04,Cliente Único,Transformacional,Todas,5,2027-01,2027-10,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P05,Pricing y gestión de menú por marca,Transformacional,Todas,6,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P08,Fábrica de IA,Transformacional,Todas,7,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P06,Loyalty y gestión de clientes (Salesforce),Transformacional,Bembos y Papa John's,8,2027-01,2027-09,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P07,Planeamiento de demanda y compras (S&OP),Transformacional,Todas,9,2027-01,2027-09,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P10,Canal delivery propio,Transformacional,Chinawok,10,2027-01,2027-08,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P11,ERP S/4HANA: fase de diseño,Transformacional,Todas,11,2027-01,2027-07,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-P12,Productividad en tienda (THL y turnos),Transformacional,Popeyes,12,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+codigo,proyecto,tipo,marca,prioridad,inicio,fin,capex,opex_mensual,PM,Arquitecto,Desarrollador,Data Engineer,QA,Infra,Seguridad TI,Analista Funcional,Analista Técnico,T Dev,T QA,T Analista Funcional,T Analista Técnico
+P01,Libélula: migración POS a Simphony,Transformacional,Todas,1,2027-01,2027-09,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P02,Kioscos de autoservicio,Transformacional,Bembos,2,2027-01,2027-08,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P03,Data Governance,Transformacional,Todas,3,2027-01,2027-08,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P09,Cambio de plataforma contact center,Transformacional,Todas,4,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P04,Cliente Único,Transformacional,Todas,5,2027-01,2027-10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P05,Pricing y gestión de menú por marca,Transformacional,Todas,6,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P08,Fábrica de IA,Transformacional,Todas,7,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P06,Loyalty y gestión de clientes (Salesforce),Transformacional,Bembos y Papa John's,8,2027-01,2027-09,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P07,Planeamiento de demanda y compras (S&OP),Transformacional,Todas,9,2027-01,2027-09,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P10,Canal delivery propio,Transformacional,Chinawok,10,2027-01,2027-08,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P11,ERP S/4HANA: fase de diseño,Transformacional,Todas,11,2027-01,2027-07,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+P12,Productividad en tienda (THL y turnos),Transformacional,Popeyes,12,2027-01,2027-06,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

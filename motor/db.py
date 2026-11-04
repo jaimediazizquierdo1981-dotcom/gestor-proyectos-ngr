@@ -15,10 +15,10 @@ import pandas as pd
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
 DATOS_VERSION = "12"  # subir este número fuerza recargar los datos ficticios
-PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"]
+PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra", "Seguridad TI"]
 COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
-       "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra"}  # días por perfil interno
+       "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra", "Seguridad TI": "d_seguridad_ti"}  # días por perfil interno
 TERC = {"T Dev": "t_dev", "T QA": "t_qa", "T Analista Funcional": "t_analista_funcional",
         "T Analista Técnico": "t_analista_tecnico"}  # días de terceros
 
@@ -47,6 +47,7 @@ create table if not exists gestor.equipo (
 alter table gestor.equipo add column if not exists area text;
 alter table gestor.equipo add column if not exists cargo text;
 alter table gestor.equipo add column if not exists tipo text default 'interno';
+alter table gestor.proyectos add column if not exists d_seguridad_ti numeric default 0;
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -76,6 +77,8 @@ def iniciar() -> None:
         restaurar_libelula(c)
         if nueva:
             sembrar(c)
+        else:
+            altas_equipo(c)
             if DATOS_VERSION == "12":   # arranque limpio pedido: sin posiciones ni asignaciones de prueba en la hoja
                 c.execute("delete from gestor.necesidades; delete from gestor.asignaciones; delete from gestor.observaciones;")
             c.execute("insert into gestor.meta values ('datos_version', %s) on conflict (clave) do update set valor = excluded.valor",
@@ -261,3 +264,11 @@ def guardar_hoja(body: dict) -> str:
             g = cur.fetchone()[0]
         c.commit()
     return g.isoformat()
+
+
+def altas_equipo(c) -> None:
+    """Agrega las personas nuevas del CSV (p. ej. un rol nuevo) sin tocar a las existentes."""
+    eq = pd.read_csv(DATA / "equipo.csv")
+    with c.cursor() as cur:
+        cur.executemany("insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo, tipo) values (%s,%s,%s,%s,%s,%s,%s) on conflict do nothing",
+                        eq[["persona", "perfil", "dias_semana", "genero", "area", "cargo", "tipo"]].fillna("").values.tolist())

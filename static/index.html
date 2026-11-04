@@ -83,9 +83,9 @@
 </main>
 <script>
 let D = null, esc = leer(ESC_KEY) || {};
-const PF = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"];
+const PF = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra", "Seguridad TI"];
 const TF = ["Dev", "QA", "Analista Funcional", "Analista Técnico"];
-const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Analista Funcional": "A. Func.", "Analista Técnico": "A. Téc.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra"};
+const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Analista Funcional": "A. Func.", "Analista Técnico": "A. Téc.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra", "Seguridad TI": "Seg.TI"};
 PF.forEach(p => selPerfil.insertAdjacentHTML("beforeend", `<option>${p}</option>`));
 selPerfil.onchange = () => barras();
 
@@ -98,7 +98,7 @@ function tabla() {
   const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
   const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th colspan="8"></th><th colspan="9" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
+  let h = `<thead><tr class="g"><th colspan="8"></th><th colspan="10" class="sep">Recursos internos (días por tipo)</th><th colspan="5" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
   <tr><th>Incl.</th><th title="En pausa: se muestra en gris y no descuenta capacidad">On hold</th><th>Prior.</th><th class="l">Cód.</th><th class="l">Proyecto</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
   ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   ${TF.map((t, i) => `<th class="${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th>Total</th>
