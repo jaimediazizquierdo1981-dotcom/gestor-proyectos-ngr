@@ -99,6 +99,7 @@ function dibujarBase() {
   // zona izquierda
   el("rect", {x: 20, y: 66, width: 430, height: 304, rx: 12, fill: "#ffffff", stroke: "#e2e6ec"});
   txt(36, 94, "RECEPCIÓN", {"font-size": 11, fill: "#6b7280", "letter-spacing": 1});
+  el("g", {id: "tablero"});
   el("rect", {x: PUERTA.x - 26, y: PUERTA.y - 70, width: 52, height: 100, rx: 6, fill: "#cbd5e1", stroke: "#94a3b8"});
   el("circle", {cx: PUERTA.x + 16, cy: PUERTA.y - 20, r: 3, fill: "#475569"});
   txt(PUERTA.x, PUERTA.y + 48, "Entrada", {"text-anchor": "middle", "font-size": 11, fill: "#6b7280"});
@@ -160,7 +161,25 @@ function pintarBarra(p, i) {
   t.setAttribute("fill", r >= .98 ? "#d64545" : "#6b7280");
 }
 
+// tablero de recepción: nombres de proyectos en verde (en ejecución) y rojo (en espera)
+function tablero() {
+  const t = document.getElementById("tablero"); if (!t) return;
+  t.innerHTML = "";
+  const items = [...[...EJEC.keys()].map(c => ({c, ok: true})), ...ESPERA.map(g => ({c: g.dataset.cod, ok: false}))];
+  let x = 36, y = 106;
+  for (const it of items) {
+    const pr = P.find(p => p.codigo === it.c); if (!pr) continue;
+    const nom = `${pr.codigo} · ${pr.proyecto.split(":")[0]}`.slice(0, 30), w = nom.length * 5.4 + 22;
+    if (x + w > 440) { x = 36; y += 24; }
+    if (y > 214) break;
+    el("rect", {x, y, width: w, height: 19, rx: 9.5, fill: it.ok ? "#dcfce7" : "#fee2e2", stroke: it.ok ? "#86efac" : "#fca5a5"}, t);
+    el("circle", {cx: x + 9, cy: y + 9.5, r: 3.2, fill: it.ok ? "#16a34a" : "#dc2626"}, t);
+    txt(x + 16, y + 13.5, nom, {"font-size": 10, "font-weight": 600, fill: it.ok ? "#166534" : "#991b1b"}, t);
+    x += w + 6;
+  }
+}
 function kpis(i) {
+  tablero();
   const m = D.meses[i] || D.meses[0];
   const cap = D.personas.reduce((a, p) => a + (p.capacidad[i] || 0), 0), u = Object.values(usado).reduce((a, v) => a + v, 0);
   kp.innerHTML = [["Mes", i >= 0 ? fmtMes(m) : "–"], ["Capacidad del mes", fmtD(cap) + " días"], ["Asignado", fmtD(u) + " días"],
@@ -207,7 +226,7 @@ async function llegada(pr, i, token) {
   }
   rb.remove(); if (token !== run) return;
   if (pr.estado === "no_cubierto") {
-    const p = slotEsp(ESPERA.length); ESPERA.push(g);
+    const p = slotEsp(ESPERA.length); ESPERA.push(g); g.dataset.cod = pr.codigo;
     el("circle", {cx: 9, cy: -10, r: 6, fill: "#d64545"}, g);
     await mover(g, p.x, p.y, 800);
   } else {
