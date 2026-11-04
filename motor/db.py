@@ -14,7 +14,7 @@ import pandas as pd
 
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
-DATOS_VERSION = "10"  # subir este número fuerza recargar los datos ficticios
+DATOS_VERSION = "11"  # subir este número fuerza recargar los datos ficticios
 PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra"]
 COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
