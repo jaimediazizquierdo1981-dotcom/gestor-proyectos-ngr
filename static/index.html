@@ -43,7 +43,7 @@
   .pie-ley i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px}
   .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
   select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
-  .heat td{min-width:74px;text-align:center;font-size:11.5px;padding:5px 3px}
+  .heat td{min-width:96px;white-space:nowrap;text-align:center;font-size:11.5px;padding:5px 3px}
   .fila2b{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:1000px){.fila2b{grid-template-columns:1fr}}
   .cm{display:grid;grid-template-columns:54px 1fr 190px;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f0ece4;font-size:12.5px}
@@ -90,7 +90,7 @@
 
   <div class="card">
     <h2>Uso de la capacidad por perfil y mes</h2>
-    <div class="sub">Equipo interno: días asignados en la Hoja de trabajo y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
+    <div class="sub">Equipo interno: días asignados / días de capacidad del perfil y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
   </div>
   <div class="fila2b">
@@ -203,7 +203,7 @@ function barras() {
 function celda(usado, cap, vacia) {
   if (vacia && !usado) return `<td style="background:#fff"></td>`;
   const r = cap ? usado / cap : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
-  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(usado)} de ${fmtD(cap)} días">${fmtD(usado)} d <small>(${Math.round(r * 100)}%)</small></td>`;
+  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(usado)} de ${fmtD(cap)} días">${fmtD(usado)} / ${fmtD(cap)} d <small>(${Math.round(r * 100)}%)</small></td>`;
 }
 function barrasCap(el, cap, usado) {
   const fila = (lbl, c, u, cls = "") => { const r = c ? u / c : 0, col = r >= .98 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a";
@@ -224,7 +224,7 @@ function heat() {
   capacidadConsolidada();
   const cab = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th></tr>`;
   const total = u => { const us = u.usado.reduce((a, b) => a + b, 0), c = u.capacidad.reduce((a, b) => a + b, 0);
-    return `<td class="tot"><b>${fmtD(us)} d</b> <small>(${c ? Math.round(us / c * 100) : 0}%)</small></td>`; };
+    return `<td class="tot"><b>${fmtD(us)} / ${fmtD(c)} d</b> <small>(${c ? Math.round(us / c * 100) : 0}%)</small></td>`; };
   let h = cab;
   for (const u of D.uso_perfil.filter(u => u.personas > 0 || u.usado.some(x => x > 0)))
     h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => celda(u.usado[i], c)).join("") + total(u) + "</tr>";
