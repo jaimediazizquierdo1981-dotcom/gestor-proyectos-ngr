@@ -8,7 +8,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
 COLUMNAS = ["Nombre", "Rol", "Área", "Cargo", "Días por semana", "Género"]
-AREAS = ["Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"]
+AREAS = ["Estrategia", "Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"]
+ALIAS_ROL = {"practicantte data": "Practicante Data", "lider técnico": "Lider Tecnico", "líder técnico": "Lider Tecnico", "analytics engineer": "Analytics engineer"}
 
 
 def plantilla(equipo: list[dict], roles: list[str]) -> bytes:
@@ -54,6 +55,7 @@ def leer(contenido: bytes, roles: list[str]) -> tuple[list[dict], list[str]]:
         if not nombre and not g("Rol"):
             continue
         rol = str(g("Rol") or "").strip()
+        rol = ALIAS_ROL.get(rol.lower(), next((r for r in roles if r.lower() == rol.lower()), rol))
         try:
             dias = float(g("Días por semana") if g("Días por semana") not in (None, "") else 5)
         except (TypeError, ValueError):

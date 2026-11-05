@@ -107,10 +107,10 @@
 </main>
 <script>
 let D = null, esc = leer(ESC_KEY) || {};
-const PF = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra", "Seguridad TI"];
+const PFT = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda"];
 const TF = ["Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI"];
-const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Analista Funcional": "A. Func.", "Analista Técnico": "A. Téc.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra", "Seguridad TI": "Seg.TI"};
-PF.forEach(p => selPerfil.insertAdjacentHTML("beforeend", `<option>${p}</option>`));
+const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Analista Funcional": "A. Func.", "Analista Técnico": "A. Téc.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra", "Seguridad TI": "Seg.TI", "Lider Tecnico": "Líder T.", "Analytics engineer": "Analytics", "Practicante Data": "Pract. Data", "Devops": "Devops", "Soporte": "Soporte", "Demanda": "Demanda"};
+PFT.forEach(p => selPerfil.insertAdjacentHTML("beforeend", `<option>${p}</option>`));
 selPerfil.onchange = () => barras();
 
 function cambiar(cod, campo, valor) {
@@ -122,9 +122,10 @@ let CONTRAIDO = leer("gestor_ngr_contraido") === true;
 function vistaCols(c) { CONTRAIDO = c; guardar("gestor_ngr_contraido", c); tabla(); }
 function tabla() {
   const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
+  const PF = PFT.filter(f => D.personas.some(x => x.tipo !== "tercero" && x.perfil === f) || P.some(p => (p.recursos[f] || 0) > 0));
   const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th></th><th colspan="${CONTRAIDO ? 3 : 7}" class="mor">Alineamiento estratégico</th><th colspan="3"></th><th colspan="10" class="sep">Recursos internos (días por tipo)</th><th colspan="6" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
+  let h = `<thead><tr class="g"><th></th><th colspan="${CONTRAIDO ? 3 : 7}" class="mor">Alineamiento estratégico</th><th colspan="3"></th><th colspan="${PF.length + 1}" class="sep">Recursos internos (días por tipo)</th><th colspan="6" class="sep">Terceros (días)</th><th colspan="4" class="sep">Inversión y soporte</th><th colspan="2" class="sep">Cobertura</th></tr>
   <tr><th>Prior.</th><th class="l mor cx">PE</th><th class="mor cx">OE.Cod</th><th class="l mor cx">OE.Descripción</th><th class="l mor">ID.PMO</th><th class="l mor">Programa</th><th class="l mor">Iniciativa</th><th class="l mor cx">Responsable.PMO</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
   ${PF.map((p, i) => `<th class="${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th>Total días</th>
   ${TF.map((t, i) => `<th class="${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th>Total</th>
@@ -225,7 +226,7 @@ function heat() {
   const total = u => { const us = u.usado.reduce((a, b) => a + b, 0), c = u.capacidad.reduce((a, b) => a + b, 0);
     return `<td class="tot"><b>${fmtD(us)} d</b> <small>(${c ? Math.round(us / c * 100) : 0}%)</small></td>`; };
   let h = cab;
-  for (const u of D.uso_perfil)
+  for (const u of D.uso_perfil.filter(u => u.personas > 0 || u.usado.some(x => x > 0)))
     h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => celda(u.usado[i], c)).join("") + total(u) + "</tr>";
   document.getElementById("heat").innerHTML = h;
   const T = D.uso_terceros || [];

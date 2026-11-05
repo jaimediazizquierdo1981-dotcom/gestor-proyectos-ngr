@@ -15,10 +15,12 @@ import pandas as pd
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
 DATOS_VERSION = "12"  # subir este número fuerza recargar los datos ficticios
-PERFILES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra", "Seguridad TI"]
+PERFILES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda"]
 COL = {"PM": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
-       "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra", "Seguridad TI": "d_seguridad_ti"}  # días por perfil interno
+       "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra", "Seguridad TI": "d_seguridad_ti",
+       "Lider Tecnico": "d_lider_tecnico", "Analytics engineer": "d_analytics_engineer", "Practicante Data": "d_practicante_data",
+       "Devops": "d_devops", "Soporte": "d_soporte", "Demanda": "d_demanda"}  # días por perfil interno
 TERC = {"T Dev": "t_dev", "T QA": "t_qa", "T Analista Funcional": "t_analista_funcional",
         "T Analista Técnico": "t_analista_tecnico"}  # días de terceros
 
@@ -49,6 +51,12 @@ alter table gestor.equipo add column if not exists cargo text;
 alter table gestor.equipo add column if not exists tipo text default 'interno';
 alter table gestor.proyectos add column if not exists d_seguridad_ti numeric default 0;
 alter table gestor.proyectos add column if not exists pe text;
+alter table gestor.proyectos add column if not exists d_lider_tecnico numeric default 0;
+alter table gestor.proyectos add column if not exists d_analytics_engineer numeric default 0;
+alter table gestor.proyectos add column if not exists d_practicante_data numeric default 0;
+alter table gestor.proyectos add column if not exists d_devops numeric default 0;
+alter table gestor.proyectos add column if not exists d_soporte numeric default 0;
+alter table gestor.proyectos add column if not exists d_demanda numeric default 0;
 alter table gestor.proyectos add column if not exists oe_cod text;
 alter table gestor.proyectos add column if not exists oe_desc text;
 alter table gestor.proyectos add column if not exists programa text;
@@ -87,6 +95,7 @@ def iniciar() -> None:
             migrar_portafolio_2027(c)
             activar_portafolio_2027(c)
             remapear_codigos_viejos(c)
+            cargar_colaboradores_npt(c)
         restaurar_libelula(c)
         if nueva:
             sembrar(c)
@@ -187,6 +196,26 @@ def remapear_codigos_viejos(c) -> None:
                 c.execute("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s,%s,%s,%s,%s,%s) on conflict do nothing",
                           (nuevo, fila["perfil"], fila.get("dias") or 0, fila.get("mes_ini"), fila.get("mes_fin"),
                            json.dumps(fila["dist"]) if fila.get("dist") else None))
+
+
+def cargar_colaboradores_npt(c) -> None:
+    """Una vez: reemplaza el equipo propio ficticio por el de la plantilla real (data/colaboradores_npt.xlsx)."""
+    if c.execute("select 1 from gestor.meta where clave = 'colaboradores_npt_v1'").fetchone():
+        return
+    from motor import plantillas
+    filas, _ = plantillas.leer((DATA / "colaboradores_npt.xlsx").read_bytes(), PERFILES)
+    if not filas:
+        return
+    c.execute("insert into gestor.respaldo (motivo, tabla, data) select 'colaboradores_npt_v1', 'equipo', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.equipo x")
+    c.execute("insert into gestor.respaldo (motivo, tabla, data) select 'colaboradores_npt_v1', 'asignaciones', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.asignaciones x")
+    c.execute("delete from gestor.equipo where coalesce(tipo, 'interno') <> 'tercero'")
+    with c.cursor() as cur:
+        cur.executemany("""insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo, tipo) values (%s,%s,%s,%s,%s,%s,'interno')
+                           on conflict (persona) do update set perfil = excluded.perfil, dias_semana = excluded.dias_semana,
+                           genero = excluded.genero, area = excluded.area, cargo = excluded.cargo, tipo = 'interno'""",
+                        [(f["persona"], f["perfil"], f["dias_semana"], f["genero"], f["area"], f["cargo"]) for f in filas])
+    c.execute("delete from gestor.asignaciones where persona not in (select persona from gestor.equipo)")
+    c.execute("insert into gestor.meta values ('colaboradores_npt_v1', '1') on conflict do nothing")
 
 
 def activar_portafolio_2027(c) -> None:

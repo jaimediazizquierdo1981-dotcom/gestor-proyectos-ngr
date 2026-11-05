@@ -34,21 +34,20 @@
 <script>nav("Colaboradores")</script>
 <main>
   <h1>Colaboradores de Tecnología y Transformación</h1>
-  <div class="sub">Equipo que ejecuta los proyectos, por área del organigrama de TI (sin el director, las gerencias ni Soporte). Elige el rol de cada persona: el rol define qué días de proyecto puede tomar. Los cambios se guardan en la base y recalculan el consolidado y el simulador.<span id="msg"></span></div>
-  <div class="ojo" id="aviso">Nombres ficticios hasta cargar el organigrama real.</div>
+  <div class="sub">Equipo propio de TI por área, según la plantilla cargada. Elige el rol de cada persona: el rol define qué días de proyecto puede tomar. Los cambios se guardan en la base y recalculan el consolidado y el simulador.<span id="msg"></span></div>
   <div class="roles" id="roles"></div>
   <div class="grid" id="areas"></div>
 </main>
 <script>
-const ROLES = ["PM", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Data Engineer", "QA", "Infra", "Seguridad TI"];
-const ORDEN_AREAS = ["Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"];
+const ROLES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda"];
+const ORDEN_AREAS = ["Estrategia", "Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"];
 let D;
 const ini = n => n.split(" ").slice(0, 2).map(x => x[0]).join("");
 
 function pintar() {
   const P = D.personas;
-  roles.innerHTML = ROLES.map(r => {
-    const g = P.filter(p => p.perfil === r), cap = g.reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0) / p.capacidad.length, 0);
+  roles.innerHTML = ROLES.filter(r => P.some(p => p.perfil === r && p.tipo !== "tercero")).map(r => {
+    const g = P.filter(p => p.perfil === r && p.tipo !== "tercero"), cap = g.reduce((a, p) => a + p.capacidad.reduce((x, y) => x + y, 0) / p.capacidad.length, 0);
     return `<div style="--c:${COL_PERFIL[r]}">${r}<b>${g.length} pers.</b>${fmtD(cap)} días netos/mes</div>`;
   }).join("");
   const areasL = [...new Set([...ORDEN_AREAS.filter(a => P.some(p => p.area === a)), ...P.map(p => p.area || "Sin área")])];

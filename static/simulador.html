@@ -121,33 +121,36 @@ function dibujarBase() {
   // escritorios: una columna por perfil interno + una columna final de terceros (proveedores)
   const internos = D.personas.filter(p => p.tipo !== "tercero");
   const terceros = D.personas.filter(p => p.tipo === "tercero" && Object.keys(p.asignado || {}).length);
-  const cols = [...D.perfiles.map(f => ({t: f, color: COL_PERFIL[f], gente: internos.filter(p => p.perfil === f)})),
+  const cols = [...D.perfiles.map(f => ({t: f, color: COL_PERFIL[f], gente: internos.filter(p => p.perfil === f)})).filter(c => c.gente.length),
                 {t: "Terceros", color: "#475569", gente: terceros, ter: true}];
-  const x0 = 470, cw = (1395 - x0) / cols.length, BW = cw - 54;
+  // con muchos roles, las columnas se reparten en dos bandas para que se lean bien
+  const bandas = cols.length > 8 ? 2 : 1, porBanda = Math.ceil(cols.length / bandas);
+  const x0 = 470, cw = (1395 - x0) / porBanda, BW = cw - 54, altoBanda = 712 / bandas;
+  const pasoCard = bandas === 2 ? 52 : 66, altoCard = pasoCard - 5, max = Math.floor((altoBanda - 46) / pasoCard);
   window.BW = BW; DESK = {};
   cols.forEach((col, c) => {
-    const x = x0 + c * cw, w = cw - 8;
-    el("rect", {x, y: 66, width: w, height: 712, rx: 12, fill: "#ffffff", stroke: "#e2e6ec"});
-    el("rect", {x, y: 66, width: w, height: 34, rx: 12, fill: col.color});
-    el("rect", {x, y: 88, width: w, height: 12, fill: col.color});
-    txt(x + w / 2, 84, col.t, {"text-anchor": "middle", "font-size": col.t.length > 12 ? 10 : 11.5, fill: "#fff", "font-weight": 700, "letter-spacing": .2});
-    txt(x + w / 2, 96, `${col.gente.length} ${col.ter ? "asignados" : "personas"}`, {"text-anchor": "middle", "font-size": 8.5, fill: "rgba(255,255,255,.8)"});
-    if (col.ter && !col.gente.length) txt(x + w / 2, 140, "Sin terceros asignados", {"text-anchor": "middle", "font-size": 9.5, fill: "#94a3b8"});
-    const max = 10;
+    const banda = Math.floor(c / porBanda), x = x0 + (c % porBanda) * cw, w = cw - 8, y0 = 66 + banda * altoBanda;
+    el("rect", {x, y: y0, width: w, height: altoBanda - 6, rx: 12, fill: "#ffffff", stroke: "#e2e6ec"});
+    el("rect", {x, y: y0, width: w, height: 34, rx: 12, fill: col.color});
+    el("rect", {x, y: y0 + 22, width: w, height: 12, fill: col.color});
+    txt(x + w / 2, y0 + 18, col.t, {"text-anchor": "middle", "font-size": col.t.length > 14 ? 10 : 11.5, fill: "#fff", "font-weight": 700, "letter-spacing": .2});
+    txt(x + w / 2, y0 + 30, `${col.gente.length} ${col.ter ? "asignados" : "personas"}`, {"text-anchor": "middle", "font-size": 8.5, fill: "rgba(255,255,255,.8)"});
+    if (col.ter && !col.gente.length) txt(x + w / 2, y0 + 70, "Sin terceros asignados", {"text-anchor": "middle", "font-size": 9.5, fill: "#94a3b8"});
     col.gente.slice(0, max).forEach((p, k) => {
-      const y = 108 + k * 66, cx = x + 22;
-      el("rect", {x: x + 5, y, width: w - 10, height: 60, rx: 9, fill: "#f8fafc", stroke: "#e8ecf1"});
-      const fig = avatar(null, p.persona, p.genero || null, col.ter ? COL_PERFIL[p.perfil] || "#64748b" : col.color, 0.9);
-      ubicar(fig, cx, y + 20);
-      const nombre = col.ter ? `Proveedor ${k + 1}` : p.persona;
-      txt(x + 40, y + 17, nombre.length > 12 ? nombre.slice(0, 11) + "…" : nombre, {"font-size": 10, "font-weight": 700, fill: "#1e293b"});
-      txt(x + 40, y + 29, col.ter ? p.perfil : (p.area || "").split(" ")[0], {"font-size": 8.5, fill: "#64748b"});
-      el("rect", {x: x + 40, y: y + 36, width: BW, height: 6, rx: 3, fill: "#e5e9ef"});
-      const b = el("rect", {x: x + 40, y: y + 36, width: BW, height: 6, rx: 3, fill: "#16a34a", class: "bar"});
-      const t = txt(x + 40, y + 53, "", {"font-size": 8.5, fill: "#64748b"});
-      DESK[p.persona] = {x: cx, y: y + 24}; bars[p.persona] = {b, t};
+      const y = y0 + 42 + k * pasoCard, cx = x + 22, comp = bandas === 2;
+      el("rect", {x: x + 5, y, width: w - 10, height: altoCard, rx: 9, fill: "#f8fafc", stroke: "#e8ecf1"});
+      const fig = avatar(null, p.persona, p.genero || null, col.ter ? COL_PERFIL[p.perfil] || "#64748b" : col.color, comp ? 0.75 : 0.9);
+      ubicar(fig, cx, y + (comp ? 15 : 20));
+      const nombre = col.ter ? `Proveedor ${k + 1}` : p.persona, lim = Math.max(8, Math.floor((w - 46) / 5.6));
+      txt(x + 40, y + 14, nombre.length > lim ? nombre.slice(0, lim - 1) + "…" : nombre, {"font-size": 10, "font-weight": 700, fill: "#1e293b"});
+      if (!comp) txt(x + 40, y + 29, col.ter ? p.perfil : (p.area || "").split(" ")[0], {"font-size": 8.5, fill: "#64748b"});
+      const yb = comp ? y + 22 : y + 36;
+      el("rect", {x: x + 40, y: yb, width: BW, height: 6, rx: 3, fill: "#e5e9ef"});
+      const b = el("rect", {x: x + 40, y: yb, width: BW, height: 6, rx: 3, fill: "#16a34a", class: "bar"});
+      const t = txt(x + 40, yb + (comp ? 16 : 17), "", {"font-size": 8.5, fill: "#64748b"});
+      DESK[p.persona] = {x: cx, y: y + 18}; bars[p.persona] = {b, t};
     });
-    if (col.gente.length > max) txt(x + w / 2, 108 + max * 66 + 8, `+${col.gente.length - max} más`, {"text-anchor": "middle", "font-size": 9.5, fill: "#64748b"});
+    if (col.gente.length > max) txt(x + w / 2, y0 + 42 + max * pasoCard + 8, `+${col.gente.length - max} más`, {"text-anchor": "middle", "font-size": 9.5, fill: "#64748b"});
   });
 }
 

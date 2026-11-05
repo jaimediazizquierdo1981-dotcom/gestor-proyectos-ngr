@@ -1,50 +1,66 @@
 persona,perfil,dias_semana,genero,area,cargo,tipo
-Ana Torres,PM,5,Mujer,Operaciones,Jefe de Proyectos,interno
-Miguel Paredes,Arquitecto,5,Hombre,Operaciones,Arquitecto de Soluciones,interno
-Diego Salas,Desarrollador,5,Hombre,Operaciones,Analista Desarrollador,interno
-Valeria Quispe,Desarrollador,5,Mujer,Operaciones,Analista Desarrollador,interno
-Martín León,Infra,5,Hombre,Operaciones,Especialista de Infraestructura,interno
-Carlos Vega,PM,5,Hombre,Continuidad del Negocio,Jefe de Proyectos,interno
-Renato Flores,Desarrollador,5,Hombre,Continuidad del Negocio,Analista Desarrollador,interno
-Paola Ríos,QA,5,Mujer,Continuidad del Negocio,Analista de Calidad,interno
-Camila Díaz,Infra,5,Mujer,Continuidad del Negocio,Especialista de Infraestructura,interno
-Rosa Medina,PM,5,Mujer,Nuevas Soluciones Digitales,Product Owner,interno
-Lucía Ramos,Arquitecto,5,Mujer,Nuevas Soluciones Digitales,Arquitecta de Soluciones,interno
-Sofía Huamán,Desarrollador,5,Mujer,Nuevas Soluciones Digitales,Desarrolladora Full Stack,interno
-Andrés Castillo,Desarrollador,5,Hombre,Nuevas Soluciones Digitales,Desarrollador Full Stack,interno
-Kevin Rojas,QA,5,Hombre,Nuevas Soluciones Digitales,Analista de Calidad,interno
-Jorge Nuñez,Data Engineer,5,Hombre,Data,Analytics Engineer,interno
-Diana Sebastián,Data Engineer,5,Mujer,Data,Analytics Engineer,interno
-Luis Chávez,Data Engineer,5,Hombre,Data,Analytics Engineer,interno
-Gabriela Soto,Analista Funcional,5,Mujer,Operaciones,Analista Funcional,interno
-Héctor Ruiz,Analista Funcional,5,Hombre,Nuevas Soluciones Digitales,Analista Funcional,interno
-Mariana Vidal,Analista Funcional,5,Mujer,Continuidad del Negocio,Analista Funcional,interno
-Raúl Campos,Analista Técnico,5,Hombre,Operaciones,Analista Técnico,interno
-Elena Pinto,Analista Técnico,5,Mujer,Nuevas Soluciones Digitales,Analista Técnico,interno
-Patricia Gómez,Seguridad TI,5,Mujer,Continuidad del Negocio,Especialista de Seguridad TI,interno
-Ricardo Aliaga,Seguridad TI,5,Hombre,Operaciones,Analista de Seguridad TI,interno
-Tercero Desarrollador 1,Desarrollador,5,,Terceros,Desarrollador (tercero),tercero
-Tercero Desarrollador 2,Desarrollador,5,,Terceros,Desarrollador (tercero),tercero
-Tercero Desarrollador 3,Desarrollador,5,,Terceros,Desarrollador (tercero),tercero
-Tercero Desarrollador 4,Desarrollador,5,,Terceros,Desarrollador (tercero),tercero
-Tercero Desarrollador 5,Desarrollador,5,,Terceros,Desarrollador (tercero),tercero
-Tercero QA 1,QA,5,,Terceros,QA (tercero),tercero
-Tercero QA 2,QA,5,,Terceros,QA (tercero),tercero
-Tercero QA 3,QA,5,,Terceros,QA (tercero),tercero
-Tercero QA 4,QA,5,,Terceros,QA (tercero),tercero
-Tercero QA 5,QA,5,,Terceros,QA (tercero),tercero
-Tercero Analista Funcional 1,Analista Funcional,5,,Terceros,Analista Funcional (tercero),tercero
-Tercero Analista Funcional 2,Analista Funcional,5,,Terceros,Analista Funcional (tercero),tercero
-Tercero Analista Funcional 3,Analista Funcional,5,,Terceros,Analista Funcional (tercero),tercero
-Tercero Analista Funcional 4,Analista Funcional,5,,Terceros,Analista Funcional (tercero),tercero
-Tercero Analista Funcional 5,Analista Funcional,5,,Terceros,Analista Funcional (tercero),tercero
-Tercero Analista Técnico 1,Analista Técnico,5,,Terceros,Analista Técnico (tercero),tercero
-Tercero Analista Técnico 2,Analista Técnico,5,,Terceros,Analista Técnico (tercero),tercero
-Tercero Analista Técnico 3,Analista Técnico,5,,Terceros,Analista Técnico (tercero),tercero
-Tercero Analista Técnico 4,Analista Técnico,5,,Terceros,Analista Técnico (tercero),tercero
-Tercero Analista Técnico 5,Analista Técnico,5,,Terceros,Analista Técnico (tercero),tercero
-Tercero Seguridad TI 1,Seguridad TI,5,,Terceros,Seguridad TI (tercero),tercero
-Tercero Seguridad TI 2,Seguridad TI,5,,Terceros,Seguridad TI (tercero),tercero
-Tercero Seguridad TI 3,Seguridad TI,5,,Terceros,Seguridad TI (tercero),tercero
-Tercero Seguridad TI 4,Seguridad TI,5,,Terceros,Seguridad TI (tercero),tercero
-Tercero Seguridad TI 5,Seguridad TI,5,,Terceros,Seguridad TI (tercero),tercero
+Orci Palacios,PM,5.0,Mujer,Nuevas Soluciones Digitales,Jefe de Desarrollo,interno
+José Maria Torres,Desarrollador,5.0,Hombre,Nuevas Soluciones Digitales,Analista Programador,interno
+Christopher Camacho,Desarrollador,5.0,Hombre,Nuevas Soluciones Digitales,Analista Programador Fullstack,interno
+Juan Ramos,Desarrollador,5.0,Hombre,Nuevas Soluciones Digitales,Analista Desarrollador Fullstack,interno
+Yoni Chaupi,Analista Técnico,5.0,Hombre,Nuevas Soluciones Digitales,Tecnico de interfaces,interno
+Luis Rosales,Analista Técnico,5.0,Hombre,Nuevas Soluciones Digitales,Coordinador SAP,interno
+Danny Asuncion,Analista Técnico,5.0,Hombre,Nuevas Soluciones Digitales,Coordinador SAP,interno
+Grover Voleta,Analista Técnico,5.0,Hombre,Nuevas Soluciones Digitales,Coordinador SAP,interno
+Fernando Rodriguez,Analista Técnico,5.0,Hombre,Nuevas Soluciones Digitales,Analista SAP,interno
+Sergio Acosta,Analista Técnico,5.0,Hombre,Nuevas Soluciones Digitales,Supervisor de soporte,interno
+Antony Alcantara,PM,5.0,Hombre,Continuidad del Negocio,Coordinador de DC e Integraciones,interno
+Vannesa Pittman,Analista Funcional,5.0,Mujer,Continuidad del Negocio,Gestor POS,interno
+Cynthia Ramón,Analista Funcional,5.0,Mujer,Continuidad del Negocio,Analista de Sistemas,interno
+Deyssy Guzmán,PM,5.0,Mujer,Continuidad del Negocio,Gestor de Aplicaciones,interno
+Fidel Salazar,PM,5.0,Hombre,Continuidad del Negocio,Jefe de Canales Digitales,interno
+Carla Centeno,Analista Funcional,5.0,Mujer,Continuidad del Negocio,Analista Funcional,interno
+Miller Gomez,Analista Funcional,5.0,Hombre,Continuidad del Negocio,Analista Funcional,interno
+Raquel Vera,Analista Funcional,5.0,Mujer,Continuidad del Negocio,Analista Funcional,interno
+Ángel Larreategui,Analista Técnico,5.0,Hombre,Continuidad del Negocio,Desarrollador FullStack,interno
+Omar Llontop,Analytics engineer,5.0,Hombre,Data,Analytics engineer,interno
+Diana Sebastian,Analytics engineer,5.0,Mujer,Data,Analytics engineer,interno
+Jorge Nuñez,Analytics engineer,5.0,Hombre,Data,Analytics engineer,interno
+Luis Chavez,Analytics engineer,5.0,Hombre,Data,Analytics engineer,interno
+Juan Ramos (Data),Practicante Data,5.0,Hombre,Data,Practicantte Data,interno
+Jesus Guerra,Seguridad TI,5.0,Hombre,Operaciones,Gestor de Seguridad TI,interno
+Oscar Torres,Devops,5.0,Hombre,Operaciones,Ingeniero devops,interno
+Andrés Pinto,Infra,5.0,Hombre,Operaciones,Jefe de Infra TI,interno
+Judith Huicahuari,Infra,5.0,Mujer,Operaciones,Gestor de BD,interno
+José Carlos Ruiz,Soporte,5.0,Hombre,Operaciones,Jefe de Soporte TI,interno
+Joel Sánchez,Soporte,5.0,Hombre,Operaciones,Supervisor de soporte,interno
+Geam Pari,Soporte,5.0,Hombre,Operaciones,Supervisor de soporte,interno
+Andrés Ramos,Soporte,5.0,Hombre,Operaciones,Supervisor de soporte,interno
+Leo Códova,Soporte,5.0,Hombre,Operaciones,Supervisor de soporte,interno
+Luz Huachua,Demanda,5.0,Mujer,Operaciones,Analista de Servicios TI,interno
+Carlos Zambrano,Lider Tecnico,5.0,Hombre,Nuevas Soluciones Digitales,Gerente,interno
+Jean Pierre Prati,Lider Tecnico,5.0,Hombre,Data,Jefe,interno
+Jorge Rios,Lider Tecnico,5.0,Hombre,Data,Jefe,interno
+Alfredo Novoa,Lider Tecnico,5.0,Hombre,Operaciones,Gerente,interno
+Julio More,Lider Tecnico,5.0,Hombre,Continuidad del Negocio,Gerente,interno
+Jaime Diaz,Lider Tecnico,5.0,Hombre,Estrategia,Director,interno
+Tercero Desarrollador 1,Desarrollador,5.0,,Terceros,Desarrollador (tercero),tercero
+Tercero Desarrollador 2,Desarrollador,5.0,,Terceros,Desarrollador (tercero),tercero
+Tercero Desarrollador 3,Desarrollador,5.0,,Terceros,Desarrollador (tercero),tercero
+Tercero Desarrollador 4,Desarrollador,5.0,,Terceros,Desarrollador (tercero),tercero
+Tercero Desarrollador 5,Desarrollador,5.0,,Terceros,Desarrollador (tercero),tercero
+Tercero QA 1,QA,5.0,,Terceros,QA (tercero),tercero
+Tercero QA 2,QA,5.0,,Terceros,QA (tercero),tercero
+Tercero QA 3,QA,5.0,,Terceros,QA (tercero),tercero
+Tercero QA 4,QA,5.0,,Terceros,QA (tercero),tercero
+Tercero QA 5,QA,5.0,,Terceros,QA (tercero),tercero
+Tercero Analista Funcional 1,Analista Funcional,5.0,,Terceros,Analista Funcional (tercero),tercero
+Tercero Analista Funcional 2,Analista Funcional,5.0,,Terceros,Analista Funcional (tercero),tercero
+Tercero Analista Funcional 3,Analista Funcional,5.0,,Terceros,Analista Funcional (tercero),tercero
+Tercero Analista Funcional 4,Analista Funcional,5.0,,Terceros,Analista Funcional (tercero),tercero
+Tercero Analista Funcional 5,Analista Funcional,5.0,,Terceros,Analista Funcional (tercero),tercero
+Tercero Analista Técnico 1,Analista Técnico,5.0,,Terceros,Analista Técnico (tercero),tercero
+Tercero Analista Técnico 2,Analista Técnico,5.0,,Terceros,Analista Técnico (tercero),tercero
+Tercero Analista Técnico 3,Analista Técnico,5.0,,Terceros,Analista Técnico (tercero),tercero
+Tercero Analista Técnico 4,Analista Técnico,5.0,,Terceros,Analista Técnico (tercero),tercero
+Tercero Analista Técnico 5,Analista Técnico,5.0,,Terceros,Analista Técnico (tercero),tercero
+Tercero Seguridad TI 1,Seguridad TI,5.0,,Terceros,Seguridad TI (tercero),tercero
+Tercero Seguridad TI 2,Seguridad TI,5.0,,Terceros,Seguridad TI (tercero),tercero
+Tercero Seguridad TI 3,Seguridad TI,5.0,,Terceros,Seguridad TI (tercero),tercero
+Tercero Seguridad TI 4,Seguridad TI,5.0,,Terceros,Seguridad TI (tercero),tercero
+Tercero Seguridad TI 5,Seguridad TI,5.0,,Terceros,Seguridad TI (tercero),tercero
