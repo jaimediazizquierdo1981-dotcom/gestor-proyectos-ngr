@@ -307,9 +307,10 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                 asig[e_["perfil"]] += d_.get(pr["codigo"], 0)
         proy = r["req_hoja"] if "req_hoja" in r else {pf: round(float(sum(v)), 1) for pf, v in (r["req_mes"] or {}).items()}
         fin_real = str(pd.Period(pr["fin"], "M") + r["desplazo_meses"])
-        fin_cons = fin_hoja.get(pr["codigo"]) or fin_real   # con asignaciones en la Hoja, el fin es su último mes con días
-        ini_cons = ini_hoja.get(pr["codigo"]) or str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"])   # y el inicio, el primero
-        dur = (pd.Period(fin_cons, "M") - pd.Period(ini_cons, "M")).n + 1 if pr["codigo"] in fin_hoja \
+        usa_hoja = activo(pr) and pr["codigo"] in fin_hoja   # solo proyectos activos: los no activos son como si no existieran
+        fin_cons = (fin_hoja[pr["codigo"]] if usa_hoja else None) or fin_real   # con asignaciones en la Hoja, el fin es su último mes con días
+        ini_cons = (ini_hoja[pr["codigo"]] if usa_hoja else None) or str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"])   # y el inicio, el primero
+        dur = (pd.Period(fin_cons, "M") - pd.Period(ini_cons, "M")).n + 1 if usa_hoja \
             else (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
         opex_auto = sum(1 for m in lista if m > fin_cons) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
         om = pr.get("opex_meses")
@@ -317,7 +318,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         filas.append({**{k: (pr.get(k) if pr.get(k) == pr.get(k) else "") or "" for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "lider_ti"]},
                       **{k: pr[k] for k in ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin",
                                               "capex", "opex_mensual", "incluir", "on_hold"]},
-                      "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real, "fin_hoja": fin_cons, "ini_hoja": ini_hoja.get(pr["codigo"], ""),
+                      "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real, "fin_hoja": fin_cons, "ini_hoja": ini_hoja[pr["codigo"]] if usa_hoja else "",
                       "duracion_meses": dur, "recursos": {pf: float(pr.get(pf, 0) or 0) for pf in PERFILES},
                       "terceros": {t: float(pr.get("T " + t, 0) or 0) for t in TERCEROS},
                       "dias_terceros": float(sum(float(pr.get("T " + t, 0) or 0) for t in TERCEROS)),
