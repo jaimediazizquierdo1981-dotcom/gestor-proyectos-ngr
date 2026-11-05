@@ -26,6 +26,7 @@
   .proy{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;transition:box-shadow .15s,border-color .15s}
   .proy.pausa{filter:grayscale(1);opacity:.6;background:#f1f1f1}
   .banda{background:#8a8f99;color:#fff;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:14px 14px 0 0}
+  .vacio{background:#fff;border:2px dashed #d9d4c9;border-radius:14px;padding:40px;text-align:center;color:#6b7280;font-size:14px}
   .proy.foco{border-color:#e5a12a;box-shadow:0 0 0 4px rgba(229,161,42,.3)}
   .xs-proy{order:9;font:inherit;font-size:11.5px;color:#6b7280;background:none;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer}
   .xs-proy.del{margin-left:6px}
@@ -125,7 +126,7 @@ const persona = n => D.personas.find(p => p.persona === n);
 const proyecto = c => D.proyectos.find(p => p.codigo === c);
 const r1 = n => Math.round(n * 2) / 2;   // medio día
 
-const enPausa = c => !!proyecto(c)?.on_hold;
+const enPausa = c => { const p = proyecto(c); return !p || !activo(p); };   // on hold o no activo: no descuenta
 function usadoMes(nombre, mes, excepto) {
   return ASIG.filter(a => a.persona === nombre && a !== excepto && !enPausa(a.codigo)).reduce((s, a) => s + (+a.dias[mes] || 0), 0);
 }
@@ -184,6 +185,7 @@ function necesidad(p) {
 
 function pintarProyectos() {
   const P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  if (!P.length) { proyectos.innerHTML = '<div class="vacio">La hoja está vacía. Usa <b>“Seleccionar o activar un proyecto…”</b> a la izquierda para agregar los proyectos uno a uno.</div>'; return; }
   proyectos.innerHTML = P.map(p => {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);

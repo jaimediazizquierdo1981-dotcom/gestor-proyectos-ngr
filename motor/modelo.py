@@ -34,7 +34,7 @@ def _fusionar(base: dict, extra: dict) -> dict:
 
 def activo(x: dict) -> bool:
     """Cuenta en el cálculo: incluido y no está en pausa (on hold)."""
-    return bool(x.get("incluir", True)) and not x.get("on_hold", False)
+    return bool(x.get("incluir", False)) and not x.get("on_hold", False)
 
 
 def meses(inicio: str, fin: str) -> list[str]:
@@ -169,7 +169,7 @@ def asignar(proyectos: list[dict], equipo: list[dict], cap: dict, p: dict, lista
                              "req_mes": {pf: v.round(1).tolist() for pf, v in req.items()} if detalle else None}
     for pr in proyectos:
         if not activo(pr):
-            res[pr["codigo"]] = {"estado": "excluido" if not pr.get("incluir", True) else "on_hold", "cobertura": 0, "desplazo_meses": 0,
+            res[pr["codigo"]] = {"estado": "excluido" if not pr.get("incluir", False) else "on_hold", "cobertura": 0, "desplazo_meses": 0,
                                  "dias_requeridos": 0, "req_mes": None}
     return {"resultado": res, "asignacion": asign, "libre": libre}
 
@@ -218,7 +218,7 @@ def desde_hoja(auto: dict, proyectos, equipo, cap, p, lista, hoja: dict) -> dict
     cob = p["cobertura"]
     perfil_de = {e["persona"]: e["perfil"] for e in equipo}
     activos = {x["codigo"] for x in proyectos if activo(x)}
-    en_pausa = {x["codigo"] for x in proyectos if x.get("incluir", True) and x.get("on_hold")}
+    en_pausa = {x["codigo"] for x in proyectos if x.get("incluir", False) and x.get("on_hold")}
     asign, libre, pausa = {}, {k: v.copy() for k, v in cap.items()}, {}
     for r in hoja["asig"]:
         if r["codigo"] in en_pausa and r["persona"] in perfil_de:   # on hold: se guarda para mostrarlo, no descuenta
@@ -271,7 +271,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     proyectos = []
     for pr in entrada.get("proyectos") or base["proyectos"]:
         pr = {**pr, **escenario.get(pr["codigo"], {})}
-        pr.setdefault("incluir", True)
+        pr.setdefault("incluir", False)   # los proyectos se activan uno a uno desde la Hoja de trabajo
         pr.setdefault("on_hold", False)
         if pr["inicio"] != base_inicio(base, pr["codigo"]) and "fin" not in escenario.get(pr["codigo"], {}):
             # mover el inicio mantiene la duración original

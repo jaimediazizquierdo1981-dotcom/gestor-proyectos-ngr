@@ -39,6 +39,6 @@ const fmtD = n => (Math.abs(n) < 10 && Math.round(n) !== n ? n.toFixed(1).replac
 const fmtS = n => "S/ " + Math.round(n).toLocaleString("es-PE");
 const fmtK = n => fmtS(n);   // siempre el número completo (sin k ni M)
 const fmtPct = n => n == null ? "–" : Math.round(n * 100) + "%";
-const ETQ = {cubierto: "Cubierto", parcial: "Parcial", no_cubierto: "No cubierto", on_hold: "On hold", excluido: "Excluido"};
+const ETQ = {cubierto: "Cubierto", parcial: "Parcial", no_cubierto: "No cubierto", on_hold: "On hold", excluido: "No activo"};
 const COL = {cubierto: "#2e9e6a", parcial: "#e5a12a", no_cubierto: "#d64545", on_hold: "#8a8f99", excluido: "#a7adb8"};
 const COL_PERFIL = {"PM": "#1F3864", "Arquitecto": "#7b5ea7", "Analista Funcional": "#c2547a", "Analista Técnico": "#8a6d3b", "Desarrollador": "#2f7fc1", "Data Engineer": "#1a9a8f", "QA": "#d8833a", "Infra": "#6b7a8f", "Seguridad TI": "#b91c1c"};
