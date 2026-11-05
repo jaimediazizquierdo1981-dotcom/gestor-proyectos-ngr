@@ -118,7 +118,7 @@
 <script>
 let D, ASIG = [], NEC = {}, OBS = {};
 const ROLES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"];
-ROLES.forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
+const rolesCargados = () => ROLES.filter(r => D && D.personas.some(x => x.perfil === r));   // solo roles con colaboradores cargados
 buscar.oninput = filtroRol.onchange = () => pintarLista();
 
 const muneco = (color, s = 26) => `<svg width="${s}" height="${s}" viewBox="-14 -14 28 42"><path d="M-11,26 Q-11,6 0,6 Q11,6 11,26 Z" fill="${color}"/><circle cx="0" cy="-3" r="8" fill="#e6b58f"/></svg>`;
@@ -194,7 +194,7 @@ function pintarProyectos() {
         <button class="xs-proy" title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: no descuenta capacidad"}" onclick="pausarProyecto('${p.codigo}', ${!p.on_hold})">${p.on_hold ? "▶ Reactivar" : "⏸ On hold"}</button>
         <button class="xs-proy del" title="Eliminar la ficha: borra sus posiciones, asignaciones y observaciones y la quita de la hoja" onclick="eliminarFicha('${p.codigo}')">🗑 Eliminar ficha</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
-      <div class="need"><span class="add"><select id="sel-${p.codigo}">${ROLES.map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><span class="lbl">de</span><select id="desde-${p.codigo}">${opcMeses(p.inicio_plan)}</select><span class="lbl">a</span><select id="hasta-${p.codigo}">${opcMeses(p.fin_plan)}</select><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
+      <div class="need"><span class="add"><select id="sel-${p.codigo}">${rolesCargados().map(r => `<option>${r}</option>`).join("")}</select><input id="dias-${p.codigo}" type="number" min="0.5" step="0.5" placeholder="días"><span class="lbl">de</span><select id="desde-${p.codigo}">${opcMeses(p.inicio_plan)}</select><span class="lbl">a</span><select id="hasta-${p.codigo}">${opcMeses(p.fin_plan)}</select><button onclick="agregarPos('${p.codigo}')">+ Agregar</button></span>
         ${Object.entries(nec).map(([pf, v]) => `<span class="${v.asig > v.req + 0.01 ? "exceso" : v.asig >= v.req - .5 && v.req > 0 ? "ok" : v.asig > 0 ? "falta" : "cero"}" title="${v.asig > v.req + 0.01 ? `Se asignaron ${fmtD(v.asig - v.req)} días más de los que necesita la posición` : "Asignado / requerido"}">${v.asig > v.req + 0.01 ? "⚠ Warning! " : ""}${pf}: ${fmtD(v.asig)} / <input class="dreq" type="number" min="0" step="0.5" value="${v.req}" onchange="editarPos('${p.codigo}','${pf}',this.value)"> d${(() => { const it = (NEC[p.codigo] || []).find(i => i.perfil === pf); if (!it) return "";
           const mm = mesesPos(p, pf);
           if (it.dist && Object.keys(it.dist).length) return ` · <small title="${Object.entries(it.dist).map(([m, d]) => fmtMes(m) + ": " + fmtD(d)).join(" · ")}">${mm.map(m => fmtMes(m).slice(0, 3) + " " + fmtD(it.dist[m])).join(" · ")}</small>`;
@@ -461,6 +461,7 @@ async function guardarTodo() {
   [D, ASIG, NEC, OBS] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => []),
                                       fetch("/api/necesidades").then(r => r.json()).catch(() => ({})),
                                       fetch("/api/observaciones").then(r => r.json()).catch(() => ({}))]);
+  rolesCargados().forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
   pintarSelector();
   filtroProy.onchange = seleccionarProyecto;
   cargando(false); pintar();

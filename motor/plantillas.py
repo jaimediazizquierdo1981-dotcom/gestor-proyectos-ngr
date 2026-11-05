@@ -137,8 +137,10 @@ def plantilla_posiciones(proyectos: list[dict], necesidades: dict, meses: list[s
     _hoja_pos(ej, meses, roles, [])
     ejm = {"PM": {meses[3]: 20, meses[4]: 20}, "Desarrollador": {meses[2]: 10, meses[3]: 15, meses[4]: 15, meses[5]: 10},
            "QA": {meses[4]: 6, meses[5]: 8}, "Seguridad TI": {meses[5]: 4}}
-    _filas_pos(ej, [{"codigo": "P02", "proyecto": "Kioscos de autoservicio (ejemplo)", "perfil": r, "dist": dd} for r, dd in ejm.items()], meses)
-    ej.cell(ej.max_row + 2, 1).value = "Ejemplo: PM necesita 40 días repartidos en abril (20) y mayo (20). El total se calcula solo."
+    ejm = {r: d for r, d in ejm.items() if r in roles} or {roles[0]: {meses[3]: 20, meses[4]: 20}}
+    _filas_pos(ej, [{"codigo": "PRY-27-XX", "proyecto": "Proyecto de ejemplo", "perfil": r, "dist": dd} for r, dd in ejm.items()], meses)
+    r0, d0 = next(iter(ejm.items()))
+    ej.cell(ej.max_row + 2, 1).value = f"Ejemplo: {r0} necesita {sum(d0.values()):g} días repartidos por mes como se ve en su fila. El total se calcula solo."
     ins = wb.create_sheet("Instrucciones")
     for t in ["Hoja 'Posiciones': una fila por proyecto y rol. Escribe los días-persona de cada mes; el total se calcula solo.",
               "Código: proyecto activo (lista en 'Listas'). Rol: elegir de la lista.",

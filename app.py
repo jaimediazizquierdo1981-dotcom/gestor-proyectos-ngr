@@ -218,12 +218,19 @@ def _activos():
     return o, [p for p in sorted(o["proyectos"], key=lambda x: x["prioridad"]) if p["incluir"] and not p.get("on_hold")]
 
 
+def _roles_cargados(o) -> list[str]:
+    """Solo los roles que tienen colaboradores cargados (propios o terceros)."""
+    from motor.modelo import PERFILES
+    hay = {x["perfil"] for x in o.get("personas", [])}
+    return [r for r in PERFILES if r in hay]
+
+
 @app.get("/api/plantilla/posiciones")
 def api_plantilla_posiciones():
     from motor import plantillas
     from motor.modelo import PERFILES
     o, act = _activos()
-    data = plantillas.plantilla_posiciones(act, db.leer_necesidades() if db.disponible() else {}, o["meses"], PERFILES)
+    data = plantillas.plantilla_posiciones(act, db.leer_necesidades() if db.disponible() else {}, o["meses"], _roles_cargados(o))
     return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": 'attachment; filename="plantilla_posiciones_por_proyecto.xlsx"'})
 
@@ -236,7 +243,7 @@ async def api_cargar_posiciones(archivo: UploadFile = File(...), confirmar: bool
         raise HTTPException(503, "No hay base de datos conectada.")
     o, act = _activos()
     try:
-        por, errores = plantillas.leer_posiciones(await archivo.read(), o["meses"], PERFILES, {p["codigo"] for p in act})
+        por, errores = plantillas.leer_posiciones(await archivo.read(), o["meses"], _roles_cargados(o), {p["codigo"] for p in act})
     except Exception as e:
         raise HTTPException(400, f"No se pudo leer el archivo: {e}")
     resumen = [{"codigo": c, "posiciones": len(v), "dias": sum(i["dias"] for i in v)} for c, v in por.items()]
