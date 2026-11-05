@@ -32,6 +32,12 @@
   .vista .grp span{font-size:12px;font-weight:600;color:#1f3864;margin-right:2px}
   .vista .grp button{color:#1f3864;border-color:#c3cfe2;padding:5px 9px}
   .vista .grp button.on{background:#1f3864;border-color:#1f3864;color:#fff}
+  .tgl{display:flex;align-items:center;gap:8px;margin-left:10px;padding-left:12px;border-left:1px solid var(--line);font-size:12.5px;font-weight:600;color:#5b2a6e;cursor:pointer;user-select:none}
+  .tgl input{display:none}
+  .tgl i{width:34px;height:19px;border-radius:10px;background:#cfc8d8;position:relative;transition:.15s}
+  .tgl i::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:.15s}
+  .tgl input:checked + i{background:#5b2a6e}
+  .tgl input:checked + i::after{left:17px}
   table.c-int .ci, table.c-ter .ct, table.c-inv .cv{display:none}
   table.contraido .cx{display:none}
   thead th.mor{background:#5b2a6e!important}
@@ -78,7 +84,8 @@
   <div class="vista"><button id="bContraer" onclick="vistaCols(true)">⇤ Contraer columnas</button><button id="bTodas" onclick="vistaCols(false)">⇔ Ver todas las columnas</button>
     <div class="grp"><span>Recursos internos</span><button data-g="int" data-v="1" onclick="vistaGrupo('int',true)">⇤ Contraer</button><button data-g="int" data-v="0" onclick="vistaGrupo('int',false)">⇔ Expandir</button></div>
     <div class="grp"><span>Terceros</span><button data-g="ter" data-v="1" onclick="vistaGrupo('ter',true)">⇤ Contraer</button><button data-g="ter" data-v="0" onclick="vistaGrupo('ter',false)">⇔ Expandir</button></div>
-    <div class="grp"><span>Inversión y soporte</span><button data-g="inv" data-v="1" onclick="vistaGrupo('inv',true)">⇤ Contraer</button><button data-g="inv" data-v="0" onclick="vistaGrupo('inv',false)">⇔ Expandir</button></div></div>
+    <div class="grp"><span>Inversión y soporte</span><button data-g="inv" data-v="1" onclick="vistaGrupo('inv',true)">⇤ Contraer</button><button data-g="inv" data-v="0" onclick="vistaGrupo('inv',false)">⇔ Expandir</button></div>
+    <label class="tgl" title="Si está apagado, el consolidado solo muestra las iniciativas con prioridad"><input type="checkbox" id="chkSinPrio" onchange="verSinPrio(this.checked)"><i></i>Mostrar proyectos sin priorización</label></div>
   <div class="tbl"><table id="t"></table></div>
   <div class="note"><span id="notaRec">Recursos internos y Terceros = días asignados a personas en la Hoja de trabajo, por rol.</span> <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
@@ -131,9 +138,12 @@ function cambiar(cod, campo, valor) {
 let CONTRAIDO = leer("gestor_ngr_contraido") === true;
 function vistaCols(c) { CONTRAIDO = c; guardar("gestor_ngr_contraido", c); tabla(); }
 let GRP = leer("gestor_ngr_grupos") || {};   // grupos contraídos: int, ter, inv
+let SIN_PRIO = leer("gestor_ngr_sin_prio") === true;
+function verSinPrio(v) { SIN_PRIO = v; guardar("gestor_ngr_sin_prio", v); tabla(); }
 function vistaGrupo(g, c) { GRP = {...GRP, [g]: c}; guardar("gestor_ngr_grupos", GRP); tabla(); }
 function tabla() {
-  const P = D.proyectos.slice().sort(ordPrio);
+  chkSinPrio.checked = SIN_PRIO;
+  const P = D.proyectos.slice().sort(ordPrio).filter(p => SIN_PRIO || p.prioridad);
   const PF = PFT.filter(f => D.personas.some(x => x.tipo !== "tercero" && x.perfil === f) || P.some(p => (p.recursos[f] || 0) > 0));
   const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
