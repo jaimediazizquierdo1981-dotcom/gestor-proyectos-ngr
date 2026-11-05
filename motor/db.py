@@ -111,6 +111,7 @@ def iniciar() -> None:
         portafolio_valido_2027(c)
         inicio_datos_maestros(c)
         opex_en_cero(c)
+        montos_en_cero(c)
         cargar_lider_ti(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
@@ -517,6 +518,16 @@ def opex_en_cero(c) -> None:
     c.execute("insert into gestor.meta values ('opex_cero_v1', '1') on conflict do nothing")
 
 
+def montos_en_cero(c) -> None:
+    """Una sola vez (pedido del usuario): todos los montos en 0 (Capex adicional, Opex mensual y meses de Opex). Se respalda antes."""
+    if c.execute("select 1 from gestor.meta where clave = 'montos_cero_v1'").fetchone():
+        return
+    c.execute("""insert into gestor.respaldo (motivo, tabla, data) select 'montos_cero_v1', 'proyectos',
+                 coalesce(jsonb_agg(jsonb_build_object('codigo', codigo, 'capex', capex, 'opex_mensual', opex_mensual, 'opex_meses', opex_meses)), '[]'::jsonb) from gestor.proyectos""")
+    c.execute("update gestor.proyectos set capex = 0, opex_mensual = 0, opex_meses = null")
+    c.execute("insert into gestor.meta values ('montos_cero_v1', '1') on conflict do nothing")
+
+
 def cargar_lider_ti(c) -> None:
     """Completa la columna Lider.TI desde el CSV del portafolio (solo donde está vacía)."""
     pr = pd.read_csv(DATA / "proyectos.csv")
@@ -570,9 +581,12 @@ def eliminar_ficha(codigo: str) -> None:
         with c.cursor() as cur:
             for t in ("asignaciones", "necesidades", "observaciones"):
                 cur.execute(f"delete from gestor.{t} where codigo = %s", (codigo,))
+            # también sus montos: Capex adicional, Opex mensual y meses de Opex
+            cur.execute("update gestor.proyectos set capex = 0, opex_mensual = 0, opex_meses = null where codigo = %s", (codigo,))
             r = cur.execute("select data from gestor.escenario where id = 1").fetchone()
             data = r[0] if r else {}
-            data[codigo] = {**data.get(codigo, {}), "incluir": False, "on_hold": False}
+            data[codigo] = {k: v for k, v in data.get(codigo, {}).items() if k not in ("inicio", "fin")}
+            data[codigo].update({"incluir": False, "on_hold": False})
             cur.execute("""insert into gestor.escenario (id, data) values (1, %s)
                            on conflict (id) do update set data = excluded.data""", (json.dumps(data),))
         c.commit()

@@ -244,10 +244,10 @@ async function seleccionarProyecto() {
 }
 async function eliminarFicha(c) {
   const p = proyecto(c);
-  if (!confirm(`¿Eliminar la ficha de ${c} · ${p.proyecto}?\n\nSe borran sus posiciones, asignaciones y observaciones, y sale del consolidado. No se puede deshacer.`)) return;
+  if (!confirm(`¿Eliminar la ficha de ${c} · ${p.proyecto}?\n\nSe borran sus posiciones, asignaciones (días usados), observaciones y montos (Capex adicional y Opex), y sale del consolidado. No se puede deshacer.`)) return;
   const r = await fetch(`/api/hoja/ficha?codigo=${encodeURIComponent(c)}`, {method: "DELETE"});
   if (!r.ok) { aviso("No se pudo eliminar la ficha.", false); return; }
-  const e = leer(ESC_KEY) || {}; e[c] = {...(e[c] || {}), incluir: false, on_hold: false}; guardar(ESC_KEY, e);
+  const e = leer(ESC_KEY) || {}; const { inicio, fin, ...resto } = e[c] || {}; e[c] = {...resto, incluir: false, on_hold: false}; guardar(ESC_KEY, e);
   ASIG = ASIG.filter(a => a.codigo !== c); delete NEC[c]; delete OBS[c];
   cargando(true, "Actualizando…"); D = await calcular(); cargando(false);
   pintarSelector(); pintar(); aviso(`Se eliminó la ficha de ${c}. Puedes volver a activarlo desde "Seleccionar o activar un proyecto…".`);
