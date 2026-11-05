@@ -112,6 +112,9 @@ def iniciar() -> None:
         inicio_datos_maestros(c)
         opex_en_cero(c)
         montos_en_cero(c)
+        if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_pry_27_03_v1'").fetchone():
+            c.execute("update gestor.proyectos set lider_ti = 'Jorge Rios' where codigo = 'PRY-27-03'")
+            c.execute("insert into gestor.meta values ('lider_ti_pry_27_03_v1', '1') on conflict do nothing")
         cargar_lider_ti(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
