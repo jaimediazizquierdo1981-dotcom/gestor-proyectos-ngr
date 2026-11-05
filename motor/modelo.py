@@ -302,7 +302,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         fin_real = str(pd.Period(pr["fin"], "M") + r["desplazo_meses"])
         dur = (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
         opex_meses = sum(1 for m in lista if m > fin_real) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
-        filas.append({**{k: (pr.get(k) if pr.get(k) == pr.get(k) else "") or "" for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion"]},
+        filas.append({**{k: (pr.get(k) if pr.get(k) == pr.get(k) else "") or "" for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "lider_ti"]},
                       **{k: pr[k] for k in ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin",
                                               "capex", "opex_mensual", "incluir", "on_hold"]},
                       "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real,

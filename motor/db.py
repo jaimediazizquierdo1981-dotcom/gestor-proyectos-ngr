@@ -62,6 +62,7 @@ alter table gestor.proyectos add column if not exists oe_desc text;
 alter table gestor.proyectos add column if not exists programa text;
 alter table gestor.proyectos add column if not exists responsable text;
 alter table gestor.proyectos add column if not exists descripcion text;
+alter table gestor.proyectos add column if not exists lider_ti text;
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -104,11 +105,12 @@ def iniciar() -> None:
             c.execute("insert into gestor.meta values ('portafolio_2027_v1', '1') on conflict do nothing")
         else:
             altas_equipo(c)
+        cargar_lider_ti(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
 
 CAMPOS_PROY = ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin", "capex", "opex_mensual",
-               "pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion"]
+               "pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "lider_ti"]
 
 
 def _insertar_proyectos(cur, pr) -> None:
@@ -252,7 +254,7 @@ def leer() -> dict:
         proyectos = []
         for r in pr:
             d = dict(zip(CAMPOS_PROY, r[:nb]))
-            for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "marca"]:
+            for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "marca", "lider_ti"]:
                 d[k] = d[k] or ""
             d.update({p: float(v or 0) for p, v in zip(PERFILES, r[nb:nb + len(PERFILES)])})
             d.update({t: float(v or 0) for t, v in zip(TERC, r[nb + len(PERFILES):])})
@@ -431,6 +433,14 @@ def guardar_hoja(body: dict) -> str:
             g = cur.fetchone()[0]
         c.commit()
     return g.isoformat()
+
+
+def cargar_lider_ti(c) -> None:
+    """Completa la columna Lider.TI desde el CSV del portafolio (solo donde está vacía)."""
+    pr = pd.read_csv(DATA / "proyectos.csv")
+    with c.cursor() as cur:
+        cur.executemany("update gestor.proyectos set lider_ti = %s where codigo = %s and coalesce(lider_ti, '') = ''",
+                        [(str(l), cod) for cod, l in zip(pr["codigo"], pr["lider_ti"].fillna("")) if l])
 
 
 def altas_equipo(c) -> None:
