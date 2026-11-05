@@ -1,4 +1,4 @@
-codigo,proyecto,tipo,marca,prioridad,inicio,fin,capex,opex_mensual,pe,oe_cod,oe_desc,programa,responsable,lider_ti,descripcion,Orquestador de TI,Arquitecto,Desarrollador,Data Engineer,QA,Infra,Seguridad TI,Analista Funcional,Analista Técnico,T Dev,T QA,T Analista Funcional,T Analista Técnico
+codigo,proyecto,tipo,marca,prioridad,inicio,fin,capex,opex_mensual,pe,oe_cod,oe_desc,programa,responsable,lider_ti,descripcion,Gestor de TI,Arquitecto,Desarrollador,Data Engineer,QA,Infra,Seguridad TI,Analista Funcional,Analista Técnico,T Dev,T QA,T Analista Funcional,T Analista Técnico
 PRY-27-01,Libélula,Transformacional,,1,2027-01,2027-12,0.0,0.0,Digitalización y modernización,3.3,Ecosistema digital para tiendas y back office,Omnicanalidad y CX,Tania Salcedo,Carlos Zambrano,"Continuar despliegue de Oracle Simphony reemplazando Pixel por marca y tienda, con particularidades obligatorias: 
 - OSD en Bembos, impresión de etiquetas y pizzas mitad/mitad en Papa John’s, digitación de surtido de donas en Dunkin y KDS/ODS donde corresponda. 
 - Backlog de pendientes críticos de Libélula",0,0,0,0,0,0,0,0,0,0,0,0,0

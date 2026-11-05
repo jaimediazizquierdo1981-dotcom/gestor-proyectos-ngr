@@ -15,8 +15,8 @@ import pandas as pd
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
 DATOS_VERSION = "12"  # subir este número fuerza recargar los datos ficticios
-PERFILES = ["Orquestador de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"]
-COL = {"Orquestador de TI": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
+PERFILES = ["Gestor de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"]
+COL = {"Gestor de TI": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
        "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra", "Seguridad TI": "d_seguridad_ti",
        "Lider Tecnico": "d_lider_tecnico", "Analytics engineer": "d_analytics_engineer", "Practicante Data": "d_practicante_data",
@@ -403,7 +403,7 @@ def restaurar_libelula(c) -> None:
         c.execute("delete from gestor.necesidades where codigo = 'P01'")
         with c.cursor() as cur:
             cur.executemany("insert into gestor.necesidades (codigo, perfil, dias) values ('P01', %s, %s)",
-                            [("Orquestador de TI", 10), ("Arquitecto", 6), ("Analista Funcional", 11)])
+                            [("Gestor de TI", 10), ("Arquitecto", 6), ("Analista Funcional", 11)])
     c.execute("insert into gestor.meta values ('restaurado_p01_v2', '1') on conflict do nothing")
 
 
@@ -466,7 +466,7 @@ def altas_equipo(c) -> None:
     eq = pd.read_csv(DATA / "equipo.csv")
     with c.cursor() as cur:
         # rol renombrado: Demanda -> Demanda de Servicios (personas y posiciones de la hoja)
-        for viejo, nuevo in [("PM", "Orquestador de TI")]:
+        for viejo, nuevo in [("PM", "Gestor de TI"), ("Orquestador de TI", "Gestor de TI")]:
             cur.execute("update gestor.equipo set perfil = %s where perfil = %s", (nuevo, viejo))
             cur.execute("""update gestor.necesidades n set perfil = %s where perfil = %s and not exists
                            (select 1 from gestor.necesidades m where m.codigo = n.codigo and m.perfil = %s)""", (nuevo, viejo, nuevo))

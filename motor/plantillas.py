@@ -9,7 +9,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 COLUMNAS = ["Nombre", "Rol", "Área", "Cargo", "Días por semana", "Género"]
 AREAS = ["Estrategia", "Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"]
-ALIAS_ROL = {"practicantte data": "Practicante Data", "lider técnico": "Lider Tecnico", "líder técnico": "Lider Tecnico", "analytics engineer": "Analytics engineer", "demanda": "Demanda de Servicios", "pm": "Orquestador de TI", "orquestador ti": "Orquestador de TI"}
+ALIAS_ROL = {"practicantte data": "Practicante Data", "lider técnico": "Lider Tecnico", "líder técnico": "Lider Tecnico", "analytics engineer": "Analytics engineer", "demanda": "Demanda de Servicios", "pm": "Gestor de TI", "orquestador ti": "Gestor de TI", "orquestador de ti": "Gestor de TI", "gestor ti": "Gestor de TI"}
 
 
 def plantilla(equipo: list[dict], roles: list[str]) -> bytes:
@@ -135,7 +135,7 @@ def plantilla_posiciones(proyectos: list[dict], necesidades: dict, meses: list[s
     # hoja de ejemplo
     ej = wb.create_sheet("Ejemplo")
     _hoja_pos(ej, meses, roles, [])
-    ejm = {"Orquestador de TI": {meses[3]: 20, meses[4]: 20}, "Desarrollador": {meses[2]: 10, meses[3]: 15, meses[4]: 15, meses[5]: 10},
+    ejm = {"Gestor de TI": {meses[3]: 20, meses[4]: 20}, "Desarrollador": {meses[2]: 10, meses[3]: 15, meses[4]: 15, meses[5]: 10},
            "QA": {meses[4]: 6, meses[5]: 8}, "Seguridad TI": {meses[5]: 4}}
     ejm = {r: d for r, d in ejm.items() if r in roles} or {roles[0]: {meses[3]: 20, meses[4]: 20}}
     _filas_pos(ej, [{"codigo": "PRY-27-XX", "proyecto": "Proyecto de ejemplo", "perfil": r, "dist": dd} for r, dd in ejm.items()], meses)
