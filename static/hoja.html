@@ -286,7 +286,7 @@ function capexTerceros(p) {
 }
 function pie(p) {
   const det = capexTerceros(p), cx = Object.values(det).reduce((a, b) => a + b, 0);
-  const mesesOpex = D.meses.filter(m => m > p.fin_plan), op = +p.opex_mensual || 0;
+  const mesesOpex = D.meses.filter(m => m > (p.fin_hoja || p.fin_plan)), op = +p.opex_mensual || 0;
   const nOpex = p.opex_meses_manual ? +p.opex_meses : mesesOpex.length;
   return `<div class="pie">
     <div><b>Capex por terceros</b><span class="monto">${fmtS(cx)}</span>
