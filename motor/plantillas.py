@@ -9,7 +9,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 COLUMNAS = ["Nombre", "Rol", "Área", "Cargo", "Días por semana", "Género"]
 AREAS = ["Estrategia", "Operaciones", "Continuidad del Negocio", "Nuevas Soluciones Digitales", "Data"]
-ALIAS_ROL = {"practicantte data": "Practicante Data", "lider técnico": "Lider Tecnico", "líder técnico": "Lider Tecnico", "analytics engineer": "Analytics engineer"}
+ALIAS_ROL = {"practicantte data": "Practicante Data", "lider técnico": "Lider Tecnico", "líder técnico": "Lider Tecnico", "analytics engineer": "Analytics engineer", "demanda": "Demanda de Servicios"}
 
 
 def plantilla(equipo: list[dict], roles: list[str]) -> bytes:

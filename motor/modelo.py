@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-PERFILES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda"]
-TERCEROS = ["Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI"]  # días de terceros: no consumen capacidad interna
+PERFILES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"]
+TERCEROS = ["Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI", "Devops", "Soporte", "Demanda de Servicios"]  # días de terceros: no consumen capacidad interna
 
 
 # ---------------------------------------------------------------- utilidades
@@ -319,7 +319,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     if modo == "hoja":
         tipo_de = {e["persona"]: e.get("tipo") or "interno" for e in equipo}
         perfil_de = {e["persona"]: e["perfil"] for e in equipo}
-        a_tercero = {"Desarrollador": "Dev", "QA": "QA", "Analista Funcional": "Analista Funcional", "Analista Técnico": "Analista Técnico", "Seguridad TI": "Seguridad TI"}
+        a_tercero = {"Desarrollador": "Dev", "QA": "QA", "Analista Funcional": "Analista Funcional", "Analista Técnico": "Analista Técnico", "Seguridad TI": "Seguridad TI", "Devops": "Devops", "Soporte": "Soporte", "Demanda de Servicios": "Demanda de Servicios"}
         for f in filas:
             rec, ter = {pf: 0.0 for pf in PERFILES}, {t: 0.0 for t in TERCEROS}
             fuente = a.get("pausa", {}) if f.get("on_hold") else a["asignacion"]

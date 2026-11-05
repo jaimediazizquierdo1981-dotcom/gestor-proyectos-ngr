@@ -107,9 +107,9 @@
 </main>
 <script>
 let D = null, esc = leer(ESC_KEY) || {};
-const PFT = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda"];
-const TF = ["Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI"];
-const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Analista Funcional": "A. Func.", "Analista Técnico": "A. Téc.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra", "Seguridad TI": "Seg.TI", "Lider Tecnico": "Líder T.", "Analytics engineer": "Analytics", "Practicante Data": "Pract. Data", "Devops": "Devops", "Soporte": "Soporte", "Demanda": "Demanda"};
+const PFT = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"];
+const TF = ["Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI", "Devops", "Soporte", "Demanda de Servicios"];
+const CORTO = {"PM": "PM", "Arquitecto": "Arq.", "Analista Funcional": "A. Func.", "Analista Técnico": "A. Téc.", "Desarrollador": "Dev", "Data Engineer": "Data Eng.", "QA": "QA", "Infra": "Infra", "Seguridad TI": "Seg.TI", "Lider Tecnico": "Líder T.", "Analytics engineer": "Analytics", "Practicante Data": "Pract. Data", "Devops": "Devops", "Soporte": "Soporte", "Demanda de Servicios": "Demanda Serv."};
 PFT.forEach(p => selPerfil.insertAdjacentHTML("beforeend", `<option>${p}</option>`));
 selPerfil.onchange = () => barras();
 

@@ -117,7 +117,7 @@
 </main>
 <script>
 let D, ASIG = [], NEC = {}, OBS = {};
-const ROLES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda"];
+const ROLES = ["PM", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"];
 ROLES.forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
 buscar.oninput = filtroRol.onchange = () => pintarLista();
 
