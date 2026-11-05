@@ -110,6 +110,7 @@ def iniciar() -> None:
             altas_equipo(c)
         portafolio_valido_2027(c)
         inicio_datos_maestros(c)
+        opex_en_cero(c)
         cargar_lider_ti(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
@@ -500,6 +501,20 @@ def inicio_datos_maestros(c) -> None:
         c.execute("update gestor.escenario set data = %s where id = 1", (json.dumps(esc),))
     c.execute("update gestor.proyectos set inicio = '2027-01' where codigo = 'PRY-27-08'")
     c.execute("insert into gestor.meta values ('inicio_pry_27_08_v1', '1') on conflict do nothing")
+
+
+def opex_en_cero(c) -> None:
+    """Una sola vez: Opex mensual en 0 en todas las iniciativas salvo Libélula (PRY-27-01), que cargó el usuario.
+    Arrastre de los proyectos de prueba. Se respalda antes."""
+    if c.execute("select 1 from gestor.meta where clave = 'opex_cero_v1'").fetchone():
+        return
+    c.execute("create table if not exists gestor.respaldo (id serial primary key, motivo text, tabla text, data jsonb, creado timestamptz default now())")
+    c.execute("""insert into gestor.respaldo (motivo, tabla, data) select 'opex_cero_v1', 'proyectos',
+                 coalesce(jsonb_agg(jsonb_build_object('codigo', codigo, 'opex_mensual', opex_mensual, 'opex_meses', opex_meses)), '[]'::jsonb) from gestor.proyectos""")
+    antes = c.execute("select codigo, opex_mensual from gestor.proyectos where codigo <> 'PRY-27-01' and coalesce(opex_mensual, 0) <> 0").fetchall()
+    print("opex_en_cero:", [(a, float(b)) for a, b in antes], flush=True)
+    c.execute("update gestor.proyectos set opex_mensual = 0 where codigo <> 'PRY-27-01'")
+    c.execute("insert into gestor.meta values ('opex_cero_v1', '1') on conflict do nothing")
 
 
 def cargar_lider_ti(c) -> None:
