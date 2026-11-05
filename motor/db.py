@@ -48,6 +48,12 @@ alter table gestor.equipo add column if not exists area text;
 alter table gestor.equipo add column if not exists cargo text;
 alter table gestor.equipo add column if not exists tipo text default 'interno';
 alter table gestor.proyectos add column if not exists d_seguridad_ti numeric default 0;
+alter table gestor.proyectos add column if not exists pe text;
+alter table gestor.proyectos add column if not exists oe_cod text;
+alter table gestor.proyectos add column if not exists oe_desc text;
+alter table gestor.proyectos add column if not exists programa text;
+alter table gestor.proyectos add column if not exists responsable text;
+alter table gestor.proyectos add column if not exists descripcion text;
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -77,25 +83,73 @@ def iniciar() -> None:
         if nueva:   # cambia la estructura: se recrean las tablas y se recargan los datos ficticios
             c.execute("drop table if exists gestor.proyectos, gestor.equipo, gestor.feriados, gestor.parametros, gestor.horas_reales cascade")
         c.execute(DDL)
+        if not nueva:
+            migrar_portafolio_2027(c)
         restaurar_libelula(c)
         if nueva:
             sembrar(c)
             c.execute("insert into gestor.meta values ('datos_version', %s) on conflict (clave) do update set valor = excluded.valor",
                       (DATOS_VERSION,))
+            c.execute("insert into gestor.meta values ('portafolio_2027_v1', '1') on conflict do nothing")
         else:
             altas_equipo(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
 
+CAMPOS_PROY = ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin", "capex", "opex_mensual",
+               "pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion"]
+
+
+def _insertar_proyectos(cur, pr) -> None:
+    pr = pr.copy()
+    for k in CAMPOS_PROY:
+        if k not in pr:
+            pr[k] = ""
+    for p in list(COL) + list(TERC):
+        if p not in pr:
+            pr[p] = 0
+    cur.executemany(
+        f"insert into gestor.proyectos ({', '.join(CAMPOS_PROY + list(COL.values()) + list(TERC.values()))}) "
+        f"values ({', '.join(['%s'] * (len(CAMPOS_PROY) + len(COL) + len(TERC)))})",
+        [[(None if pd.isna(r[k]) else r[k]) for k in CAMPOS_PROY] + [r[p] for p in PERFILES] + [r[t] for t in TERC]
+         for r in pr.to_dict(orient="records")])
+
+
+def migrar_portafolio_2027(c) -> None:
+    """Reemplaza los proyectos ficticios por el portafolio 2027 (una sola vez). Respalda la hoja antes."""
+    if c.execute("select 1 from gestor.meta where clave = 'portafolio_2027_v1'").fetchone():
+        return
+    mapa = {"P01": "PRY-27-01", "P02": "PRY-27-06", "P03": "PRY-27-08", "P04": "PRY-27-03", "P06": "PRY-27-05"}
+    c.execute("create table if not exists gestor.respaldo (id serial primary key, motivo text, tabla text, data jsonb, creado timestamptz default now())")
+    for t in ("asignaciones", "necesidades", "observaciones", "escenario", "proyectos"):
+        c.execute(f"insert into gestor.respaldo (motivo, tabla, data) select 'portafolio_2027_v1', '{t}', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x")
+    opex = dict(c.execute("select codigo, opex_mensual from gestor.proyectos").fetchall())
+    pr = pd.read_csv(DATA / "proyectos.csv", dtype={"inicio": str, "fin": str, "oe_cod": str})
+    for viejo, nuevo in mapa.items():   # conserva el opex que el usuario cargó
+        if opex.get(viejo):
+            pr.loc[pr.codigo == nuevo, "opex_mensual"] = float(opex[viejo])
+    c.execute("delete from gestor.proyectos")
+    with c.cursor() as cur:
+        _insertar_proyectos(cur, pr)
+    for t in ("asignaciones", "necesidades", "observaciones"):
+        for viejo, nuevo in mapa.items():
+            c.execute(f"update gestor.{t} set codigo = %s where codigo = %s", (nuevo, viejo))
+        c.execute(f"delete from gestor.{t} where codigo not in (select codigo from gestor.proyectos)")
+    r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+    if r:
+        nueva = {}
+        for viejo, v in (r[0] or {}).items():
+            if viejo in mapa:
+                nueva[mapa[viejo]] = {k: x for k, x in v.items() if k in ("incluir", "on_hold")}
+        c.execute("update gestor.escenario set data = %s where id = 1", (json.dumps(nueva),))
+    c.execute("insert into gestor.meta values ('portafolio_2027_v1', '1') on conflict do nothing")
+
+
 def sembrar(c) -> None:
     """Carga los datos ficticios de /data."""
-    pr = pd.read_csv(DATA / "proyectos.csv", dtype={"inicio": str, "fin": str})
-    cols = ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin", "capex", "opex_mensual"]
+    pr = pd.read_csv(DATA / "proyectos.csv", dtype={"inicio": str, "fin": str, "oe_cod": str})
     with c.cursor() as cur:
-        cur.executemany(
-            f"insert into gestor.proyectos ({', '.join(cols + list(COL.values()) + list(TERC.values()))}) "
-            f"values ({', '.join(['%s'] * (len(cols) + len(COL) + len(TERC)))})",
-            [[r[k] for k in cols] + [r[p] for p in PERFILES] + [r[t] for t in TERC] for r in pr.to_dict(orient="records")])
+        _insertar_proyectos(cur, pr)
         eq = pd.read_csv(DATA / "equipo.csv")
         cur.executemany("insert into gestor.equipo (persona, perfil, dias_semana, genero, area, cargo, tipo) values (%s,%s,%s,%s,%s,%s,%s) on conflict do nothing",
                         eq[["persona", "perfil", "dias_semana", "genero", "area", "cargo", "tipo"]].fillna("").values.tolist())
@@ -108,13 +162,16 @@ def sembrar(c) -> None:
 def leer() -> dict:
     with _conn() as c:
         cur = c.cursor()
-        pr = cur.execute(f"select codigo, proyecto, tipo, marca, prioridad, inicio, fin, capex, opex_mensual, "
+        nb = len(CAMPOS_PROY)
+        pr = cur.execute(f"select {', '.join(CAMPOS_PROY)}, "
                          f"{', '.join(list(COL.values()) + list(TERC.values()))} from gestor.proyectos order by prioridad").fetchall()
         proyectos = []
         for r in pr:
-            d = dict(zip(["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin", "capex", "opex_mensual"], r[:9]))
-            d.update({p: float(v or 0) for p, v in zip(PERFILES, r[9:9 + len(PERFILES)])})
-            d.update({t: float(v or 0) for t, v in zip(TERC, r[9 + len(PERFILES):])})
+            d = dict(zip(CAMPOS_PROY, r[:nb]))
+            for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "marca"]:
+                d[k] = d[k] or ""
+            d.update({p: float(v or 0) for p, v in zip(PERFILES, r[nb:nb + len(PERFILES)])})
+            d.update({t: float(v or 0) for t, v in zip(TERC, r[nb + len(PERFILES):])})
             for k in ["capex", "opex_mensual"]:
                 d[k] = float(d[k] or 0)
             proyectos.append(d)
@@ -233,7 +290,8 @@ def restaurar_libelula(c) -> None:
     """Restaura una sola vez lo que el usuario había cargado en P01 (borrado por error en la versión 12)."""
     if c.execute("select 1 from gestor.meta where clave = 'restaurado_p01_v2'").fetchone():
         return
-    if c.execute("select count(*) from gestor.asignaciones where codigo = 'P01'").fetchone()[0] == 0:
+    if (c.execute("select 1 from gestor.proyectos where codigo = 'P01'").fetchone()
+            and c.execute("select count(*) from gestor.asignaciones where codigo = 'P01'").fetchone()[0] == 0):
         meses = [f"2027-{m:02d}" for m in range(1, 10)]
         filas = {
             "Carlos Vega": dict(zip(meses, [1, 1, 1, 1, 1, 1, 1, 1, 2])),
