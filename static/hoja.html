@@ -287,13 +287,14 @@ function capexTerceros(p) {
 function pie(p) {
   const det = capexTerceros(p), cx = Object.values(det).reduce((a, b) => a + b, 0);
   const mesesOpex = D.meses.filter(m => m > p.fin_plan), op = +p.opex_mensual || 0;
+  const nOpex = p.opex_meses_manual ? +p.opex_meses : mesesOpex.length;
   return `<div class="pie">
     <div><b>Capex por terceros</b><span class="monto">${fmtS(cx)}</span>
       <small>${Object.keys(det).length ? Object.entries(det).map(([r, v]) => `${r}: ${fmtS(v)}`).join(" · ") : "Sin terceros asignados"} · costos por mes en Criterios</small>
       <textarea placeholder="Observaciones del Capex: licencias, implementación, hardware, supuestos…" onchange="guardarObs('${p.codigo}','capex',this.value)">${esc(OBS[p.codigo]?.capex)}</textarea></div>
     <div><b>Opex desde el fin del proyecto hasta dic.</b>
-      <span class="monto">S/ <input type="number" min="0" step="500" value="${op}" onchange="cambiarOpex('${p.codigo}', this.value)"> / mes × ${mesesOpex.length} meses = ${fmtS(op * mesesOpex.length)}</span>
-      <small>${mesesOpex.length ? `${fmtMes(mesesOpex[0])} a ${fmtMes(mesesOpex.at(-1))}` : "El proyecto termina en diciembre: no hay Opex en el año"}</small>
+      <span class="monto">S/ <input type="number" min="0" step="500" value="${op}" onchange="cambiarOpex('${p.codigo}', this.value)"> / mes × <input type="number" min="0" max="120" step="1" style="width:70px" value="${nOpex}" title="Meses de Opex. Déjalo vacío para calcularlo solo (desde el fin del proyecto hasta dic.)" onchange="cambiarMesesOpex('${p.codigo}', this.value)"> meses = ${fmtS(op * nOpex)}</span>
+      <small>${p.opex_meses_manual ? `Meses ingresados a mano · déjalo vacío para volver al cálculo automático (${mesesOpex.length} meses)` : mesesOpex.length ? `${fmtMes(mesesOpex[0])} a ${fmtMes(mesesOpex.at(-1))} · puedes cambiar los meses` : "El proyecto termina en diciembre: ingresa los meses de Opex que quieras considerar"}</small>
       <textarea placeholder="Observaciones del Opex: suscripciones, soporte, nube, mantenimiento…" onchange="guardarObs('${p.codigo}','opex',this.value)">${esc(OBS[p.codigo]?.opex)}</textarea></div>
   </div>`;
 }
@@ -307,6 +308,13 @@ async function cambiarOpex(codigo, valor) {
   const p = proyecto(codigo); p.opex_mensual = Math.max(0, +valor || 0); pintarProyectos();
   const r = await fetch("/api/proyecto", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo, opex_mensual: p.opex_mensual})});
   aviso(r.ok ? "Opex guardado." : "No se pudo guardar el Opex.", r.ok);
+}
+
+async function cambiarMesesOpex(codigo, valor) {
+  const p = proyecto(codigo), v = String(valor).trim() === "" ? null : Math.max(0, Math.round(+valor || 0));
+  p.opex_meses_manual = v !== null; p.opex_meses = v; pintarProyectos();
+  const r = await fetch("/api/proyecto", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo, opex_meses: v})});
+  aviso(r.ok ? "Meses de Opex guardados." : "No se pudieron guardar los meses de Opex.", r.ok);
 }
 
 function pintarKpis() {
@@ -427,7 +435,8 @@ async function guardarTodo() {
   D.proyectos.forEach(p => escenario[p.codigo] = {incluir: !!p.incluir, on_hold: !!p.on_hold, prioridad: p.prioridad, inicio: p.inicio});
   const necesidades = {}; D.proyectos.forEach(p => { if (NEC[p.codigo]) necesidades[p.codigo] = NEC[p.codigo]; });
   const opex = {}; D.proyectos.forEach(p => opex[p.codigo] = +p.opex_mensual || 0);
-  const body = {asignaciones: ASIG, necesidades, observaciones: OBS, opex, escenario};
+  const opex_meses = {}; D.proyectos.forEach(p => opex_meses[p.codigo] = p.opex_meses_manual ? p.opex_meses : null);
+  const body = {asignaciones: ASIG, necesidades, observaciones: OBS, opex, opex_meses, escenario};
   try {
     const r = await fetch("/api/hoja/guardar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
     if (!r.ok) throw new Error((await r.json()).detail || r.status);

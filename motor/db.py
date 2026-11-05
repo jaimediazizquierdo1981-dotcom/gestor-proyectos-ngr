@@ -63,6 +63,7 @@ alter table gestor.proyectos add column if not exists programa text;
 alter table gestor.proyectos add column if not exists responsable text;
 alter table gestor.proyectos add column if not exists descripcion text;
 alter table gestor.proyectos add column if not exists lider_ti text;
+alter table gestor.proyectos add column if not exists opex_meses numeric;
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -261,6 +262,9 @@ def leer() -> dict:
             for k in ["capex", "opex_mensual"]:
                 d[k] = float(d[k] or 0)
             proyectos.append(d)
+        om = dict(cur.execute("select codigo, opex_meses from gestor.proyectos where opex_meses is not null").fetchall())
+        for d in proyectos:
+            d["opex_meses"] = float(om[d["codigo"]]) if d["codigo"] in om else None
         equipo = [{"persona": a, "perfil": b, "dias_semana": float(h), "genero": g, "area": ar, "cargo": cg, "tipo": t or "interno"}
                   for a, b, h, g, ar, cg, t in cur.execute("select persona, perfil, dias_semana, genero, area, cargo, tipo from gestor.equipo order by area, persona")]
         feriados = [{"fecha": str(f), "motivo": m} for f, m in cur.execute("select fecha, motivo from gestor.feriados order by fecha")]
@@ -351,8 +355,10 @@ def guardar_necesidades(codigo: str, items: list[dict]) -> None:
             cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)", filas)
 
 
-def actualizar_proyecto(codigo: str, opex_mensual: float | None = None) -> None:
+def actualizar_proyecto(codigo: str, opex_mensual: float | None = None, opex_meses=False) -> None:
     with _conn() as c:
+        if opex_meses is not False:   # None = automático (meses desde el fin hasta dic.)
+            c.execute("update gestor.proyectos set opex_meses = %s, actualizado = now() where codigo = %s", (opex_meses, codigo))
         if opex_mensual is not None:
             c.execute("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s", (opex_mensual, codigo))
 
@@ -427,6 +433,9 @@ def guardar_hoja(body: dict) -> str:
                             [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])
             cur.executemany("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s",
                             [(float(v or 0), cod) for cod, v in (body.get("opex") or {}).items()])
+            if "opex_meses" in body:
+                cur.executemany("update gestor.proyectos set opex_meses = %s where codigo = %s",
+                                [(None if v in (None, "") else float(v), cod) for cod, v in (body.get("opex_meses") or {}).items()])
             cur.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
                            on conflict (id) do update set data = excluded.data, guardado = now() returning guardado""",
                         (json.dumps(body.get("escenario") or {}),))

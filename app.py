@@ -141,7 +141,9 @@ def api_proyecto(body: dict = Body(...)):
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     op = body.get("opex_mensual")
-    db.actualizar_proyecto(str(body["codigo"]), float(op) if op is not None else None)
+    om = body.get("opex_meses", False)
+    db.actualizar_proyecto(str(body["codigo"]), float(op) if op is not None else None,
+                           om if om is False else (None if om in (None, "") else float(om)))
     return {"ok": True}
 
 

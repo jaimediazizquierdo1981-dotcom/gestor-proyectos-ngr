@@ -301,7 +301,9 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         proy = r["req_hoja"] if "req_hoja" in r else {pf: round(float(sum(v)), 1) for pf, v in (r["req_mes"] or {}).items()}
         fin_real = str(pd.Period(pr["fin"], "M") + r["desplazo_meses"])
         dur = (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
-        opex_meses = sum(1 for m in lista if m > fin_real) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
+        opex_auto = sum(1 for m in lista if m > fin_real) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
+        om = pr.get("opex_meses")
+        opex_meses = float(om) if om not in (None, "") and om == om else opex_auto
         filas.append({**{k: (pr.get(k) if pr.get(k) == pr.get(k) else "") or "" for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "lider_ti"]},
                       **{k: pr[k] for k in ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin",
                                               "capex", "opex_mensual", "incluir", "on_hold"]},
@@ -310,7 +312,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                       "terceros": {t: float(pr.get("T " + t, 0) or 0) for t in TERCEROS},
                       "dias_terceros": float(sum(float(pr.get("T " + t, 0) or 0) for t in TERCEROS)),
                       "dias_base": float(sum(float(pr.get(pf, 0) or 0) for pf in PERFILES)),
-                      "opex_anual": float(pr["opex_mensual"]) * 12, "capex_terceros": 0.0, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses,
+                      "opex_anual": float(pr["opex_mensual"]) * 12, "capex_terceros": 0.0, "opex_horizonte": float(pr["opex_mensual"]) * opex_meses, "opex_meses": opex_meses, "opex_meses_auto": opex_auto, "opex_meses_manual": om not in (None, "") and om == om,
                       **{k: r[k] for k in ["estado", "cobertura", "desplazo_meses", "dias_requeridos"]},
                       "req_mes": r["req_mes"], "prob_cubierto": mc["prob"].get(pr["codigo"]),
                       "dias_proyectados": proy, "capacidad_asignada": {k: round(v, 1) for k, v in asig.items()}})
