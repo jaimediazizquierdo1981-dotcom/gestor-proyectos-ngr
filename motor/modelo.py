@@ -284,7 +284,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     cap = capacidad(equipo, base["feriados"], p, lista)
     a = asignar(proyectos, equipo, cap, p, lista)
     modo = "modelo"
-    fin_hoja = {}
+    fin_hoja, ini_hoja = {}, {}
     from motor import db
     if db.disponible() and not entrada.get("modelo_automatico"):
         _asig_hoja = db.leer_asignaciones()
@@ -294,6 +294,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
             ms = [m for m, v in (x["dias"] or {}).items() if v and float(v) > 0]
             if ms:
                 fin_hoja[x["codigo"]] = max(fin_hoja.get(x["codigo"], ""), max(ms))
+                ini_hoja[x["codigo"]] = min(ini_hoja.get(x["codigo"], "9999"), min(ms))
         modo = "hoja"
     mc = montecarlo(proyectos, equipo, cap, p, lista) if con_mc else {"prob": {}, "dist_cubiertos": [], "n": 0, "media_factor": None}
 
@@ -307,7 +308,8 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         proy = r["req_hoja"] if "req_hoja" in r else {pf: round(float(sum(v)), 1) for pf, v in (r["req_mes"] or {}).items()}
         fin_real = str(pd.Period(pr["fin"], "M") + r["desplazo_meses"])
         fin_cons = fin_hoja.get(pr["codigo"]) or fin_real   # con asignaciones en la Hoja, el fin es su último mes con días
-        dur = (pd.Period(fin_cons, "M") - (pd.Period(pr["inicio"], "M") + r["desplazo_meses"])).n + 1 if pr["codigo"] in fin_hoja \
+        ini_cons = ini_hoja.get(pr["codigo"]) or str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"])   # y el inicio, el primero
+        dur = (pd.Period(fin_cons, "M") - pd.Period(ini_cons, "M")).n + 1 if pr["codigo"] in fin_hoja \
             else (pd.Period(pr["fin"], "M") - pd.Period(pr["inicio"], "M")).n + 1
         opex_auto = sum(1 for m in lista if m > fin_cons) if p["opex"].get("inicia_mes_siguiente_al_fin", True) else 0
         om = pr.get("opex_meses")
@@ -315,7 +317,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
         filas.append({**{k: (pr.get(k) if pr.get(k) == pr.get(k) else "") or "" for k in ["pe", "oe_cod", "oe_desc", "programa", "responsable", "descripcion", "lider_ti"]},
                       **{k: pr[k] for k in ["codigo", "proyecto", "tipo", "marca", "prioridad", "inicio", "fin",
                                               "capex", "opex_mensual", "incluir", "on_hold"]},
-                      "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real, "fin_hoja": fin_cons,
+                      "inicio_plan": str(pd.Period(pr["inicio"], "M") + r["desplazo_meses"]), "fin_plan": fin_real, "fin_hoja": fin_cons, "ini_hoja": ini_hoja.get(pr["codigo"], ""),
                       "duracion_meses": dur, "recursos": {pf: float(pr.get(pf, 0) or 0) for pf in PERFILES},
                       "terceros": {t: float(pr.get("T " + t, 0) or 0) for t in TERCEROS},
                       "dias_terceros": float(sum(float(pr.get("T " + t, 0) or 0) for t in TERCEROS)),

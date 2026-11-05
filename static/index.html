@@ -138,7 +138,7 @@ function tabla() {
       <td class="l"><b>${p.codigo}</b></td><td class="l txt" title="${p.programa}">${p.programa}</td>
       <td class="l nom" title="${(p.descripcion || p.proyecto).replace(/"/g, "&quot;")}"><b>${p.proyecto}</b></td><td class="l txt cx" title="${p.responsable}">${p.responsable}</td><td class="l txt cx" title="${p.lider_ti || ""}">${p.lider_ti || ""}</td>
 
-      <td class="l"><select onchange="cambiar('${p.codigo}','inicio',this.value)">${D.meses.map(m => `<option value="${m}" ${m === p.inicio ? "selected" : ""}>${fmtMes(m)}</option>`).join("")}</select></td>
+      <td class="l">${p.ini_hoja ? `<span title="Primer mes con días asignados en la Hoja de trabajo">${fmtMes(p.ini_hoja)}</span>` : `<select onchange="cambiar('${p.codigo}','inicio',this.value)">${D.meses.map(m => `<option value="${m}" ${m === p.inicio ? "selected" : ""}>${fmtMes(m)}</option>`).join("")}</select>`}</td>
       <td class="l" title="${p.fin_hoja !== p.fin_plan ? "Último mes con días asignados en la Hoja de trabajo" : ""}">${fmtMes(p.fin_hoja || p.fin_plan)}</td><td>${p.duracion_meses}</td>
       ${PF.map((f, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.recursos[f])}</td>`).join("")}<td><b>${fmtD(p.dias_base)}</b></td>
       ${TF.map((t, i) => `<td class="${i ? "" : "sep"}">${fmtD(p.terceros[t])}</td>`).join("")}<td><b>${fmtD(p.dias_terceros)}</b></td>
