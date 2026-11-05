@@ -85,6 +85,7 @@ def iniciar() -> None:
         c.execute(DDL)
         if not nueva:
             migrar_portafolio_2027(c)
+            activar_portafolio_2027(c)
         restaurar_libelula(c)
         if nueva:
             sembrar(c)
@@ -143,6 +144,17 @@ def migrar_portafolio_2027(c) -> None:
                 nueva[mapa[viejo]] = {k: x for k, x in v.items() if k in ("incluir", "on_hold")}
         c.execute("update gestor.escenario set data = %s where id = 1", (json.dumps(nueva),))
     c.execute("insert into gestor.meta values ('portafolio_2027_v1', '1') on conflict do nothing")
+
+
+def activar_portafolio_2027(c) -> None:
+    """Una vez: las iniciativas del portafolio 2027 quedan todas incluidas (la migración arrastró exclusiones de los ficticios)."""
+    if c.execute("select 1 from gestor.meta where clave = 'portafolio_2027_incluir'").fetchone():
+        return
+    r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+    if r and r[0]:
+        data = {k: {kk: vv for kk, vv in v.items() if kk != "incluir"} for k, v in r[0].items()}
+        c.execute("update gestor.escenario set data = %s where id = 1", (json.dumps(data),))
+    c.execute("insert into gestor.meta values ('portafolio_2027_incluir', '1') on conflict do nothing")
 
 
 def sembrar(c) -> None:
