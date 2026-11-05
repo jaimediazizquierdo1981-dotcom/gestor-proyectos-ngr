@@ -5,6 +5,9 @@ const leer = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const borrar = k => { try { localStorage.removeItem(k); } catch (e) {} };
 // portafolio 2027 validado: la prioridad vuelve a ser la del archivo (se olvida la guardada en este navegador)
+if (leer("gestor_ngr_ini0827") !== "1") {   // Datos maestros vuelve a Ene-27
+  const e = leer(ESC_KEY) || {}; if (e["PRY-27-08"]) { delete e["PRY-27-08"].inicio; delete e["PRY-27-08"].fin; } guardar(ESC_KEY, e); guardar("gestor_ngr_ini0827", "1");
+}
 if (leer("gestor_ngr_portafolio") !== "valido_v1") {
   const e = leer(ESC_KEY) || {}; Object.values(e).forEach(v => delete v.prioridad); guardar(ESC_KEY, e); guardar("gestor_ngr_portafolio", "valido_v1");
 }

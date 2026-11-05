@@ -109,6 +109,7 @@ def iniciar() -> None:
         else:
             altas_equipo(c)
         portafolio_valido_2027(c)
+        inicio_datos_maestros(c)
         cargar_lider_ti(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
@@ -483,6 +484,22 @@ def portafolio_valido_2027(c) -> None:
         c.execute("update gestor.escenario set data = %s where id = 1",
                   (json.dumps({k: {a: b for a, b in v.items() if a != "prioridad"} for k, v in r[0].items()}),))
     c.execute("insert into gestor.meta values ('portafolio_valido_2027_v1', '1') on conflict do nothing")
+
+
+def inicio_datos_maestros(c) -> None:
+    """Una sola vez: Datos maestros (PRY-27-08) vuelve a iniciar en Ene-27 como el resto (se quita el inicio guardado)."""
+    if c.execute("select 1 from gestor.meta where clave = 'inicio_pry_27_08_v1'").fetchone():
+        return
+    r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+    esc = (r[0] or {}) if r else {}
+    asig = c.execute("select persona, dias from gestor.asignaciones where codigo = 'PRY-27-08'").fetchall()
+    nec = c.execute("select perfil, mes_ini, mes_fin from gestor.necesidades where codigo = 'PRY-27-08'").fetchall()
+    print("PRY-27-08 diagnostico:", json.dumps({"escenario": esc.get("PRY-27-08"), "asig": [list(x) for x in asig], "nec": [list(x) for x in nec]}, default=str), flush=True)
+    if "PRY-27-08" in esc:
+        esc["PRY-27-08"] = {k: v for k, v in esc["PRY-27-08"].items() if k not in ("inicio", "fin")}
+        c.execute("update gestor.escenario set data = %s where id = 1", (json.dumps(esc),))
+    c.execute("update gestor.proyectos set inicio = '2027-01' where codigo = 'PRY-27-08'")
+    c.execute("insert into gestor.meta values ('inicio_pry_27_08_v1', '1') on conflict do nothing")
 
 
 def cargar_lider_ti(c) -> None:
