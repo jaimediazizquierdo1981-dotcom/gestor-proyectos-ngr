@@ -86,6 +86,7 @@ def iniciar() -> None:
         if not nueva:
             migrar_portafolio_2027(c)
             activar_portafolio_2027(c)
+            remapear_codigos_viejos(c)
         restaurar_libelula(c)
         if nueva:
             sembrar(c)
@@ -144,6 +145,48 @@ def migrar_portafolio_2027(c) -> None:
                 nueva[mapa[viejo]] = {k: x for k, x in v.items() if k in ("incluir", "on_hold")}
         c.execute("update gestor.escenario set data = %s where id = 1", (json.dumps(nueva),))
     c.execute("insert into gestor.meta values ('portafolio_2027_v1', '1') on conflict do nothing")
+
+
+MAPA_2027 = {"P01": "PRY-27-01", "P02": "PRY-27-06", "P03": "PRY-27-08", "P04": "PRY-27-03", "P06": "PRY-27-05"}
+
+
+def remapear_codigos_viejos(c) -> None:
+    """Si una pestaña antigua guardó la hoja con códigos P01…, se pasan a su iniciativa 2027 (y lo que quede huérfano se respalda).
+    Si la iniciativa quedó vacía y hay respaldo de la migración, se recupera desde ahí."""
+    for viejo, nuevo in MAPA_2027.items():
+        c.execute("""update gestor.asignaciones a set codigo = %s where codigo = %s
+                     and not exists (select 1 from gestor.asignaciones b where b.codigo = %s and b.persona = a.persona)""", (nuevo, viejo, nuevo))
+        c.execute("""update gestor.necesidades a set codigo = %s where codigo = %s
+                     and not exists (select 1 from gestor.necesidades b where b.codigo = %s and b.perfil = a.perfil)""", (nuevo, viejo, nuevo))
+        c.execute("""update gestor.observaciones a set codigo = %s where codigo = %s
+                     and not exists (select 1 from gestor.observaciones b where b.codigo = %s)""", (nuevo, viejo, nuevo))
+    huer = c.execute("""select 'asignaciones', count(*) from gestor.asignaciones where codigo not in (select codigo from gestor.proyectos)
+                        union all select 'necesidades', count(*) from gestor.necesidades where codigo not in (select codigo from gestor.proyectos)""").fetchall()
+    if any(n for _, n in huer):
+        for t in ("asignaciones", "necesidades", "observaciones"):
+            c.execute(f"""insert into gestor.respaldo (motivo, tabla, data) select 'huerfanos', '{t}', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb)
+                          from gestor.{t} x where codigo not in (select codigo from gestor.proyectos) having count(*) > 0""")
+            c.execute(f"delete from gestor.{t} where codigo not in (select codigo from gestor.proyectos)")
+    # recuperar (una sola vez) desde el respaldo de la migración lo que se haya perdido de las iniciativas mapeadas
+    if c.execute("select 1 from gestor.meta where clave = 'recuperacion_2027_v1'").fetchone():
+        return
+    c.execute("insert into gestor.meta values ('recuperacion_2027_v1', '1') on conflict do nothing")
+    for t, clave in (("asignaciones", "persona"), ("necesidades", "perfil")):
+        r = c.execute("select data from gestor.respaldo where motivo = 'portafolio_2027_v1' and tabla = %s order by id limit 1", (t,)).fetchone()
+        if not r:
+            continue
+        vacios = {n for n in MAPA_2027.values() if not c.execute(f"select 1 from gestor.{t} where codigo = %s limit 1", (n,)).fetchone()}
+        for fila in r[0] or []:
+            nuevo = MAPA_2027.get(fila.get("codigo"))
+            if not nuevo or nuevo not in vacios:
+                continue
+            if t == "asignaciones":
+                c.execute("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s) on conflict do nothing",
+                          (nuevo, fila["persona"], json.dumps(fila.get("dias") or {})))
+            elif fila.get("perfil") != "_vacio":
+                c.execute("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s,%s,%s,%s,%s,%s) on conflict do nothing",
+                          (nuevo, fila["perfil"], fila.get("dias") or 0, fila.get("mes_ini"), fila.get("mes_fin"),
+                           json.dumps(fila["dist"]) if fila.get("dist") else None))
 
 
 def activar_portafolio_2027(c) -> None:
@@ -332,6 +375,12 @@ def guardar_hoja(body: dict) -> str:
     import psycopg
     with psycopg.connect(URL) as c:   # transacción: o se guarda todo o nada
         with c.cursor() as cur:
+            vigentes = {r[0] for r in cur.execute("select codigo from gestor.proyectos")}
+            body = {**body, "asignaciones": [a for a in body.get("asignaciones", []) if MAPA_2027.get(a["codigo"], a["codigo"]) in vigentes],
+                    "necesidades": {MAPA_2027.get(k, k): v for k, v in (body.get("necesidades") or {}).items() if MAPA_2027.get(k, k) in vigentes},
+                    "observaciones": {MAPA_2027.get(k, k): v for k, v in (body.get("observaciones") or {}).items() if MAPA_2027.get(k, k) in vigentes}}
+            for a in body["asignaciones"]:
+                a["codigo"] = MAPA_2027.get(a["codigo"], a["codigo"])
             cur.execute("delete from gestor.asignaciones")
             cur.executemany("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s)",
                             [(a["codigo"], a["persona"], json.dumps({m: float(v) for m, v in (a.get("dias") or {}).items() if v and float(v) > 0}))
