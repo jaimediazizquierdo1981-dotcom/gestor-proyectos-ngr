@@ -355,6 +355,12 @@ def guardar_necesidades(codigo: str, items: list[dict]) -> None:
             cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)", filas)
 
 
+def actualizar_capex(codigo: str, capex: float) -> None:
+    """Capex adicional del proyecto (equipos, asesorías, licencias…), aparte del Capex de terceros."""
+    with _conn() as c:
+        c.execute("update gestor.proyectos set capex = %s, actualizado = now() where codigo = %s", (capex, codigo))
+
+
 def actualizar_proyecto(codigo: str, opex_mensual: float | None = None, opex_meses=False) -> None:
     with _conn() as c:
         if opex_meses is not False:   # None = automático (meses desde el fin hasta dic.)
@@ -433,6 +439,9 @@ def guardar_hoja(body: dict) -> str:
                             [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])
             cur.executemany("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s",
                             [(float(v or 0), cod) for cod, v in (body.get("opex") or {}).items()])
+            if "capex" in body:
+                cur.executemany("update gestor.proyectos set capex = %s where codigo = %s",
+                                [(float(v or 0), cod) for cod, v in (body.get("capex") or {}).items()])
             if "opex_meses" in body:
                 cur.executemany("update gestor.proyectos set opex_meses = %s where codigo = %s",
                                 [(None if v in (None, "") else float(v), cod) for cod, v in (body.get("opex_meses") or {}).items()])
