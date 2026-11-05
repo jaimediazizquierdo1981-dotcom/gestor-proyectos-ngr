@@ -137,11 +137,11 @@ function tabla() {
   const PF = PFT.filter(f => D.personas.some(x => x.tipo !== "tercero" && x.perfil === f) || P.some(p => (p.recursos[f] || 0) > 0));
   const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
-  let h = `<thead><tr class="g"><th></th><th colspan="${CONTRAIDO ? 3 : 8}" class="mor">Alineamiento estratégico</th><th colspan="3"></th><th colspan="${GRP.int ? 1 : PF.length + 1}" class="sep">${GRP.int ? "Internos" : "Recursos internos (días por tipo)"}</th><th colspan="${GRP.ter ? 1 : TF.length + 1}" class="sep">${GRP.ter ? "Terceros" : "Terceros (días)"}</th><th colspan="${GRP.inv ? 2 : 4}" class="sep">${GRP.inv ? "Inversión" : "Inversión y soporte"}</th><th colspan="2" class="sep">Cobertura</th></tr>
+  let h = `<thead><tr class="g"><th></th><th colspan="${CONTRAIDO ? 3 : 8}" class="mor">Alineamiento estratégico</th><th colspan="3"></th><th colspan="${GRP.int ? 1 : PF.length + 1}" class="sep">${GRP.int ? "Internos" : "Recursos internos (días por tipo)"}</th><th colspan="${GRP.ter ? 1 : TF.length + 1}" class="sep">${GRP.ter ? "Terceros" : "Terceros (días)"}</th><th colspan="${GRP.inv ? 2 : 3}" class="sep">${GRP.inv ? "Inversión" : "Inversión y soporte"}</th><th colspan="2" class="sep">Cobertura</th></tr>
   <tr><th>Prior.</th><th class="l mor cx">PE</th><th class="mor cx">OE.Cod</th><th class="l mor cx">OE.Descripción</th><th class="l mor">ID.PMO</th><th class="l mor">Programa</th><th class="l mor">Iniciativa</th><th class="l mor cx">Responsable.PMO</th><th class="l mor cx">Lider.TI</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
   ${PF.map((p, i) => `<th class="ci ${i ? "" : "sep"}" title="${p}">${CORTO[p]}</th>`).join("")}<th class="${GRP.int ? "sep" : ""}">Total días</th>
   ${TF.map((t, i) => `<th class="ct ${i ? "" : "sep"}">${CORTO[t] || t}</th>`).join("")}<th class="${GRP.ter ? "sep" : ""}">Total</th>
-  <th class="cv sep">Capex</th><th class="${GRP.inv ? "sep" : ""}" title="Días de terceros asignados en la Hoja × costo mensual del cargo (Criterios)">Capex terceros</th><th class="cv">Opex/mes</th><th title="Opex mensual × meses desde el fin del proyecto hasta diciembre">Opex hasta dic.</th>
+  <th class="sep" title="Capex del proyecto + Capex de terceros (días de terceros asignados en la Hoja × costo mensual del cargo en Criterios)">Capex</th><th class="cv">Opex/mes</th><th title="Opex mensual × meses desde el fin del proyecto hasta diciembre">Opex hasta dic.</th>
   <th class="sep l">Estado</th><th>Cobertura</th></tr></thead><tbody>`;
   for (const p of P) {
     h += `<tr class="${activo(p) ? "" : "off"}">
@@ -154,14 +154,14 @@ function tabla() {
       <td class="l" title="${p.fin_hoja !== p.fin_plan ? "Último mes con días asignados en la Hoja de trabajo" : ""}">${fmtMes(p.fin_hoja || p.fin_plan)}</td><td>${p.duracion_meses}</td>
       ${PF.map((f, i) => `<td class="ci ${i ? "" : "sep"}">${fmtD(p.recursos[f])}</td>`).join("")}<td class="${GRP.int ? "sep" : ""}"><b>${fmtD(p.dias_base)}</b></td>
       ${TF.map((t, i) => `<td class="ct ${i ? "" : "sep"}">${fmtD(p.terceros[t])}</td>`).join("")}<td class="${GRP.ter ? "sep" : ""}"><b>${fmtD(p.dias_terceros)}</b></td>
-      <td class="cv sep">${fmtK(p.capex)}</td><td class="${GRP.inv ? "sep" : ""}">${p.capex_terceros ? fmtK(p.capex_terceros) : "–"}</td><td class="cv">${fmtS(p.opex_mensual)}</td><td>${p.opex_horizonte ? fmtK(p.opex_horizonte) : "–"}</td>
+      <td class="sep" title="Proyecto: ${fmtS(p.capex)} · Terceros: ${fmtS(p.capex_terceros || 0)}">${fmtK(p.capex + (p.capex_terceros || 0))}</td><td class="cv">${fmtS(p.opex_mensual)}</td><td>${p.opex_horizonte ? fmtK(p.opex_horizonte) : "–"}</td>
       <td class="sep l"><span class="est ${p.estado}">${ETQ[p.estado]}${p.desplazo_meses ? " · +" + p.desplazo_meses + " m" : ""}</span></td><td>${activo(p) ? fmtPct(p.cobertura) : "–"}</td>
       </tr>`;
   }
   h += `<tr class="tot"><td colspan="${CONTRAIDO ? 6 : 11}" class="l">Total proyectos activos (${inc.length})</td><td></td>
     ${PF.map((f, i) => `<td class="ci ${i ? "" : "sep"}">${fmtD(s(p => p.recursos[f]))}</td>`).join("")}<td class="${GRP.int ? "sep" : ""}">${fmtD(s("dias_base"))}</td>
     ${TF.map((t, i) => `<td class="ct ${i ? "" : "sep"}">${fmtD(s(p => p.terceros[t]))}</td>`).join("")}<td class="${GRP.ter ? "sep" : ""}">${fmtD(s("dias_terceros"))}</td>
-    <td class="cv sep">${fmtK(s("capex"))}</td><td class="${GRP.inv ? "sep" : ""}">${fmtK(s("capex_terceros"))}</td><td class="cv">${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_horizonte"))}</td><td class="sep" colspan="2"></td></tr></tbody>`;
+    <td class="sep">${fmtK(s(p => p.capex + (p.capex_terceros || 0)))}</td><td class="cv">${fmtS(s("opex_mensual"))}</td><td>${fmtK(s("opex_horizonte"))}</td><td class="sep" colspan="2"></td></tr></tbody>`;
   t.innerHTML = h;
   const g1 = t.querySelector("thead tr.g"); if (g1) t.style.setProperty("--h1", g1.offsetHeight + "px");
   t.classList.toggle("contraido", CONTRAIDO);
@@ -171,7 +171,7 @@ function tabla() {
   const cub = inc.filter(p => p.estado === "cubierto");
   kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
     ["Cubiertos al 100%", cub.length + " de " + inc.length],
-    ["Capex total", fmtK(s("capex"))], ["Capex terceros", fmtK(s("capex_terceros"))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex, 0))],
+    ["Capex total", fmtK(s(p => p.capex + (p.capex_terceros || 0)))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex + (p.capex_terceros || 0), 0))],
     ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Días requeridos", fmtD(s("dias_requeridos"))]]
     .map(([l, v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
 }
