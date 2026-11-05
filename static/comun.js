@@ -1,8 +1,13 @@
 // Utilidades compartidas: navegación, escenario y parámetros guardados en el navegador, cálculo.
 const ESC_KEY = "gestor_ngr_escenario_v1", PAR_KEY = "gestor_ngr_parametros_v1";
+const ordPrio = (a, b) => (a.prioridad ?? 1e9) - (b.prioridad ?? 1e9);   // sin prioridad: al final, en el orden del portafolio
 const leer = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const borrar = k => { try { localStorage.removeItem(k); } catch (e) {} };
+// portafolio 2027 validado: la prioridad vuelve a ser la del archivo (se olvida la guardada en este navegador)
+if (leer("gestor_ngr_portafolio") !== "valido_v1") {
+  const e = leer(ESC_KEY) || {}; Object.values(e).forEach(v => delete v.prioridad); guardar(ESC_KEY, e); guardar("gestor_ngr_portafolio", "valido_v1");
+}
 
 // si la sesión vence, volver al login
 const _fetch = window.fetch.bind(window);

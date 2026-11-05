@@ -64,6 +64,8 @@ alter table gestor.proyectos add column if not exists responsable text;
 alter table gestor.proyectos add column if not exists descripcion text;
 alter table gestor.proyectos add column if not exists lider_ti text;
 alter table gestor.proyectos add column if not exists opex_meses numeric;
+alter table gestor.proyectos add column if not exists orden int;
+alter table gestor.proyectos alter column prioridad drop not null;
 drop table if exists gestor.horas_reales;
 create table if not exists gestor.feriados (fecha date primary key, motivo text);
 create table if not exists gestor.parametros (id int primary key, data jsonb not null, actualizado timestamptz default now());
@@ -106,6 +108,7 @@ def iniciar() -> None:
             c.execute("insert into gestor.meta values ('portafolio_2027_v1', '1') on conflict do nothing")
         else:
             altas_equipo(c)
+        portafolio_valido_2027(c)
         cargar_lider_ti(c)
         # Nunca se borran aquí la hoja de trabajo (asignaciones, posiciones, observaciones) ni el escenario.
 
@@ -251,7 +254,7 @@ def leer() -> dict:
         cur = c.cursor()
         nb = len(CAMPOS_PROY)
         pr = cur.execute(f"select {', '.join(CAMPOS_PROY)}, "
-                         f"{', '.join(list(COL.values()) + list(TERC.values()))} from gestor.proyectos order by prioridad").fetchall()
+                         f"{', '.join(list(COL.values()) + list(TERC.values()))} from gestor.proyectos order by prioridad nulls last, orden nulls last, codigo").fetchall()
         proyectos = []
         for r in pr:
             d = dict(zip(CAMPOS_PROY, r[:nb]))
@@ -451,6 +454,35 @@ def guardar_hoja(body: dict) -> str:
             g = cur.fetchone()[0]
         c.commit()
     return g.isoformat()
+
+
+def portafolio_valido_2027(c) -> None:
+    """Una sola vez: actualiza las iniciativas con el portafolio 2027 validado (nombres, alineamiento, prioridad,
+    responsable y Lider.TI). Respeta lo cargado por el usuario (capex, opex, hoja). Sin prioridad = vacía."""
+    if c.execute("select 1 from gestor.meta where clave = 'portafolio_valido_2027_v1'").fetchone():
+        return
+    c.execute("create table if not exists gestor.respaldo (id serial primary key, motivo text, tabla text, data jsonb, creado timestamptz default now())")
+    for t in ("proyectos", "escenario"):
+        c.execute(f"insert into gestor.respaldo (motivo, tabla, data) select 'portafolio_valido_2027_v1', '{t}', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x")
+    pr = pd.read_csv(DATA / "proyectos.csv", dtype=str).fillna("")
+    existentes = {r[0] for r in c.execute("select codigo from gestor.proyectos").fetchall()}
+    nuevos = pr[~pr.codigo.isin(existentes)]
+    with c.cursor() as cur:
+        if len(nuevos):
+            n = nuevos.copy(); n["prioridad"] = n["prioridad"].replace("", None)
+            for k in ("capex", "opex_mensual"): n[k] = n[k].replace("", "0").astype(float)
+            _insertar_proyectos(cur, n)
+        cur.executemany("""update gestor.proyectos set proyecto = %s, pe = %s, oe_cod = %s, oe_desc = %s, programa = %s, descripcion = %s,
+                           prioridad = %s, responsable = %s, lider_ti = %s, orden = %s where codigo = %s""",
+                        [(r["proyecto"], r["pe"], r["oe_cod"], r["oe_desc"], r["programa"], r["descripcion"],
+                          int(float(r["prioridad"])) if r["prioridad"] else None, r["responsable"], r["lider_ti"], i, r["codigo"])
+                         for i, r in enumerate(pr.to_dict(orient="records"))])
+    # la prioridad la manda el archivo: se quita la que estaba guardada en el escenario
+    r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+    if r and r[0]:
+        c.execute("update gestor.escenario set data = %s where id = 1",
+                  (json.dumps({k: {a: b for a, b in v.items() if a != "prioridad"} for k, v in r[0].items()}),))
+    c.execute("insert into gestor.meta values ('portafolio_valido_2027_v1', '1') on conflict do nothing")
 
 
 def cargar_lider_ti(c) -> None:

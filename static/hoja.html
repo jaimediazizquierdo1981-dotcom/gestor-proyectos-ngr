@@ -184,13 +184,13 @@ function necesidad(p) {
 }
 
 function pintarProyectos() {
-  const P = D.proyectos.filter(p => p.incluir).sort((a, b) => a.prioridad - b.prioridad);
+  const P = D.proyectos.filter(p => p.incluir).sort(ordPrio);
   if (!P.length) { proyectos.innerHTML = '<div class="vacio">La hoja está vacía. Usa <b>“Seleccionar o activar un proyecto…”</b> a la izquierda para agregar los proyectos uno a uno.</div>'; return; }
   proyectos.innerHTML = P.map(p => {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
     return `<div class="proy ${p.on_hold ? "pausa" : ""}" data-c="${p.codigo}">${p.on_hold ? '<div class="banda">⏸ On hold: sus días no se descuentan de la capacidad. Usa ▶ Reactivar para volver a contarlo.</div>' : ""}
-      <div class="ph"><label class="prl" title="Prioridad: única, entre 1 y ${D.proyectos.length}">Prioridad <input class="prio" type="number" min="1" max="${D.proyectos.length}" step="1" value="${p.prioridad}" ${p.on_hold ? "" : ""} onchange="cambiarPrioridad('${p.codigo}', this)"></label><h3 title="${(p.descripcion || "").replace(/"/g, "&quot;")}">${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
+      <div class="ph"><label class="prl" title="Prioridad: única, entre 1 y ${D.proyectos.length}">Prioridad <input class="prio" type="number" min="1" max="${D.proyectos.length}" step="1" value="${p.prioridad ?? ""}" ${p.on_hold ? "" : ""} onchange="cambiarPrioridad('${p.codigo}', this)"></label><h3 title="${(p.descripcion || "").replace(/"/g, "&quot;")}">${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <button class="xs-proy" title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: no descuenta capacidad"}" onclick="pausarProyecto('${p.codigo}', ${!p.on_hold})">${p.on_hold ? "▶ Reactivar" : "⏸ On hold"}</button>
         <button class="xs-proy del" title="Eliminar la ficha: borra sus posiciones, asignaciones y observaciones y la quita de la hoja" onclick="eliminarFicha('${p.codigo}')">🗑 Eliminar ficha</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
@@ -222,7 +222,7 @@ function pintarProyectos() {
 // ---------- selector de proyectos: si el proyecto ya tiene sección, lleva a ella; si no, se abre (se incluye) una nueva
 function pintarSelector() {
   filtroProy.innerHTML = '<option value="">Seleccionar o activar un proyecto…</option>' +
-    D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad)
+    D.proyectos.slice().sort(ordPrio)
       .map(p => `<option value="${p.codigo}">${p.incluir ? (p.on_hold ? "⏸" : "✓") : "＋"} ${p.codigo} · ${p.proyecto}${p.incluir ? (p.on_hold ? " (on hold)" : "") : " (activar)"}</option>`).join("");
 }
 function irA(codigo) {
@@ -255,7 +255,7 @@ async function eliminarFicha(c) {
 // prioridad: entero único entre 1 y la cantidad de proyectos; si ya la tiene otro, se intercambian
 async function cambiarPrioridad(c, inp) {
   const n = D.proyectos.length, v = Math.round(+inp.value), p = proyecto(c);
-  if (!Number.isFinite(v) || v < 1 || v > n) { aviso(`La prioridad debe ser un número entero entre 1 y ${n}.`, false); inp.value = p.prioridad; return; }
+  if (!Number.isFinite(v) || v < 1 || v > n) { aviso(`La prioridad debe ser un número entero entre 1 y ${n}.`, false); inp.value = p.prioridad ?? ""; return; }
   if (v === p.prioridad) return;
   const otro = D.proyectos.find(x => x.prioridad === v && x.codigo !== c);
   const e = leer(ESC_KEY) || {};
@@ -264,7 +264,7 @@ async function cambiarPrioridad(c, inp) {
   guardar(ESC_KEY, e);
   cargando(true, "Reordenando…"); D = await calcular(); cargando(false);
   pintarSelector(); pintar();
-  aviso(otro ? `${c} pasa a prioridad ${v} y ${otro.codigo} toma la ${p.prioridad} (no se repiten). Recuerda guardar la hoja.` : `${c} pasa a prioridad ${v}. Recuerda guardar la hoja.`);
+  aviso(otro ? `${c} pasa a prioridad ${v} y ${otro.codigo} ${p.prioridad ? "toma la " + p.prioridad : "queda sin prioridad"} (no se repiten). Recuerda guardar la hoja.` : `${c} pasa a prioridad ${v}. Recuerda guardar la hoja.`);
   irA(c);
 }
 async function pausarProyecto(c, on) {   // un proyecto incluido ya no se quita: solo se pone o se saca de On hold

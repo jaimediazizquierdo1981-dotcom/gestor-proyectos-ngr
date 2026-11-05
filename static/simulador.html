@@ -196,7 +196,7 @@ function slotEsp(k) { return {x: 60 + (k % 6) * 66, y: 676 + Math.floor(k / 6) *
 // sala de espera = rechazados (punto rojo) + todos los PO que aún no ingresan
 function reordenarEspera(ms = 400) { [...ESPERA, ...COLA.values()].forEach((g, k) => { const p = slotEsp(k); mover(g, p.x, p.y, ms); }); }
 function poblarCola() {
-  P.slice().sort((a, b) => a.inicio_plan.localeCompare(b.inicio_plan) || a.prioridad - b.prioridad).forEach(pr => {
+  P.slice().sort((a, b) => a.inicio_plan.localeCompare(b.inicio_plan) || ordPrio(a, b)).forEach(pr => {
     const col = COL_TIPO[pr.tipo] || "#2f7fc1", g = el("g", {});
     avatar(g, pr.codigo + pr.proyecto, null, col, 1);
     txt(0, 44, "PO · " + pr.codigo, {"text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: col}, g);
@@ -233,7 +233,7 @@ async function llegada(pr, i, token) {
   b1.remove();
   const rb = el("g", {}); ubicar(rb, ROBOT.x + 70, ROBOT.y - 60);
   const res = pr.estado === "cubierto" ? "Cubierto ✔" : pr.estado === "parcial" ? `Parcial: ${fmtPct(pr.cobertura)} de los días` : (D.modo === "hoja" ? "Sin personas asignadas: a la sala de espera" : "Sin capacidad: a la sala de espera");
-  burbuja(rb, 0, 0, `Prioridad ${pr.prioridad} · ${res}${pr.desplazo_meses ? `\nPostergado ${pr.desplazo_meses} mes(es)` : ""}`,
+  burbuja(rb, 0, 0, `${pr.prioridad ? "Prioridad " + pr.prioridad : "Sin prioridad"} · ${res}${pr.desplazo_meses ? `\nPostergado ${pr.desplazo_meses} mes(es)` : ""}`,
     pr.estado === "no_cubierto" ? "#a52f2f" : pr.estado === "parcial" ? "#8a5a00" : "#1d7a50");
   await sleep(1100); if (token !== run) { rb.remove(); return; }
   if (pr.estado !== "no_cubierto") {
@@ -282,7 +282,7 @@ async function pasoMes(i, token) {
   }
   kpis(i); await sleep(700); if (token !== run) return;
   // llegan los proyectos que arrancan este mes
-  const nuevos = P.filter(p => p.inicio_plan === m || (i === 0 && p.inicio_plan < m && p.fin_plan >= m)).sort((a, b) => a.prioridad - b.prioridad);
+  const nuevos = P.filter(p => p.inicio_plan === m || (i === 0 && p.inicio_plan < m && p.fin_plan >= m)).sort(ordPrio);
   for (const pr of nuevos) { await llegada(pr, i, token); if (token !== run) return; }
   await sleep(600);
   ocupado = false;

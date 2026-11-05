@@ -215,7 +215,7 @@ def api_eliminar_ficha(codigo: str):
 
 def _activos():
     o = ejecutar({}, con_mc=False)
-    return o, [p for p in sorted(o["proyectos"], key=lambda x: x["prioridad"]) if p["incluir"] and not p.get("on_hold")]
+    return o, [p for p in sorted(o["proyectos"], key=lambda x: x["prioridad"] or 999) if p["incluir"] and not p.get("on_hold")]
 
 
 def _roles_cargados(o) -> list[str]:

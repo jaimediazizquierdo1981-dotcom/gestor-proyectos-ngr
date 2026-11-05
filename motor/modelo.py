@@ -127,7 +127,7 @@ def asignar(proyectos: list[dict], equipo: list[dict], cap: dict, p: dict, lista
     cob = p["cobertura"]
     libre = {k: v.copy() for k, v in cap.items()}
     por_perfil = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}
-    activos = sorted([x for x in proyectos if activo(x)], key=lambda x: float(x.get("prioridad", 99)))
+    activos = sorted([x for x in proyectos if activo(x)], key=lambda x: float(x.get("prioridad") or 999))
     res, asign = {}, {}
     for pr in activos:
         f = (factores or {}).get(pr["codigo"], 1.0)

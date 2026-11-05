@@ -72,7 +72,7 @@
 <script>nav("Consolidado")</script>
 <main>
   <h1>Consolidado de proyectos: Capex, Opex y recursos</h1>
-  <div class="sub" id="sub">Datos ficticios. Los proyectos se activan uno a uno desde la Hoja de trabajo (los no activos se ven en gris), y allí se ponen On hold o se reactivan; la prioridad también se cambia allí; aquí puedes cambiar el mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
+  <div class="sub" id="sub">Portafolio 2027 validado (las iniciativas sin prioridad se ven vacías y en gris). Los proyectos se activan uno a uno desde la Hoja de trabajo (los no activos se ven en gris), y allí se ponen On hold o se reactivan; la prioridad también se cambia allí; aquí puedes cambiar el mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
   <div class="kpis" id="kpis"></div>
 
   <div class="vista"><button id="bContraer" onclick="vistaCols(true)">⇤ Contraer columnas</button><button id="bTodas" onclick="vistaCols(false)">⇔ Ver todas las columnas</button>
@@ -133,7 +133,7 @@ function vistaCols(c) { CONTRAIDO = c; guardar("gestor_ngr_contraido", c); tabla
 let GRP = leer("gestor_ngr_grupos") || {};   // grupos contraídos: int, ter, inv
 function vistaGrupo(g, c) { GRP = {...GRP, [g]: c}; guardar("gestor_ngr_grupos", GRP); tabla(); }
 function tabla() {
-  const P = D.proyectos.slice().sort((a, b) => a.prioridad - b.prioridad);
+  const P = D.proyectos.slice().sort(ordPrio);
   const PF = PFT.filter(f => D.personas.some(x => x.tipo !== "tercero" && x.perfil === f) || P.some(p => (p.recursos[f] || 0) > 0));
   const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
@@ -144,8 +144,8 @@ function tabla() {
   <th class="sep" title="Capex del proyecto + Capex de terceros (días de terceros asignados en la Hoja × costo mensual del cargo en Criterios)">Capex</th><th class="cv">Opex/mes</th><th title="Opex mensual × meses desde el fin del proyecto hasta diciembre">Opex hasta dic.</th>
   <th class="sep l">Estado</th><th>Cobertura</th></tr></thead><tbody>`;
   for (const p of P) {
-    h += `<tr class="${activo(p) ? "" : "off"}">
-      <td><span class="prio" title="La prioridad se cambia en la Hoja de trabajo">${p.prioridad}</span></td>
+    h += `<tr class="${activo(p) && p.prioridad ? "" : "off"}">
+      <td>${p.prioridad ? `<span class="prio" title="La prioridad se cambia en la Hoja de trabajo">${p.prioridad}</span>` : ""}</td>
       <td class="l txt cx" title="${p.pe}">${p.pe}</td><td class="cx">${p.oe_cod}</td><td class="l txt cx" title="${p.oe_desc}">${p.oe_desc}</td>
       <td class="l"><b>${p.codigo}</b></td><td class="l txt" title="${p.programa}">${p.programa}</td>
       <td class="l nom" title="${(p.descripcion || p.proyecto).replace(/"/g, "&quot;")}"><b>${p.proyecto}</b></td><td class="l txt cx" title="${p.responsable}">${p.responsable}</td><td class="l txt cx" title="${p.lider_ti || ""}">${p.lider_ti || ""}</td>
@@ -195,7 +195,7 @@ function pie() {
 }
 
 function barras() {
-  const pf = selPerfil.value, P = D.proyectos.filter(activo).sort((a, b) => a.prioridad - b.prioridad);
+  const pf = selPerfil.value, P = D.proyectos.filter(activo).sort(ordPrio);
   const suma = o => Object.values(o).reduce((a, v) => a + v, 0);
   const val = p => pf ? {py: p.dias_proyectados[pf] || 0, ca: p.capacidad_asignada[pf] || 0}
                       : {py: suma(p.dias_proyectados), ca: suma(p.capacidad_asignada)};
