@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<link rel="icon" type="image/png" href="/static/favicon.png?v=3">
+<link rel="apple-touch-icon" href="/static/favicon.png?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambiar contraseña · Gestor de Proyectos NGR</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr;font:14px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:#0f172a;background:#f8fafc}
+  .lado{position:relative;overflow:hidden;background:radial-gradient(1200px 600px at -10% -10%,#3b5fa8 0%,transparent 60%),radial-gradient(900px 500px at 110% 110%,#f59e0b33 0%,transparent 60%),linear-gradient(150deg,#0f1f3d,#1F3864 55%,#25467d);color:#fff;padding:56px 64px;display:flex;flex-direction:column;justify-content:space-between}
+  .lado:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:36px 36px;mask-image:linear-gradient(180deg,#000,transparent 85%)}
+  .marca{display:flex;align-items:center;gap:12px;position:relative;font-weight:700;letter-spacing:.2px}
+  .marca img{width:40px;height:40px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  .lado h1{position:relative;font-size:38px;line-height:1.15;margin:0 0 14px;font-weight:800;letter-spacing:-.5px;max-width:520px}
+  .lado p{position:relative;color:#c7d2fe;max-width:460px;margin:0;font-size:15px}
+  .chips{position:relative;display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}
+  .chips span{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);backdrop-filter:blur(6px);padding:6px 12px;border-radius:999px;font-size:12.5px;color:#e0e7ff}
+  .copy{position:relative;color:#94a3b8;font-size:12px}
+  .form{display:grid;place-items:center;padding:40px 24px}
+  form{width:min(390px,100%)}
+  form h2{font-size:24px;margin:0 0 4px;font-weight:800;letter-spacing:-.3px}
+  form .sub{color:#64748b;margin:0 0 26px}
+  label{display:block;font-size:12.5px;font-weight:600;color:#334155;margin:14px 0 6px}
+  .campo{position:relative}
+  .campo svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;stroke:#94a3b8;fill:none;stroke-width:2}
+  input{font:inherit;width:100%;border:1px solid #e2e8f0;border-radius:11px;padding:12px 12px 12px 40px;background:#fff;transition:border-color .15s,box-shadow .15s}
+  input:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 4px rgba(99,102,241,.15)}
+  .ver{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:none;color:#64748b;cursor:pointer;font-size:12px;font-weight:600;padding:6px}
+  .cap{display:flex;gap:8px;align-items:center}
+  .cap img{border-radius:11px;border:1px solid #e2e8f0;height:56px;width:180px;background:#fff}
+  .cap button{border:1px solid #e2e8f0;background:#fff;border-radius:11px;height:56px;width:52px;cursor:pointer;font-size:20px;color:#475569;transition:transform .3s}
+  .cap button:hover{transform:rotate(180deg)}
+  #c{padding-left:14px;letter-spacing:4px;text-transform:uppercase;margin-top:10px}
+  .entrar{margin-top:22px;width:100%;font:inherit;font-weight:700;border:0;border-radius:11px;padding:13px;color:#fff;cursor:pointer;background:linear-gradient(135deg,#1F3864,#3b5fa8);box-shadow:0 10px 24px rgba(31,56,100,.28);transition:transform .1s,box-shadow .2s}
+  .entrar:hover{box-shadow:0 14px 30px rgba(31,56,100,.36)}
+  .entrar:active{transform:translateY(1px)}
+  .entrar:disabled{opacity:.65;cursor:wait}
+  .err{color:#dc2626;font-size:13px;margin-top:12px;min-height:20px}
+  .seg{display:flex;align-items:center;gap:6px;color:#64748b;font-size:12px;margin-top:18px;justify-content:center}
+  @media (max-width:900px){body{grid-template-columns:1fr}.lado{display:none}}
+</style>
+</head>
+<body>
+<section class="lado">
+  <div class="marca"><img src="/static/favicon.svg?v=3" alt="">Tecnología y Transformación · NGR</div>
+  <div>
+    <h1>Gestor de Proyectos</h1>
+    <p>Portafolio de proyectos con tiempos, recursos, Capex y Opex, y la capacidad real del equipo para decidir qué es viable.</p>
+    <div class="chips"><span>Consolidado</span><span>Hoja de trabajo</span><span>Colaboradores</span><span>Simulador</span></div>
+  </div>
+  <div class="copy">Acceso restringido · uso interno</div>
+</section>
+<section class="form">
+  <form id="f" autocomplete="off">
+    <h2>Cambia tu contraseña</h2>
+    <p class="sub" id="sub">Por seguridad, define una contraseña propia. Mínimo 8 caracteres, con letras y números.</p>
+    <label for="a">Contraseña actual (la temporal que te dieron)</label>
+    <div class="campo"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <input id="a" type="password" autocomplete="current-password" required autofocus></div>
+    <label for="n">Nueva contraseña</label>
+    <div class="campo"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <input id="n" type="password" autocomplete="new-password" required><button type="button" class="ver" id="ver">Ver</button></div>
+    <label for="n2">Repite la nueva contraseña</label>
+    <div class="campo"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <input id="n2" type="password" autocomplete="new-password" required></div>
+    <button class="entrar" id="b">Guardar contraseña</button>
+    <div class="err" id="err"></div>
+    <div class="seg"><a href="/logout" style="color:#64748b">Salir</a></div>
+  </form>
+</section>
+<script>
+const $ = id => document.getElementById(id);
+fetch("/api/yo").then(r => r.json()).then(y => { if (y.nombre) $("sub").textContent = `Hola ${y.nombre}. ` + $("sub").textContent; });
+$("ver").onclick = () => { const t = $("n").type === "password" ? "text" : "password"; $("n").type = $("n2").type = t; $("ver").textContent = t === "password" ? "Ver" : "Ocultar"; };
+$("f").onsubmit = async e => {
+  e.preventDefault(); $("err").textContent = "";
+  if ($("n").value !== $("n2").value) { $("err").textContent = "Las contraseñas nuevas no coinciden."; return; }
+  $("b").disabled = true;
+  const r = await fetch("/api/auth/cambiar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({actual: $("a").value, nueva: $("n").value})});
+  if (r.ok) { location.href = "/"; return; }
+  const d = await r.json().catch(() => ({}));
+  $("err").textContent = d.detail || "No se pudo cambiar la contraseña."; $("b").disabled = false;
+};
+</script>
+</body>
+</html>

@@ -15,29 +15,64 @@ DURACION = 8 * 3600
 SEGURA = os.environ.get("DEV") != "1"   # cookies solo por HTTPS (en local: DEV=1)
 INTENTOS: dict[str, list[float]] = {}   # ip -> marcas de tiempo de intentos fallidos
 LIBRES = {"/login", "/api/auth/login", "/api/auth/captcha", "/favicon.ico", "/static/favicon.svg", "/static/favicon.png"}
+HAY_USUARIOS = False   # lo prende app.py si la tabla gestor.usuarios tiene registros
+ITER = 260_000
 
 
 def activo() -> bool:
-    return bool(APP_USER and APP_PASSWORD)
+    return bool(APP_USER and APP_PASSWORD) or HAY_USUARIOS
+
+
+# ---------- contraseñas: nunca se guardan; solo PBKDF2-SHA256 con sal aleatoria por usuario
+def hash_clave(clave: str) -> str:
+    sal = secrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", clave.encode(), bytes.fromhex(sal), ITER).hex()
+    return f"pbkdf2_sha256${ITER}${sal}${h}"
+
+
+def verificar_clave(clave: str, guardado: str) -> bool:
+    try:
+        alg, it, sal, h = guardado.split("$")
+        calc = hashlib.pbkdf2_hmac("sha256", clave.encode(), bytes.fromhex(sal), int(it)).hex()
+        return alg == "pbkdf2_sha256" and hmac.compare_digest(calc, h)
+    except (ValueError, AttributeError):
+        return False
+
+
+def clave_temporal() -> str:
+    a = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    return "".join(secrets.choice(a) for _ in range(10)) + secrets.choice("!#$%*?")
+
+
+def clave_valida(clave: str) -> str | None:
+    if len(clave) < 8:
+        return "La contraseña debe tener al menos 8 caracteres."
+    if not any(c.isdigit() for c in clave) or not any(c.isalpha() for c in clave):
+        return "La contraseña debe combinar letras y números."
+    return None
 
 
 def firmar(t: str) -> str:
     return hmac.new(SECRETO.encode(), t.encode(), hashlib.sha256).hexdigest()
 
 
-def sesion_valida(cookie: str | None) -> bool:
-    if not activo():
-        return True
+def usuario_sesion(cookie: str | None) -> str | None:
+    """Usuario de una cookie de sesión válida (o None)."""
     try:
         u, vence, f = (cookie or "").split("|")
-        return hmac.compare_digest(f, firmar(f"{u}|{vence}")) and int(vence) > time.time()
+        return u if hmac.compare_digest(f, firmar(f"{u}|{vence}")) and int(vence) > time.time() else None
     except ValueError:
-        return False
+        return None
 
 
-def nueva_sesion() -> tuple[str, int]:
+def sesion_valida(cookie: str | None) -> bool:
+    return True if not activo() else usuario_sesion(cookie) is not None
+
+
+def nueva_sesion(usuario: str = "") -> tuple[str, int]:
+    u = (usuario or APP_USER).lower()
     vence = int(time.time()) + DURACION
-    return f"{APP_USER}|{vence}|{firmar(f'{APP_USER}|{vence}')}", DURACION
+    return f"{u}|{vence}|{firmar(f'{u}|{vence}')}", DURACION
 
 
 def bloqueado(ip: str) -> bool:
@@ -51,7 +86,8 @@ def fallo(ip: str) -> None:
 
 
 def credenciales_ok(usuario: str, clave: str) -> bool:
-    return hmac.compare_digest(usuario.lower(), APP_USER.lower()) and hmac.compare_digest(clave, APP_PASSWORD)
+    """Usuario de emergencia definido en variables de entorno (APP_USER / APP_PASSWORD)."""
+    return bool(APP_USER and APP_PASSWORD) and hmac.compare_digest(usuario.lower(), APP_USER.lower()) and hmac.compare_digest(clave, APP_PASSWORD)
 
 
 def captcha() -> tuple[str, str, str]:

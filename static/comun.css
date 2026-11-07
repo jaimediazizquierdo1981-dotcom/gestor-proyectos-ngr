@@ -22,3 +22,5 @@ h1{font-size:20px;margin:0 0 2px} .sub{color:var(--muted);font-size:12.5px;margi
 .est.on_hold{background:#e4e6ea;color:#4b5160}
 nav.tabs a.salir{color:#cfd8ea;font-size:13px;border:1px solid rgba(255,255,255,.3);padding:4px 12px}
 nav.tabs a.salir:hover{background:rgba(255,255,255,.12);color:#fff}
+nav.tabs .quien{color:#cfd8ea;font-size:12.5px;white-space:nowrap}
+nav.tabs .quien a{color:#9fb4d9;text-decoration:underline;padding:0;border:0;background:none;font-size:12px}

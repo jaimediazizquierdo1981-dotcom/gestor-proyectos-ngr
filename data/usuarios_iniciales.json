@@ -1,0 +1,51 @@
+[
+ {
+  "usuario": "jdiaz",
+  "nombre": "Jaime Diaz",
+  "area": "Estrategia",
+  "es_admin": true,
+  "clave_hash": "pbkdf2_sha256$260000$44c5c2f067527163afb68f4dae601ebc$0a6df1a292a3e4f3cca8095806d16d0040212a618594e98cb39261722ae7cca7"
+ },
+ {
+  "usuario": "mgodenzi",
+  "nombre": "Moisés Godenzi",
+  "area": "",
+  "es_admin": false,
+  "clave_hash": "pbkdf2_sha256$260000$9e683a9602544f9923ce1632633d0315$58b8e49eb8940148b6a87aa0ffd52f170555d008a7ab3d99190278c03cafda39"
+ },
+ {
+  "usuario": "jmore",
+  "nombre": "Julio More",
+  "area": "Continuidad del Negocio",
+  "es_admin": false,
+  "clave_hash": "pbkdf2_sha256$260000$53bbca0f393aef9e84da0f93da0a88d4$97bc5de6a780d5765c9de5213e9b1a9c2a6392e4df93bf76401f34cda0c55cf1"
+ },
+ {
+  "usuario": "jprati",
+  "nombre": "Jean Pierre Prati",
+  "area": "Data",
+  "es_admin": false,
+  "clave_hash": "pbkdf2_sha256$260000$5b59f735776a1be0667a9d4f47745a7c$e22ecfa490c8b328132b58c4a33ef5a9653a618d279f95c2fa74ff9445286f1c"
+ },
+ {
+  "usuario": "jrios",
+  "nombre": "Jorge Rios",
+  "area": "Data",
+  "es_admin": false,
+  "clave_hash": "pbkdf2_sha256$260000$21e678bb73367da99df3110b16f2577c$c55ea1e85d0353e31432f3baeb1b5d30c9bf987ffe78a0cf4cd0254493a78936"
+ },
+ {
+  "usuario": "czambrano",
+  "nombre": "Carlos Zambrano",
+  "area": "Nuevas Soluciones Digitales",
+  "es_admin": false,
+  "clave_hash": "pbkdf2_sha256$260000$1c0ee169189633626aed17b24643c7d2$6b5dab2d16cd2d261440b67d9896a8bdae4250b92918e8ec3cbdefb469d1d55d"
+ },
+ {
+  "usuario": "anovoa",
+  "nombre": "Alfredo Novoa",
+  "area": "Operaciones",
+  "es_admin": false,
+  "clave_hash": "pbkdf2_sha256$260000$b8a42108b32f3041f5be6d9442ba402f$89bcca79d061135aef1ce611125ff7bae9fadf399c86e6f230850b02a53a49d2"
+ }
+]

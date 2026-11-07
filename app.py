@@ -13,15 +13,41 @@ STATIC = Path(__file__).resolve().parent / "static"
 app = FastAPI(title="Gestor de Proyectos NGR")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 db.iniciar()
+seg.HAY_USUARIOS = db.hay_usuarios()
+CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}
+
+
+def _quien(request: Request) -> dict | None:
+    """Usuario de la sesión: de la tabla de usuarios o el de emergencia (variables de entorno, administrador)."""
+    u = seg.usuario_sesion(request.cookies.get("sesion"))
+    if not u:
+        return None
+    if seg.APP_USER and u == seg.APP_USER.lower():
+        return {"usuario": u, "nombre": u, "area": "", "es_admin": True, "debe_cambiar": False, "activo": True, "emergencia": True}
+    d = db.leer_usuario(u) if db.disponible() else None
+    return d if d and d["activo"] else None
+
+
+def _admin(request: Request) -> dict:
+    q = _quien(request)
+    if not q or not q["es_admin"]:
+        raise HTTPException(403, "Solo el administrador puede gestionar usuarios.")
+    return q
 
 
 @app.middleware("http")
 async def sin_cache(request: Request, call_next):
     ruta = request.url.path
-    if ruta not in seg.LIBRES and not seg.sesion_valida(request.cookies.get("sesion")):
-        if ruta.startswith("/api/"):
-            return JSONResponse({"detail": "Sesión vencida. Vuelve a ingresar."}, status_code=401)
-        return RedirectResponse("/login", status_code=303)
+    if ruta not in seg.LIBRES and seg.activo():
+        q = _quien(request)
+        if not q:
+            if ruta.startswith("/api/"):
+                return JSONResponse({"detail": "Sesión vencida. Vuelve a ingresar."}, status_code=401)
+            r = RedirectResponse("/login", status_code=303); r.delete_cookie("sesion"); return r
+        if q["debe_cambiar"] and ruta not in CAMBIO_LIBRE and not ruta.startswith("/static/"):
+            if ruta.startswith("/api/"):
+                return JSONResponse({"detail": "Debes cambiar tu contraseña."}, status_code=403)
+            return RedirectResponse("/cambiar-clave", status_code=303)
     resp = await call_next(request)
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
@@ -53,14 +79,107 @@ def api_login(request: Request, body: dict = Body(...)):
     if not seg.captcha_ok(request.cookies.get("captcha", ""), str(body.get("captcha", ""))):
         seg.fallo(ip)
         return JSONResponse({"detail": "El código de verificación no coincide."}, status_code=400)
-    if not seg.credenciales_ok(str(body.get("usuario", "")).strip(), str(body.get("password", ""))):
+    usuario, clave = str(body.get("usuario", "")).strip().lower(), str(body.get("password", ""))
+    u = db.leer_usuario(usuario, con_hash=True) if db.disponible() and usuario else None
+    if u and u["activo"] and seg.verificar_clave(clave, u["clave_hash"]):
+        db.marcar_ingreso(usuario)
+        cambiar = u["debe_cambiar"]
+    elif seg.credenciales_ok(usuario, clave):
+        cambiar = False
+    else:
         seg.fallo(ip); _time.sleep(1)
         return JSONResponse({"detail": "Usuario o contraseña incorrectos."}, status_code=401)
-    cookie, dur = seg.nueva_sesion()
-    r = JSONResponse({"ok": True})
+    cookie, dur = seg.nueva_sesion(usuario)
+    r = JSONResponse({"ok": True, "cambiar": cambiar})
     r.set_cookie("sesion", cookie, max_age=dur, httponly=True, samesite="lax", secure=seg.SEGURA)
     r.delete_cookie("captcha")
     return r
+
+
+@app.get("/cambiar-clave", include_in_schema=False)
+def vista_cambiar():
+    return FileResponse(STATIC / "cambiar.html")
+
+
+@app.get("/api/yo")
+def api_yo(request: Request):
+    q = _quien(request)
+    if not q:
+        return {"usuario": "", "nombre": "", "es_admin": not seg.activo(), "debe_cambiar": False}
+    return {k: q.get(k) for k in ("usuario", "nombre", "area", "es_admin", "debe_cambiar", "emergencia")}
+
+
+@app.post("/api/auth/cambiar")
+def api_cambiar(request: Request, body: dict = Body(...)):
+    q = _quien(request)
+    if not q or q.get("emergencia"):
+        raise HTTPException(400, "Este usuario no puede cambiar su contraseña aquí.")
+    actual, nueva = str(body.get("actual", "")), str(body.get("nueva", ""))
+    u = db.leer_usuario(q["usuario"], con_hash=True)
+    if not seg.verificar_clave(actual, u["clave_hash"]):
+        _time.sleep(1)
+        raise HTTPException(400, "La contraseña actual no es correcta.")
+    if nueva == actual:
+        raise HTTPException(400, "La nueva contraseña debe ser distinta de la actual.")
+    err = seg.clave_valida(nueva)
+    if err:
+        raise HTTPException(400, err)
+    db.guardar_clave(q["usuario"], seg.hash_clave(nueva), False)
+    return {"ok": True}
+
+
+# ---------- usuarios (solo administrador)
+@app.get("/usuarios", include_in_schema=False)
+def vista_usuarios(request: Request):
+    q = _quien(request)
+    if seg.activo() and (not q or not q["es_admin"]):
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(STATIC / "usuarios.html")
+
+
+@app.get("/api/usuarios")
+def api_usuarios(request: Request):
+    _admin(request)
+    return db.listar_usuarios()
+
+
+@app.post("/api/usuarios")
+def api_crear_usuario(request: Request, body: dict = Body(...)):
+    _admin(request)
+    import re
+    usuario = str(body.get("usuario", "")).strip().lower()
+    nombre = str(body.get("nombre", "")).strip()
+    if not re.fullmatch(r"[a-z][a-z0-9._-]{2,29}", usuario):
+        raise HTTPException(400, "Usuario inválido: 3 a 30 caracteres, solo minúsculas, números, punto, guion o guion bajo.")
+    if not nombre:
+        raise HTTPException(400, "Falta el nombre.")
+    if db.leer_usuario(usuario) or (seg.APP_USER and usuario == seg.APP_USER.lower()):
+        raise HTTPException(400, f"El usuario {usuario} ya existe.")
+    temporal = seg.clave_temporal()
+    db.crear_usuario(usuario, nombre, str(body.get("area", "")).strip(), seg.hash_clave(temporal), bool(body.get("es_admin")))
+    seg.HAY_USUARIOS = True
+    return {"ok": True, "usuario": usuario, "temporal": temporal}
+
+
+@app.post("/api/usuarios/{usuario}/reset")
+def api_reset_usuario(request: Request, usuario: str):
+    _admin(request)
+    if not db.leer_usuario(usuario):
+        raise HTTPException(404, "No existe el usuario.")
+    temporal = seg.clave_temporal()
+    db.guardar_clave(usuario, seg.hash_clave(temporal), True)
+    return {"ok": True, "usuario": usuario, "temporal": temporal}
+
+
+@app.put("/api/usuarios/{usuario}")
+def api_editar_usuario(request: Request, usuario: str, body: dict = Body(...)):
+    q = _admin(request)
+    if not db.leer_usuario(usuario):
+        raise HTTPException(404, "No existe el usuario.")
+    if usuario.lower() == q["usuario"] and (body.get("activo") is False or body.get("es_admin") is False):
+        raise HTTPException(400, "No puedes desactivarte ni quitarte el rol de administrador a ti mismo.")
+    db.actualizar_usuario(usuario, {k: body[k] for k in ("nombre", "area", "es_admin", "activo") if k in body})
+    return {"ok": True}
 
 
 @app.get("/logout", include_in_schema=False)

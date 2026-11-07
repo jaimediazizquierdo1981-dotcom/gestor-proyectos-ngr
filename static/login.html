@@ -81,7 +81,7 @@ $("f").onsubmit = async e => {
   e.preventDefault(); $("b").disabled = true; $("err").textContent = "";
   const r = await fetch("/api/auth/login", {method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({usuario: $("u").value.trim(), password: $("p").value, captcha: $("c").value})});
-  if (r.ok) { location.href = "/"; return; }
+  if (r.ok) { const d = await r.json().catch(() => ({})); location.href = d.cambiar ? "/cambiar-clave" : "/"; return; }
   const d = await r.json().catch(() => ({}));
   $("err").textContent = d.detail || "No se pudo ingresar."; $("b").disabled = false; nuevo();
 };

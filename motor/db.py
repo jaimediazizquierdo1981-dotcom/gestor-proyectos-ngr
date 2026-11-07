@@ -113,6 +113,7 @@ def iniciar() -> None:
         opex_en_cero(c)
         montos_en_cero(c)
         iniciativas_ti_2027(c)
+        crear_usuarios(c)
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_pry_27_03_v1'").fetchone():
             c.execute("update gestor.proyectos set lider_ti = 'Jorge Rios' where codigo = 'PRY-27-03'")
             c.execute("insert into gestor.meta values ('lider_ti_pry_27_03_v1', '1') on conflict do nothing")
@@ -547,6 +548,81 @@ def iniciativas_ti_2027(c) -> None:
             cur.executemany("update gestor.proyectos set orden = %s where codigo = %s",
                             [(int(i), cod) for i, cod in zip(n.index, n.codigo)])
     c.execute("insert into gestor.meta values ('iniciativas_ti_v1', '1') on conflict do nothing")
+
+
+# ---------- usuarios de la aplicación (la contraseña nunca se guarda: solo su hash PBKDF2 con sal)
+def crear_usuarios(c) -> None:
+    c.execute("""create table if not exists gestor.usuarios (
+        usuario text primary key, nombre text not null, area text, clave_hash text not null,
+        es_admin boolean not null default false, debe_cambiar boolean not null default true,
+        activo boolean not null default true, ultimo_ingreso timestamptz, creado timestamptz default now(), actualizado timestamptz default now())""")
+    if c.execute("select 1 from gestor.meta where clave = 'usuarios_iniciales_v1'").fetchone():
+        return
+    ini = json.loads((DATA / "usuarios_iniciales.json").read_text(encoding="utf-8"))
+    with c.cursor() as cur:
+        cur.executemany("""insert into gestor.usuarios (usuario, nombre, area, clave_hash, es_admin, debe_cambiar)
+                           values (%s, %s, %s, %s, %s, true) on conflict (usuario) do nothing""",
+                        [(u["usuario"], u["nombre"], u["area"], u["clave_hash"], u["es_admin"]) for u in ini])
+    c.execute("insert into gestor.meta values ('usuarios_iniciales_v1', '1') on conflict do nothing")
+
+
+_COLS_U = "usuario, nombre, area, es_admin, debe_cambiar, activo, ultimo_ingreso, creado"
+
+
+def _u(r) -> dict:
+    d = dict(zip([x.strip() for x in _COLS_U.split(",")], r))
+    for k in ("ultimo_ingreso", "creado"):
+        d[k] = d[k].isoformat() if d[k] else None
+    return d
+
+
+def hay_usuarios() -> bool:
+    if not disponible():
+        return False
+    with _conn() as c:
+        return bool(c.execute("select 1 from gestor.usuarios where activo limit 1").fetchone())
+
+
+def leer_usuario(usuario: str, con_hash: bool = False) -> dict | None:
+    with _conn() as c:
+        r = c.execute(f"select {_COLS_U}, clave_hash from gestor.usuarios where usuario = %s", (usuario.lower(),)).fetchone()
+    if not r:
+        return None
+    d = _u(r[:-1])
+    if con_hash:
+        d["clave_hash"] = r[-1]
+    return d
+
+
+def listar_usuarios() -> list[dict]:
+    with _conn() as c:
+        return [_u(r) for r in c.execute(f"select {_COLS_U} from gestor.usuarios order by es_admin desc, nombre").fetchall()]
+
+
+def crear_usuario(usuario: str, nombre: str, area: str, clave_hash: str, es_admin: bool) -> None:
+    with _conn() as c:
+        c.execute("""insert into gestor.usuarios (usuario, nombre, area, clave_hash, es_admin, debe_cambiar)
+                     values (%s, %s, %s, %s, %s, true)""", (usuario.lower(), nombre, area, clave_hash, es_admin))
+
+
+def guardar_clave(usuario: str, clave_hash: str, debe_cambiar: bool) -> None:
+    with _conn() as c:
+        c.execute("update gestor.usuarios set clave_hash = %s, debe_cambiar = %s, actualizado = now() where usuario = %s",
+                  (clave_hash, debe_cambiar, usuario.lower()))
+
+
+def actualizar_usuario(usuario: str, campos: dict) -> None:
+    permitidos = {k: v for k, v in campos.items() if k in ("nombre", "area", "es_admin", "activo")}
+    if not permitidos:
+        return
+    with _conn() as c:
+        c.execute(f"update gestor.usuarios set {', '.join(k + ' = %s' for k in permitidos)}, actualizado = now() where usuario = %s",
+                  (*permitidos.values(), usuario.lower()))
+
+
+def marcar_ingreso(usuario: str) -> None:
+    with _conn() as c:
+        c.execute("update gestor.usuarios set ultimo_ingreso = now() where usuario = %s", (usuario.lower(),))
 
 
 def cargar_lider_ti(c) -> None:

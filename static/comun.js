@@ -35,7 +35,12 @@ function nav(activa) {
   const chip = mod ? '<button class="chip-cfg" id="chipReset" title="Volver a los datos y parámetros base">Escenario modificado · restaurar</button>'
                    : '<span class="chip-cfg base">Escenario base</span>';
   document.body.insertAdjacentHTML("afterbegin", `<nav class="tabs"><div class="brand">Gestor de Proyectos · TyT NGR</div>
-    <div class="tablist">${tabs.map(([h, t]) => `<a href="${h}" class="${t === activa ? "on" : ""}">${t}</a>`).join("")}</div>${chip}<a href="/logout" class="salir">Salir</a></nav>`);
+    <div class="tablist">${tabs.map(([h, t]) => `<a href="${h}" class="${t === activa ? "on" : ""}">${t}</a>`).join("")}</div>${chip}<span class="quien" id="quien"></span><a href="/logout" class="salir">Salir</a></nav>`);
+  fetch("/api/yo").then(r => r.ok ? r.json() : null).then(y => {   // usuario de la sesión y pestaña Usuarios (solo administrador)
+    if (!y) return;
+    if (y.es_admin) document.querySelector("nav.tabs .tablist").insertAdjacentHTML("beforeend", `<a href="/usuarios" class="${activa === "Usuarios" ? "on" : ""}">Usuarios</a>`);
+    if (y.nombre) document.getElementById("quien").innerHTML = `${y.nombre}${y.emergencia ? "" : ' · <a href="/cambiar-clave">cambiar contraseña</a>'}`;
+  }).catch(() => {});
   const b = document.getElementById("chipReset");
   if (b) b.onclick = () => { if (confirm("¿Volver al escenario y parámetros base?")) { borrar(ESC_KEY); borrar(PAR_KEY); location.reload(); } };
 }

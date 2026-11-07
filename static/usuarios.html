@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usuarios · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1340px}
+  .btn{white-space:nowrap}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #f0ece4;text-align:left;white-space:nowrap}
+  th{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  tr.off td{color:#a8a29e}
+  .tag{font-size:11.5px;padding:2px 9px;border-radius:999px;font-weight:600}
+  .tag.adm{background:#ede4f3;color:#5b2a6e}.tag.usr{background:#e8eef8;color:#1f3864}
+  .tag.pend{background:#fff4d6;color:#8a5a00}.tag.ok{background:#e3f4ea;color:#1d6b3d}.tag.ina{background:#eee;color:#777}
+  .btn{font:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;cursor:pointer;margin-right:4px}
+  .btn:hover{background:#f6f3ee}
+  .btn.pri{background:#1f3864;color:#fff;border-color:#1f3864}
+  .nuevo{display:grid;grid-template-columns:150px 1fr 1fr auto auto;gap:8px;align-items:end;margin-top:8px}
+  .nuevo label{font-size:12px;color:var(--muted);display:block}
+  .nuevo input{font:inherit;width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+  .temp{display:none;margin-top:12px;background:#fff8e6;border:1px solid #f1d58a;border-radius:10px;padding:12px 14px;font-size:13px}
+  .temp code{font-size:16px;font-weight:700;background:#fff;border:1px solid #f1d58a;border-radius:6px;padding:2px 8px;user-select:all}
+  .nota{font-size:12.5px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Usuarios</h1>
+  <div class="sub">Solo el administrador ve esta página. Las contraseñas no se guardan: la base solo tiene su huella cifrada (PBKDF2-SHA256 con sal por usuario), así que nadie puede leerlas. Al crear un usuario o resetear su contraseña se muestra una <b>contraseña temporal una sola vez</b>; el usuario debe cambiarla en su primer ingreso.</div>
+
+  <div class="temp" id="temp"></div>
+
+  <section class="card">
+    <h2>Nuevo usuario</h2>
+    <div class="nuevo">
+      <div><label>Usuario</label><input id="nu" placeholder="ej. jperez" maxlength="30"></div>
+      <div><label>Nombre</label><input id="nn" placeholder="Nombre y apellido"></div>
+      <div><label>Área</label><input id="na" placeholder="Área"></div>
+      <label style="display:flex;gap:6px;align-items:center;padding-bottom:8px;color:var(--ink)"><input type="checkbox" id="nadm" style="width:auto"> Administrador</label>
+      <button class="btn pri" onclick="crear()">+ Crear usuario</button>
+    </div>
+    <div class="nota">Usuario: 3 a 30 caracteres en minúsculas (letras, números, punto o guion).</div>
+  </section>
+
+  <section class="card">
+    <h2>Usuarios registrados <small id="cuenta" style="font-size:12px;color:var(--muted);font-weight:400"></small></h2>
+    <table><thead><tr><th>Usuario</th><th>Nombre</th><th>Área</th><th>Rol</th><th>Contraseña</th><th>Estado</th><th>Último ingreso</th><th></th></tr></thead><tbody id="t"></tbody></table>
+  </section>
+</main>
+<script src="/static/comun.js"></script>
+<script>
+nav("Usuarios");
+let U = [], YO = "";
+const fecha = s => s ? new Date(s).toLocaleString("es-PE", {dateStyle: "short", timeStyle: "short"}) : "—";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+async function api(url, opt = {}) {
+  const r = await fetch(url, {headers: {"Content-Type": "application/json"}, ...opt});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || "Error");
+  return d;
+}
+function mostrarTemporal(u, t, accion) {
+  const d = document.getElementById("temp");
+  d.innerHTML = `🔑 ${accion} <b>${esc(u)}</b>. Contraseña temporal: <code>${esc(t)}</code> &nbsp;<button class="btn" onclick="navigator.clipboard.writeText('${esc(t)}')">Copiar</button>
+    <div class="nota">Entrégasela al usuario por un canal privado. No se volverá a mostrar; si se pierde, resetea la contraseña. Deberá cambiarla al ingresar.</div>`;
+  d.style.display = "block"; d.scrollIntoView({behavior: "smooth", block: "center"});
+}
+async function cargar() {
+  [U, {usuario: YO}] = await Promise.all([api("/api/usuarios"), api("/api/yo")]);
+  document.getElementById("cuenta").textContent = `${U.filter(u => u.activo).length} activos de ${U.length}`;
+  document.getElementById("t").innerHTML = U.map(u => `<tr class="${u.activo ? "" : "off"}">
+    <td><b>${esc(u.usuario)}</b></td><td>${esc(u.nombre)}</td><td>${esc(u.area) || "—"}</td>
+    <td><span class="tag ${u.es_admin ? "adm" : "usr"}">${u.es_admin ? "Administrador" : "Usuario"}</span></td>
+    <td><span class="tag ${u.debe_cambiar ? "pend" : "ok"}">${u.debe_cambiar ? "Temporal (por cambiar)" : "Propia"}</span></td>
+    <td><span class="tag ${u.activo ? "ok" : "ina"}">${u.activo ? "Activo" : "Inactivo"}</span></td>
+    <td>${fecha(u.ultimo_ingreso)}</td>
+    <td><button class="btn" onclick="resetear('${u.usuario}')">Resetear contraseña</button>${u.usuario === YO ? "" :
+      `<button class="btn" onclick="editar('${u.usuario}', {activo: ${!u.activo}})">${u.activo ? "Desactivar" : "Activar"}</button>
+       <button class="btn" onclick="editar('${u.usuario}', {es_admin: ${!u.es_admin}})">${u.es_admin ? "Quitar admin" : "Hacer admin"}</button>`}</td></tr>`).join("");
+}
+async function crear() {
+  try {
+    const d = await api("/api/usuarios", {method: "POST", body: JSON.stringify({usuario: nu.value, nombre: nn.value, area: na.value, es_admin: nadm.checked})});
+    nu.value = nn.value = na.value = ""; nadm.checked = false;
+    mostrarTemporal(d.usuario, d.temporal, "Se creó el usuario"); cargar();
+  } catch (e) { alert(e.message); }
+}
+async function resetear(u) {
+  if (!confirm(`¿Resetear la contraseña de ${u}? Su contraseña actual dejará de funcionar.`)) return;
+  try { const d = await api(`/api/usuarios/${u}/reset`, {method: "POST"}); mostrarTemporal(u, d.temporal, "Se reseteó la contraseña de"); cargar(); }
+  catch (e) { alert(e.message); }
+}
+async function editar(u, campos) {
+  try { await api(`/api/usuarios/${u}`, {method: "PUT", body: JSON.stringify(campos)}); cargar(); } catch (e) { alert(e.message); }
+}
+cargar().catch(e => document.getElementById("t").innerHTML = `<tr><td colspan="8">${esc(e.message)}</td></tr>`);
+</script>
+</body>
+</html>
