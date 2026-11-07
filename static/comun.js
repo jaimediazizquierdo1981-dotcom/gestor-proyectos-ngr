@@ -38,7 +38,8 @@ function nav(activa) {
     <div class="tablist">${tabs.map(([h, t]) => `<a href="${h}" class="${t === activa ? "on" : ""}">${t}</a>`).join("")}</div>${chip}<span class="quien" id="quien"></span><a href="/logout" class="salir">Salir</a></nav>`);
   fetch("/api/yo").then(r => r.ok ? r.json() : null).then(y => {   // usuario de la sesión y pestaña Usuarios (solo administrador)
     if (!y) return;
-    if (y.es_admin) document.querySelector("nav.tabs .tablist").insertAdjacentHTML("beforeend", `<a href="/usuarios" class="${activa === "Usuarios" ? "on" : ""}">Usuarios</a>`);
+    if (y.es_admin) document.querySelector("nav.tabs .tablist").insertAdjacentHTML("beforeend",
+      `<a href="/usuarios" class="${activa === "Usuarios" ? "on" : ""}">Usuarios</a><a href="/actividad" class="${activa === "Actividad" ? "on" : ""}">Actividad</a>`);
     if (y.nombre) document.getElementById("quien").innerHTML = `${y.nombre}${y.emergencia ? "" : ' · <a href="/cambiar-clave">cambiar contraseña</a>'}`;
   }).catch(() => {});
   const b = document.getElementById("chipReset");

@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 import time as _time
 from fastapi.staticfiles import StaticFiles
 
-from motor import db, seguridad as seg
+from motor import auditoria, db, seguridad as seg
 from motor.modelo import cargar_base, ejecutar
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -38,6 +38,7 @@ def _admin(request: Request) -> dict:
 @app.middleware("http")
 async def sin_cache(request: Request, call_next):
     ruta = request.url.path
+    q = None
     if ruta not in seg.LIBRES and seg.activo():
         q = _quien(request)
         if not q:
@@ -48,7 +49,16 @@ async def sin_cache(request: Request, call_next):
             if ruta.startswith("/api/"):
                 return JSONResponse({"detail": "Debes cambiar tu contraseña."}, status_code=403)
             return RedirectResponse("/cambiar-clave", status_code=303)
+    accion = auditoria.accion(request.method, ruta)
+    cuerpo = await request.body() if accion and "multipart" not in request.headers.get("content-type", "") else b""
+    if accion == "Salida":
+        q = q or _quien(request)
     resp = await call_next(request)
+    if accion:
+        try:
+            auditoria.registrar(request, accion, q, cuerpo, resp.status_code)
+        except Exception as e:   # el log nunca debe romper la operación
+            print("AUDIT error:", e, flush=True)
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "same-origin"
@@ -180,6 +190,21 @@ def api_editar_usuario(request: Request, usuario: str, body: dict = Body(...)):
         raise HTTPException(400, "No puedes desactivarte ni quitarte el rol de administrador a ti mismo.")
     db.actualizar_usuario(usuario, {k: body[k] for k in ("nombre", "area", "es_admin", "activo") if k in body})
     return {"ok": True}
+
+
+# ---------- actividad (log de auditoría, solo administrador)
+@app.get("/actividad", include_in_schema=False)
+def vista_actividad(request: Request):
+    q = _quien(request)
+    if seg.activo() and (not q or not q["es_admin"]):
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(STATIC / "actividad.html")
+
+
+@app.get("/api/logs")
+def api_logs(request: Request, usuario: str = "", desde: str = "", hasta: str = "", texto: str = "", limite: int = 500):
+    _admin(request)
+    return db.leer_logs(usuario, desde, hasta, texto, min(max(limite, 1), 5000))
 
 
 @app.get("/logout", include_in_schema=False)

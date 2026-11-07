@@ -114,6 +114,9 @@ def iniciar() -> None:
         montos_en_cero(c)
         iniciativas_ti_2027(c)
         crear_usuarios(c)
+        c.execute("""create table if not exists gestor.logs (id bigserial primary key, fecha timestamptz not null default now(),
+                     usuario text, accion text not null, detalle jsonb, ip text, estado int)""")
+        c.execute("create index if not exists logs_fecha on gestor.logs (fecha desc)")
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_pry_27_03_v1'").fetchone():
             c.execute("update gestor.proyectos set lider_ti = 'Jorge Rios' where codigo = 'PRY-27-03'")
             c.execute("insert into gestor.meta values ('lider_ti_pry_27_03_v1', '1') on conflict do nothing")
@@ -618,6 +621,29 @@ def actualizar_usuario(usuario: str, campos: dict) -> None:
     with _conn() as c:
         c.execute(f"update gestor.usuarios set {', '.join(k + ' = %s' for k in permitidos)}, actualizado = now() where usuario = %s",
                   (*permitidos.values(), usuario.lower()))
+
+
+def guardar_log(usuario: str, accion: str, detalle: str, ip: str, estado: int) -> None:
+    with _conn() as c:
+        c.execute("insert into gestor.logs (usuario, accion, detalle, ip, estado) values (%s, %s, %s::jsonb, %s, %s)",
+                  (usuario, accion, detalle if detalle.startswith(("{", "[")) and not detalle.endswith("…") else json.dumps({"texto": detalle}), ip, estado))
+
+
+def leer_logs(usuario: str = "", desde: str = "", hasta: str = "", texto: str = "", limite: int = 500) -> list[dict]:
+    w, a = [], []
+    if usuario:
+        w.append("usuario = %s"); a.append(usuario.lower())
+    if desde:
+        w.append("fecha >= %s::date"); a.append(desde)
+    if hasta:
+        w.append("fecha < %s::date + 1"); a.append(hasta)
+    if texto:
+        w.append("(accion ilike %s or detalle::text ilike %s)"); a += [f"%{texto}%"] * 2
+    sql = ("select id, fecha, usuario, accion, detalle, ip, estado from gestor.logs"
+           + (" where " + " and ".join(w) if w else "") + " order by fecha desc limit %s")
+    with _conn() as c:
+        rows = c.execute(sql, (*a, limite)).fetchall()
+    return [{"id": r[0], "fecha": r[1].isoformat(), "usuario": r[2], "accion": r[3], "detalle": r[4], "ip": r[5], "estado": r[6]} for r in rows]
 
 
 def marcar_ingreso(usuario: str) -> None:

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Actividad · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1340px}
+  .filtros{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+  .filtros label{font-size:12px;color:var(--muted);display:block}
+  .filtros input,.filtros select{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+  th,td{padding:7px 8px;border-bottom:1px solid #f0ece4;text-align:left;vertical-align:top}
+  th{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  td.f{white-space:nowrap;font-variant-numeric:tabular-nums}
+  td.d{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:#57534e;max-width:640px;word-break:break-word}
+  tr.err td{background:#fff5f5}
+  .btn{font:inherit;font-size:12.5px;border:1px solid #1f3864;background:#1f3864;color:#fff;border-radius:8px;padding:7px 12px;cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+  <h1>Actividad</h1>
+  <div class="sub">Registro de quién hizo qué y cuándo: ingresos, cambios en la hoja de trabajo, posiciones, montos, colaboradores, cargas de plantillas y usuarios. Las contraseñas nunca se registran. Solo lo ve el administrador.</div>
+  <section class="card">
+    <div class="filtros">
+      <div><label>Usuario</label><select id="fu"><option value="">Todos</option></select></div>
+      <div><label>Desde</label><input type="date" id="fd"></div>
+      <div><label>Hasta</label><input type="date" id="fh"></div>
+      <div><label>Buscar (acción o detalle, ej. PRY-27-01)</label><input id="ft" style="width:240px"></div>
+      <button class="btn" onclick="cargar()">Filtrar</button>
+    </div>
+    <table><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead><tbody id="t"></tbody></table>
+  </section>
+</main>
+<script src="/static/comun.js"></script>
+<script>
+nav("Actividad");
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+fetch("/api/usuarios").then(r => r.json()).then(us => us.forEach(u => fu.insertAdjacentHTML("beforeend", `<option value="${esc(u.usuario)}">${esc(u.nombre)} (${esc(u.usuario)})</option>`)));
+async function cargar() {
+  const q = new URLSearchParams({usuario: fu.value, desde: fd.value, hasta: fh.value, texto: ft.value});
+  const r = await fetch("/api/logs?" + q);
+  const L = r.ok ? await r.json() : [];
+  document.getElementById("t").innerHTML = L.length ? L.map(l => `<tr class="${l.estado >= 400 ? "err" : ""}">
+    <td class="f">${new Date(l.fecha).toLocaleString("es-PE", {dateStyle: "short", timeStyle: "medium"})}</td>
+    <td>${esc(l.usuario) || "—"}</td><td>${esc(l.accion)}${l.estado >= 400 ? ` <small style="color:#b91c1c">(${l.estado})</small>` : ""}</td>
+    <td class="d">${esc(JSON.stringify(l.detalle))}</td></tr>`).join("") : '<tr><td colspan="4">Sin registros para ese filtro.</td></tr>';
+}
+cargar();
+</script>
+</body>
+</html>
