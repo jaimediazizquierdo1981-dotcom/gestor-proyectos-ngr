@@ -112,6 +112,7 @@ def iniciar() -> None:
         inicio_datos_maestros(c)
         opex_en_cero(c)
         montos_en_cero(c)
+        iniciativas_ti_2027(c)
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_pry_27_03_v1'").fetchone():
             c.execute("update gestor.proyectos set lider_ti = 'Jorge Rios' where codigo = 'PRY-27-03'")
             c.execute("insert into gestor.meta values ('lider_ti_pry_27_03_v1', '1') on conflict do nothing")
@@ -529,6 +530,23 @@ def montos_en_cero(c) -> None:
                  coalesce(jsonb_agg(jsonb_build_object('codigo', codigo, 'capex', capex, 'opex_mensual', opex_mensual, 'opex_meses', opex_meses)), '[]'::jsonb) from gestor.proyectos""")
     c.execute("update gestor.proyectos set capex = 0, opex_mensual = 0, opex_meses = null")
     c.execute("insert into gestor.meta values ('montos_cero_v1', '1') on conflict do nothing")
+
+
+def iniciativas_ti_2027(c) -> None:
+    """Una sola vez: agrega las iniciativas TI-01..TI-05 del portafolio validado (sin prioridad: en gris, fuera de totales)."""
+    if c.execute("select 1 from gestor.meta where clave = 'iniciativas_ti_v1'").fetchone():
+        return
+    pr = pd.read_csv(DATA / "proyectos.csv", dtype=str).fillna("")
+    existentes = {r[0] for r in c.execute("select codigo from gestor.proyectos").fetchall()}
+    n = pr[pr.codigo.str.startswith("TI-") & ~pr.codigo.isin(existentes)].copy()
+    if len(n):
+        n["prioridad"] = None
+        for k in ("capex", "opex_mensual"): n[k] = n[k].replace("", "0").astype(float)
+        with c.cursor() as cur:
+            _insertar_proyectos(cur, n)
+            cur.executemany("update gestor.proyectos set orden = %s where codigo = %s",
+                            [(int(i), cod) for i, cod in zip(n.index, n.codigo)])
+    c.execute("insert into gestor.meta values ('iniciativas_ti_v1', '1') on conflict do nothing")
 
 
 def cargar_lider_ti(c) -> None:
