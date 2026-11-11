@@ -114,6 +114,7 @@ def iniciar() -> None:
         opex_en_cero(c)
         montos_en_cero(c)
         iniciativas_ti_2027(c)
+        iniciativas_ti_2027(c, "iniciativa_ti_06_v1")   # TI-06 Data Governance
         crear_usuarios(c)
         c.execute("""create table if not exists gestor.logs (id bigserial primary key, fecha timestamptz not null default now(),
                      usuario text, accion text not null, detalle jsonb, ip text, estado int)""")
@@ -537,9 +538,9 @@ def montos_en_cero(c) -> None:
     c.execute("insert into gestor.meta values ('montos_cero_v1', '1') on conflict do nothing")
 
 
-def iniciativas_ti_2027(c) -> None:
-    """Una sola vez: agrega las iniciativas TI-01..TI-05 del portafolio validado (sin prioridad: en gris, fuera de totales)."""
-    if c.execute("select 1 from gestor.meta where clave = 'iniciativas_ti_v1'").fetchone():
+def iniciativas_ti_2027(c, clave: str = "iniciativas_ti_v1") -> None:
+    """Una sola vez por clave: agrega las iniciativas TI-xx del portafolio validado (sin prioridad: en gris, fuera de totales)."""
+    if c.execute("select 1 from gestor.meta where clave = %s", (clave,)).fetchone():
         return
     pr = pd.read_csv(DATA / "proyectos.csv", dtype=str).fillna("")
     existentes = {r[0] for r in c.execute("select codigo from gestor.proyectos").fetchall()}
@@ -551,7 +552,7 @@ def iniciativas_ti_2027(c) -> None:
             _insertar_proyectos(cur, n)
             cur.executemany("update gestor.proyectos set orden = %s where codigo = %s",
                             [(int(i), cod) for i, cod in zip(n.index, n.codigo)])
-    c.execute("insert into gestor.meta values ('iniciativas_ti_v1', '1') on conflict do nothing")
+    c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
 
 
 # ---------- usuarios de la aplicación (la contraseña nunca se guarda: solo su hash PBKDF2 con sal)
