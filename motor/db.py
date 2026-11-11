@@ -115,6 +115,9 @@ def iniciar() -> None:
         montos_en_cero(c)
         iniciativas_ti_2027(c)
         iniciativas_ti_2027(c, "iniciativa_ti_06_v1")   # TI-06 Data Governance
+        if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_06_v1'").fetchone():
+            c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Pratti' where codigo = 'TI-06'")
+            c.execute("insert into gestor.meta values ('lider_ti_06_v1', '1') on conflict do nothing")
         crear_usuarios(c)
         c.execute("""create table if not exists gestor.logs (id bigserial primary key, fecha timestamptz not null default now(),
                      usuario text, accion text not null, detalle jsonb, ip text, estado int)""")
