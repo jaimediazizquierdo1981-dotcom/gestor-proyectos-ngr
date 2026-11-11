@@ -71,6 +71,8 @@
   .pie{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid #f0ece4;background:#faf8f4;border-radius:0 0 14px 14px}
   .pie>div{padding:10px 16px;font-size:12.5px}
   .pie>div+div{border-left:1px solid #f0ece4}
+  .pie>div.coment{grid-column:1/-1;border-left:0;border-top:1px solid #f0ece4}
+  .pie>div.coment textarea{min-height:70px}
   .pie b{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
   .pie .monto{display:block;font-size:16px;font-weight:700;margin:3px 0;font-variant-numeric:tabular-nums}
   .pie .monto input{width:90px;font:inherit;font-size:14px;padding:2px 5px;border:1px solid var(--line);border-radius:6px;text-align:right}
@@ -296,6 +298,8 @@ function pie(p) {
       <span class="monto">S/ <input type="number" min="0" step="500" value="${op}" onchange="cambiarOpex('${p.codigo}', this.value)"> / mes × <input type="number" min="0" max="120" step="1" style="width:70px" value="${nOpex}" title="Meses de Opex. Déjalo vacío para calcularlo solo (desde el fin del proyecto hasta dic.)" onchange="cambiarMesesOpex('${p.codigo}', this.value)"> meses = ${fmtS(op * nOpex)}</span>
       <small>${p.opex_meses_manual ? `Meses ingresados a mano · déjalo vacío para volver al cálculo automático (${mesesOpex.length} meses)` : mesesOpex.length ? `${fmtMes(mesesOpex[0])} a ${fmtMes(mesesOpex.at(-1))} · puedes cambiar los meses` : "El proyecto termina en diciembre: ingresa los meses de Opex que quieras considerar"}</small>
       <textarea placeholder="Observaciones del Opex: suscripciones, soporte, nube, mantenimiento…" onchange="guardarObs('${p.codigo}','opex',this.value)">${esc(OBS[p.codigo]?.opex)}</textarea></div>
+    <div class="coment"><b>💬 Comentarios del proyecto</b>
+      <textarea placeholder="Comentarios generales: avances, riesgos, dependencias, acuerdos, pendientes…" onchange="guardarObs('${p.codigo}','comentarios',this.value)">${esc(OBS[p.codigo]?.comentarios)}</textarea></div>
   </div>`;
 }
 const esc = t => String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

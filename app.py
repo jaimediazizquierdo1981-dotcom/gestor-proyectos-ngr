@@ -306,7 +306,7 @@ def api_guardar_observacion(body: dict = Body(...)):
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     campo = str(body.get("campo"))
-    if campo not in ("capex", "opex"):
+    if campo not in ("capex", "opex", "comentarios"):
         raise HTTPException(400, "Campo no válido.")
     db.guardar_observacion(str(body["codigo"]), campo, str(body.get("texto", ""))[:4000])
     return {"ok": True}

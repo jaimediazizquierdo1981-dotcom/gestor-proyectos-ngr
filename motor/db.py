@@ -119,6 +119,7 @@ def iniciar() -> None:
             c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Pratti' where codigo = 'TI-06'")
             c.execute("insert into gestor.meta values ('lider_ti_06_v1', '1') on conflict do nothing")
         crear_usuarios(c)
+        c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
         c.execute("""create table if not exists gestor.logs (id bigserial primary key, fecha timestamptz not null default now(),
                      usuario text, accion text not null, detalle jsonb, ip text, estado int)""")
@@ -392,12 +393,12 @@ def actualizar_proyecto(codigo: str, opex_mensual: float | None = None, opex_mes
 # ---------- observaciones de capex y opex por proyecto
 def leer_observaciones() -> dict:
     with _conn() as c:
-        return {cod: {"capex": cx or "", "opex": op or ""} for cod, cx, op in
-                c.execute("select codigo, capex, opex from gestor.observaciones")}
+        return {cod: {"capex": cx or "", "opex": op or "", "comentarios": co or ""} for cod, cx, op, co in
+                c.execute("select codigo, capex, opex, comentarios from gestor.observaciones")}
 
 
 def guardar_observacion(codigo: str, campo: str, texto: str) -> None:
-    if campo not in ("capex", "opex"):
+    if campo not in ("capex", "opex", "comentarios"):
         raise ValueError("campo")
     with _conn() as c:
         c.execute(f"""insert into gestor.observaciones (codigo, {campo}, actualizado) values (%s, %s, now())
@@ -457,9 +458,9 @@ def guardar_hoja(body: dict) -> str:
                 its = [_fila_nec(cod, i) for i in items if float(i.get("dias", 0)) > 0]
                 filas += its or [(cod, "_vacio", 0, None, None, None)]
             cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)", filas)
-            cur.executemany("""insert into gestor.observaciones (codigo, capex, opex, actualizado) values (%s, %s, %s, now())
-                               on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
-                            [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])
+            cur.executemany("""insert into gestor.observaciones (codigo, capex, opex, comentarios, actualizado) values (%s, %s, %s, %s, now())
+                               on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, comentarios = excluded.comentarios, actualizado = now()""",
+                            [(cod, o.get("capex", ""), o.get("opex", ""), o.get("comentarios", "")) for cod, o in (body.get("observaciones") or {}).items()])
             cur.executemany("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s",
                             [(float(v or 0), cod) for cod, v in (body.get("opex") or {}).items() if cod in vigentes])
             if "capex" in body:
