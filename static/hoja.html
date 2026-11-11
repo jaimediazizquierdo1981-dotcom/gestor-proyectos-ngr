@@ -441,6 +441,8 @@ function estadoFicha(cod) {
     n: NEC[cod] || [], o: OBS[cod] || {}, e: [!!p.incluir, !!p.on_hold, p.prioridad ?? null, p.inicio || ""],
     m: [+p.opex_mensual || 0, +p.capex || 0, p.opex_meses_manual ? p.opex_meses : null]});
 }
+window.hayCambiosSinGuardar = () => !!(D && fichasCambiadas().length);
+window.guardarCambiosPendientes = () => guardarTodo();
 function tomarFoto() { SNAP = {}; D.proyectos.forEach(p => SNAP[p.codigo] = estadoFicha(p.codigo)); }
 function fichasCambiadas() {
   return D.proyectos.map(p => p.codigo).filter(c => PEND.has(c) || SNAP[c] !== estadoFicha(c));

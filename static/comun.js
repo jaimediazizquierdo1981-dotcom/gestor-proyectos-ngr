@@ -56,3 +56,51 @@ const fmtPct = n => n == null ? "–" : Math.round(n * 100) + "%";
 const ETQ = {cubierto: "Cubierto", parcial: "Parcial", no_cubierto: "No cubierto", on_hold: "On hold", sin_prioridad: "Sin prioridad", excluido: "No activo"};
 const COL = {cubierto: "#2e9e6a", parcial: "#e5a12a", no_cubierto: "#d64545", on_hold: "#8a8f99", excluido: "#a7adb8"};
 const COL_PERFIL = {"Gestor de TI": "#1F3864", "Arquitecto": "#7b5ea7", "Analista Funcional": "#c2547a", "Analista Técnico": "#8a6d3b", "Desarrollador": "#2f7fc1", "Data Engineer": "#1a9a8f", "Experto en Data": "#0b6e4f", "QA": "#d8833a", "Infra": "#6b7a8f", "Seguridad TI": "#b91c1c", "Lider Tecnico": "#0f766e", "Analytics engineer": "#0e7490", "Practicante Data": "#65a30d", "Devops": "#4338ca", "Soporte": "#a16207", "Demanda de Servicios": "#be185d"};
+
+// ---------- cierre por inactividad: aviso al minuto 9, cierre al minuto 10 (compartido entre pestañas)
+(() => {
+  if (location.pathname === "/login" || location.pathname === "/cambiar-clave") return;
+  const LIMITE = 10 * 60 * 1000, AVISO = 9 * 60 * 1000, K = "gestor_ngr_actividad";
+  const marcar = () => { try { localStorage.setItem(K, String(Date.now())); } catch (e) {} };
+  const ultima = () => { try { return +localStorage.getItem(K) || Date.now(); } catch (e) { return Date.now(); } };
+  let caja = null, cerrando = false;
+  const cambios = () => typeof window.hayCambiosSinGuardar === "function" && window.hayCambiosSinGuardar();
+  function quitarAviso() { if (caja) { caja.remove(); caja = null; } }
+  function mostrarAviso(seg) {
+    if (!caja) {
+      caja = document.createElement("div");
+      caja.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:grid;place-items:center";
+      caja.innerHTML = `<div style="background:#fff;border-radius:14px;padding:22px 24px;max-width:430px;box-shadow:0 20px 50px rgba(0,0,0,.25);font:14px/1.5 system-ui,sans-serif;color:#1f2430">
+        <b style="font-size:17px">¿Sigues ahí?</b>
+        <p style="margin:8px 0 4px">Por seguridad, la aplicación se cerrará en <b id="idleSeg"></b> segundos por inactividad.</p>
+        <p id="idleCambios" style="margin:4px 0;color:#b45309"></p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button id="idleGuardar" style="display:none;font:inherit;border:1px solid #1f3864;background:#fff;color:#1f3864;border-radius:9px;padding:8px 12px;cursor:pointer">💾 Guardar cambios</button>
+          <button id="idleSeguir" style="font:inherit;border:0;background:#1f3864;color:#fff;border-radius:9px;padding:8px 14px;cursor:pointer">Seguir trabajando</button>
+        </div></div>`;
+      document.body.appendChild(caja);
+      caja.querySelector("#idleSeguir").onclick = () => { marcar(); quitarAviso(); fetch("/api/yo").catch(() => {}); };
+      caja.querySelector("#idleGuardar").onclick = async () => { marcar(); quitarAviso(); await window.guardarCambiosPendientes(); };
+    }
+    const hay = cambios();
+    caja.querySelector("#idleSeg").textContent = seg;
+    caja.querySelector("#idleCambios").textContent = hay ? "Tienes cambios sin guardar en la Hoja de trabajo: te sugerimos guardarlos ahora." : "";
+    caja.querySelector("#idleGuardar").style.display = hay ? "" : "none";
+  }
+  async function cerrar() {
+    if (cerrando) return; cerrando = true;
+    if (cambios() && typeof window.guardarCambiosPendientes === "function") { try { await window.guardarCambiosPendientes(); } catch (e) {} }
+    location.href = "/logout?motivo=inactividad";
+  }
+  ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "wheel"].forEach(ev => addEventListener(ev, () => { if (!caja) marcar(); }, {passive: true}));
+  marcar();
+  setInterval(() => {
+    const quieto = Date.now() - ultima();
+    if (quieto >= LIMITE) cerrar();
+    else if (quieto >= AVISO) mostrarAviso(Math.ceil((LIMITE - quieto) / 1000));
+    else quitarAviso();
+  }, 1000);
+  // mientras haya actividad, renueva la sesión del servidor (máximo una vez por minuto)
+  let ping = 0;
+  setInterval(() => { if (Date.now() - ultima() < 60000 && Date.now() - ping > 60000) { ping = Date.now(); fetch("/api/yo").catch(() => {}); } }, 15000);
+})();

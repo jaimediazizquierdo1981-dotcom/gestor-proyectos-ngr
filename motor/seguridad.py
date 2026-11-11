@@ -11,10 +11,10 @@ import time
 APP_USER = os.environ.get("APP_USER", "").strip()
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 SECRETO = os.environ.get("SESSION_SECRET", "") or secrets.token_hex(32)
-DURACION = 8 * 3600
+DURACION = 10 * 60   # la sesión vence tras 10 minutos sin actividad (se renueva con cada solicitud)
 SEGURA = os.environ.get("DEV") != "1"   # cookies solo por HTTPS (en local: DEV=1)
 INTENTOS: dict[str, list[float]] = {}   # ip -> marcas de tiempo de intentos fallidos
-LIBRES = {"/login", "/api/auth/login", "/api/auth/captcha", "/favicon.ico", "/static/favicon.svg", "/static/favicon.png"}
+LIBRES = {"/login", "/logout", "/api/auth/login", "/api/auth/captcha", "/favicon.ico", "/static/favicon.svg", "/static/favicon.png"}
 HAY_USUARIOS = False   # lo prende app.py si la tabla gestor.usuarios tiene registros
 ITER = 260_000
 

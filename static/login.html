@@ -78,13 +78,16 @@ function nuevo() { $("img").src = "/api/auth/captcha?t=" + Date.now(); $("c").va
 $("otro").onclick = nuevo; nuevo();
 $("ver").onclick = () => { const p = $("p"); p.type = p.type === "password" ? "text" : "password"; $("ver").textContent = p.type === "password" ? "Ver" : "Ocultar"; };
 $("f").onsubmit = async e => {
-  e.preventDefault(); $("b").disabled = true; $("err").textContent = "";
+  e.preventDefault(); $("b").disabled = true; $("err").textContent = ""; $("err").style.color = "";
   const r = await fetch("/api/auth/login", {method: "POST", headers: {"Content-Type": "application/json"},
     body: JSON.stringify({usuario: $("u").value.trim(), password: $("p").value, captcha: $("c").value})});
   if (r.ok) { const d = await r.json().catch(() => ({})); location.href = d.cambiar ? "/cambiar-clave" : "/"; return; }
   const d = await r.json().catch(() => ({}));
   $("err").textContent = d.detail || "No se pudo ingresar."; $("b").disabled = false; nuevo();
 };
+if (new URLSearchParams(location.search).get("motivo") === "inactividad") {
+  $("err").style.color = "#b45309"; $("err").textContent = "Tu sesión se cerró tras 10 minutos de inactividad. Vuelve a ingresar.";
+}
 </script>
 </body>
 </html>

@@ -59,6 +59,9 @@ async def sin_cache(request: Request, call_next):
             auditoria.registrar(request, accion, q, cuerpo, resp.status_code)
         except Exception as e:   # el log nunca debe romper la operación
             print("AUDIT error:", e, flush=True)
+    if q and accion != "Salida":   # sesión deslizante: cada solicitud renueva los 10 minutos
+        cookie, dur = seg.nueva_sesion(q["usuario"])
+        resp.set_cookie("sesion", cookie, max_age=dur, httponly=True, samesite="lax", secure=seg.SEGURA)
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "same-origin"
@@ -208,8 +211,8 @@ def api_logs(request: Request, usuario: str = "", desde: str = "", hasta: str = 
 
 
 @app.get("/logout", include_in_schema=False)
-def logout():
-    r = RedirectResponse("/login", status_code=303)
+def logout(motivo: str = ""):
+    r = RedirectResponse("/login?motivo=inactividad" if motivo == "inactividad" else "/login", status_code=303)
     r.delete_cookie("sesion")
     return r
 
