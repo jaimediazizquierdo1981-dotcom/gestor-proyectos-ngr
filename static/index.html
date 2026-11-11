@@ -57,7 +57,11 @@
   .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
   select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
   .heat td{min-width:96px;white-space:nowrap;text-align:center;font-size:11.5px;padding:5px 3px}
-  .heat tr.grupo td{background:#eef2f9;color:#1f3864;text-align:left;padding:6px 8px;border-top:2px solid #d7dfee}
+  .heat tr.grupo{cursor:pointer}
+  .heat tr.grupo td.l{background:#eef2f9;color:#1f3864;text-align:left;padding:6px 8px}
+  .heat tr.grupo td{border-top:2px solid #d7dfee}
+  .heat tr.grupo:hover td.l{background:#dfe7f5}
+  .heat .flecha{display:inline-block;width:12px;color:#1f3864}
   .heat tr.grupo small{color:#64748b;font-weight:400}
   .fila2b{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:1000px){.fila2b{grid-template-columns:1fr}}
@@ -114,7 +118,7 @@
   </div>
   <div class="card">
     <h2>Uso de la capacidad por persona y mes</h2>
-    <div class="sub">Equipo interno agrupado por cargo (mismo orden que el cuadro por perfil): días asignados a la persona en la Hoja de trabajo / sus días de capacidad del mes y, entre paréntesis, el %. Mismos colores de alerta: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98% (persona saturada).</div>
+    <div class="sub">Equipo interno agrupado por cargo (mismo orden que el cuadro por perfil). Haz clic en un cargo (▸) para ver a sus personas; la fila del cargo muestra su total. Días asignados a la persona en la Hoja de trabajo / sus días de capacidad del mes y, entre paréntesis, el %. Mismos colores de alerta: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98% (persona saturada).</div>
     <div style="overflow:auto"><table class="heat" id="heatPer"></table></div>
   </div>
   <div class="fila2b">
@@ -252,6 +256,8 @@ function capacidadConsolidada() {
     D.meses.forEach((m, k) => { const u = Object.values(p.asignado[m] || {}).reduce((a, b) => a + b, 0); if (u > 0) { cT[k] += p.capacidad[k]; uT[k] += u; } });
   barrasCap("capInt", cI, uI); barrasCap("capTer", cT, uT);
 }
+let ABIERTOS = new Set();   // cargos expandidos en el cuadro por persona (por defecto todos contraídos)
+function abrirGrupo(g) { ABIERTOS.has(g) ? ABIERTOS.delete(g) : ABIERTOS.add(g); heat(); }
 function heat() {
   capacidadConsolidada();
   const cab = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th></tr>`;
@@ -265,10 +271,12 @@ function heat() {
   let hp = cab.replace("<th>Pers.</th>", "<th></th>").replace("Perfil", "Cargo / persona");
   for (const u of D.uso_perfil.filter(u => u.personas > 0)) {
     const gente = D.personas.filter(x => x.tipo !== "tercero" && x.perfil === u.perfil).sort((a, b) => a.persona.localeCompare(b.persona));
-    hp += `<tr class="grupo"><td class="l" colspan="${D.meses.length + 3}"><b>${u.perfil}</b> <small>· ${gente.length} ${gente.length === 1 ? "persona" : "personas"}</small></td></tr>`;
+    const ab = ABIERTOS.has(u.perfil), g = u.perfil.replace(/"/g, "");
+    hp += `<tr class="grupo" onclick="abrirGrupo('${g}')" title="Clic para ${ab ? "contraer" : "expandir"}"><td class="l"><span class="flecha">${ab ? "▾" : "▸"}</span> <b>${u.perfil}</b> <small>· ${gente.length} ${gente.length === 1 ? "persona" : "personas"}</small></td><td></td>`
+      + u.capacidad.map((c, i) => celda(u.usado[i], c)).join("") + total(u) + "</tr>";
     for (const x of gente) {
       const usado = D.meses.map(m => Object.values(x.asignado[m] || {}).reduce((a, b) => a + b, 0));
-      hp += `<tr><td class="l" style="padding-left:18px">${x.persona}</td><td></td>` + x.capacidad.map((c, i) => celda(usado[i], c)).join("") + total({usado, capacidad: x.capacidad}) + "</tr>";
+      hp += `<tr data-g="${g}" style="${ab ? "" : "display:none"}"><td class="l" style="padding-left:30px">${x.persona}</td><td></td>` + x.capacidad.map((c, i) => celda(usado[i], c)).join("") + total({usado, capacidad: x.capacidad}) + "</tr>";
     }
   }
   document.getElementById("heatPer").innerHTML = hp;
