@@ -15,12 +15,12 @@ import pandas as pd
 URL = os.environ.get("DATABASE_URL", "").strip()
 DATA = Path(__file__).resolve().parent.parent / "data"
 DATOS_VERSION = "12"  # subir este número fuerza recargar los datos ficticios
-PERFILES = ["Gestor de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"]
+PERFILES = ["Gestor de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Experto en Data", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"]
 COL = {"Gestor de TI": "d_pm", "Arquitecto": "d_arquitecto", "Analista Funcional": "d_analista_funcional",
        "Analista Técnico": "d_analista_tecnico", "Desarrollador": "d_desarrollador",
        "Data Engineer": "d_data_engineer", "QA": "d_qa", "Infra": "d_infra", "Seguridad TI": "d_seguridad_ti",
        "Lider Tecnico": "d_lider_tecnico", "Analytics engineer": "d_analytics_engineer", "Practicante Data": "d_practicante_data",
-       "Devops": "d_devops", "Soporte": "d_soporte", "Demanda de Servicios": "d_demanda"}  # días por perfil interno
+       "Devops": "d_devops", "Soporte": "d_soporte", "Demanda de Servicios": "d_demanda", "Experto en Data": "d_experto_data"}  # días por perfil interno
 TERC = {"T Dev": "t_dev", "T QA": "t_qa", "T Analista Funcional": "t_analista_funcional",
         "T Analista Técnico": "t_analista_tecnico"}  # días de terceros
 
@@ -55,6 +55,7 @@ alter table gestor.proyectos add column if not exists d_lider_tecnico numeric de
 alter table gestor.proyectos add column if not exists d_analytics_engineer numeric default 0;
 alter table gestor.proyectos add column if not exists d_practicante_data numeric default 0;
 alter table gestor.proyectos add column if not exists d_devops numeric default 0;
+alter table gestor.proyectos add column if not exists d_experto_data numeric default 0;
 alter table gestor.proyectos add column if not exists d_soporte numeric default 0;
 alter table gestor.proyectos add column if not exists d_demanda numeric default 0;
 alter table gestor.proyectos add column if not exists oe_cod text;
