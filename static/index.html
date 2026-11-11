@@ -57,6 +57,8 @@
   .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
   select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
   .heat td{min-width:96px;white-space:nowrap;text-align:center;font-size:11.5px;padding:5px 3px}
+  .heat tr.grupo td{background:#eef2f9;color:#1f3864;text-align:left;padding:6px 8px;border-top:2px solid #d7dfee}
+  .heat tr.grupo small{color:#64748b;font-weight:400}
   .fila2b{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media (max-width:1000px){.fila2b{grid-template-columns:1fr}}
   .cm{display:grid;grid-template-columns:54px 1fr 190px;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid #f0ece4;font-size:12.5px}
@@ -109,6 +111,11 @@
     <h2>Uso de la capacidad por perfil y mes</h2>
     <div class="sub">Equipo interno: días asignados / días de capacidad del perfil y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
+  </div>
+  <div class="card">
+    <h2>Uso de la capacidad por persona y mes</h2>
+    <div class="sub">Equipo interno agrupado por cargo (mismo orden que el cuadro por perfil): días asignados a la persona en la Hoja de trabajo / sus días de capacidad del mes y, entre paréntesis, el %. Mismos colores de alerta: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98% (persona saturada).</div>
+    <div style="overflow:auto"><table class="heat" id="heatPer"></table></div>
   </div>
   <div class="fila2b">
     <div class="card"><h2>Capacidad consolidada · equipo interno</h2>
@@ -254,6 +261,17 @@ function heat() {
   for (const u of D.uso_perfil.filter(u => u.personas > 0 || u.usado.some(x => x > 0)))
     h += `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => celda(u.usado[i], c)).join("") + total(u) + "</tr>";
   document.getElementById("heat").innerHTML = h;
+  // por persona, agrupado por cargo
+  let hp = cab.replace("<th>Pers.</th>", "<th></th>").replace("Perfil", "Cargo / persona");
+  for (const u of D.uso_perfil.filter(u => u.personas > 0)) {
+    const gente = D.personas.filter(x => x.tipo !== "tercero" && x.perfil === u.perfil).sort((a, b) => a.persona.localeCompare(b.persona));
+    hp += `<tr class="grupo"><td class="l" colspan="${D.meses.length + 3}"><b>${u.perfil}</b> <small>· ${gente.length} ${gente.length === 1 ? "persona" : "personas"}</small></td></tr>`;
+    for (const x of gente) {
+      const usado = D.meses.map(m => Object.values(x.asignado[m] || {}).reduce((a, b) => a + b, 0));
+      hp += `<tr><td class="l" style="padding-left:18px">${x.persona}</td><td></td>` + x.capacidad.map((c, i) => celda(usado[i], c)).join("") + total({usado, capacidad: x.capacidad}) + "</tr>";
+    }
+  }
+  document.getElementById("heatPer").innerHTML = hp;
   const T = D.uso_terceros || [];
   cardTer.style.display = T.length ? "" : "none";
   if (T.length) document.getElementById("heatTer").innerHTML = cab.replace("Perfil", "Cargo (tercero)") +
