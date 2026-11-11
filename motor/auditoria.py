@@ -52,7 +52,7 @@ def _resumen_hoja(b: dict) -> dict:
         p = por_proy.setdefault(a.get("codigo"), {"personas": 0, "dias": 0.0})
         p["personas"] += 1; p["dias"] = round(p["dias"] + dias, 1)
     esc = {k: {c: v[c] for c in ("incluir", "on_hold", "prioridad", "inicio") if c in v} for k, v in (b.get("escenario") or {}).items()}
-    return {"asignaciones_por_proyecto": por_proy, "escenario": {k: v for k, v in esc.items() if v},
+    return {"fichas_guardadas": b.get("codigos", "TODAS (versión antigua)"), "asignaciones_por_proyecto": por_proy, "escenario": {k: v for k, v in esc.items() if v},
             "capex": {k: v for k, v in (b.get("capex") or {}).items() if v}, "opex": {k: v for k, v in (b.get("opex") or {}).items() if v},
             "opex_meses": {k: v for k, v in (b.get("opex_meses") or {}).items() if v is not None}}
 

@@ -433,8 +433,21 @@ async function quitar(codigo, nombre) {
   aviso(r.ok ? "Quitado." : "No se pudo quitar.", r.ok);
 }
 
+// fichas modificadas en esta pestaña: solo esas se guardan (para no pisar el trabajo de otros usuarios)
+let SNAP = {}, PEND = new Set();
+function estadoFicha(cod) {
+  const p = D.proyectos.find(x => x.codigo === cod) || {};
+  return JSON.stringify({a: ASIG.filter(x => x.codigo === cod).map(x => [x.persona, x.dias]).sort((x, y) => x[0].localeCompare(y[0])),
+    n: NEC[cod] || [], o: OBS[cod] || {}, e: [!!p.incluir, !!p.on_hold, p.prioridad ?? null, p.inicio || ""],
+    m: [+p.opex_mensual || 0, +p.capex || 0, p.opex_meses_manual ? p.opex_meses : null]});
+}
+function tomarFoto() { SNAP = {}; D.proyectos.forEach(p => SNAP[p.codigo] = estadoFicha(p.codigo)); }
+function fichasCambiadas() {
+  return D.proyectos.map(p => p.codigo).filter(c => PEND.has(c) || SNAP[c] !== estadoFicha(c));
+}
 async function guardarTodo() {
   bGuardarHoja.disabled = true; bGuardarHoja.textContent = "Guardando…";
+  const codigos = fichasCambiadas();
   // escenario completo: lo guardado + lo cambiado en este navegador
   const escenario = {};
   D.proyectos.forEach(p => escenario[p.codigo] = {incluir: !!p.incluir, on_hold: !!p.on_hold, prioridad: p.prioridad, inicio: p.inicio});
@@ -442,14 +455,17 @@ async function guardarTodo() {
   const opex = {}; D.proyectos.forEach(p => opex[p.codigo] = +p.opex_mensual || 0);
   const opex_meses = {}; D.proyectos.forEach(p => opex_meses[p.codigo] = p.opex_meses_manual ? p.opex_meses : null);
   const capex = {}; D.proyectos.forEach(p => capex[p.codigo] = +p.capex || 0);
-  const body = {asignaciones: ASIG, necesidades, observaciones: OBS, opex, opex_meses, capex, escenario};
+  const solo = o => Object.fromEntries(Object.entries(o).filter(([k]) => codigos.includes(k)));
+  const body = {codigos, asignaciones: ASIG.filter(a => codigos.includes(a.codigo)), necesidades: solo(necesidades), observaciones: solo(OBS),
+                opex: solo(opex), opex_meses: solo(opex_meses), capex: solo(capex), escenario: solo(escenario)};
   try {
     const r = await fetch("/api/hoja/guardar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
     if (!r.ok) throw new Error((await r.json()).detail || r.status);
     const j = await r.json();
     borrar(ESC_KEY);   // ya quedó en la base: el navegador deja de tener cambios pendientes
-    estadoGuardado.textContent = "Guardado en la base: " + new Date(j.guardado).toLocaleString("es-PE");
-    aviso("Hoja de trabajo guardada en la base de datos.");
+    PEND.clear(); tomarFoto();
+    if (j.guardado) estadoGuardado.textContent = "Guardado en la base: " + new Date(j.guardado).toLocaleString("es-PE");
+    aviso(codigos.length ? `Guardado en la base: ${codigos.length} ficha(s) modificada(s) (${codigos.join(", ")}). Las demás fichas no se tocan.` : "No hay cambios por guardar.");
   } catch (e) { aviso("No se pudo guardar: " + e.message, false); }
   bGuardarHoja.disabled = false; bGuardarHoja.textContent = "💾 Guardar hoja de trabajo";
 }
@@ -464,6 +480,8 @@ async function guardarTodo() {
   rolesCargados().forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
   pintarSelector();
   filtroProy.onchange = seleccionarProyecto;
+  PEND = new Set(Object.keys(leer(ESC_KEY) || {}));   // cambios de un ingreso anterior que quedaron sin guardar en este navegador
+  tomarFoto();
   cargando(false); pintar();
 })();
 </script>

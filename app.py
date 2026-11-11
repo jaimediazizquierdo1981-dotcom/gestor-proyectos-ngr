@@ -319,7 +319,11 @@ def api_guardar_hoja(body: dict = Body(...)):
     """Guarda en la base toda la hoja: asignaciones, posiciones, observaciones, opex y escenario (incluir, on hold, prioridad, inicio)."""
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
-    return {"ok": True, "guardado": db.guardar_hoja(body)}
+    if not isinstance(body.get("codigos"), list):
+        raise HTTPException(409, "Esta pestaña tiene una versión antigua de la Hoja de trabajo. Recarga la página (F5) y vuelve a guardar; tus cambios ya hechos se guardaron al editarlos.")
+    if not body["codigos"]:
+        return {"ok": True, "guardado": None, "fichas": 0}
+    return {"ok": True, "guardado": db.guardar_hoja(body), "fichas": len(body["codigos"])}
 
 
 @app.get("/api/plantilla/colaboradores")

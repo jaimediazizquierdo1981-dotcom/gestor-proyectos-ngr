@@ -119,6 +119,7 @@ def iniciar() -> None:
             c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Pratti' where codigo = 'TI-06'")
             c.execute("insert into gestor.meta values ('lider_ti_06_v1', '1') on conflict do nothing")
         crear_usuarios(c)
+        restaurar_2026_11_11(c)
         c.execute("""create table if not exists gestor.logs (id bigserial primary key, fecha timestamptz not null default now(),
                      usuario text, accion text not null, detalle jsonb, ip text, estado int)""")
         c.execute("create index if not exists logs_fecha on gestor.logs (fecha desc)")
@@ -434,20 +435,23 @@ def leer_escenario() -> dict:
 
 
 def guardar_hoja(body: dict) -> str:
+    """Guarda SOLO las fichas que el usuario modificó (body["codigos"]): así un usuario no pisa el trabajo de otro."""
     import psycopg
+    cods = [MAPA_2027.get(x, x) for x in body["codigos"]]
     with psycopg.connect(URL) as c:   # transacción: o se guarda todo o nada
         with c.cursor() as cur:
-            vigentes = {r[0] for r in cur.execute("select codigo from gestor.proyectos")}
+            vigentes = {r[0] for r in cur.execute("select codigo from gestor.proyectos")} & set(cods)
             body = {**body, "asignaciones": [a for a in body.get("asignaciones", []) if MAPA_2027.get(a["codigo"], a["codigo"]) in vigentes],
                     "necesidades": {MAPA_2027.get(k, k): v for k, v in (body.get("necesidades") or {}).items() if MAPA_2027.get(k, k) in vigentes},
                     "observaciones": {MAPA_2027.get(k, k): v for k, v in (body.get("observaciones") or {}).items() if MAPA_2027.get(k, k) in vigentes}}
             for a in body["asignaciones"]:
                 a["codigo"] = MAPA_2027.get(a["codigo"], a["codigo"])
-            cur.execute("delete from gestor.asignaciones")
+            cods = list(vigentes)
+            cur.execute("delete from gestor.asignaciones where codigo = any(%s)", (cods,))
             cur.executemany("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s)",
                             [(a["codigo"], a["persona"], json.dumps({m: float(v) for m, v in (a.get("dias") or {}).items() if v and float(v) > 0}))
                              for a in body.get("asignaciones", [])])
-            cur.execute("delete from gestor.necesidades")
+            cur.execute("delete from gestor.necesidades where codigo = any(%s)", (cods,))
             filas = []
             for cod, items in (body.get("necesidades") or {}).items():
                 its = [_fila_nec(cod, i) for i in items if float(i.get("dias", 0)) > 0]
@@ -457,19 +461,55 @@ def guardar_hoja(body: dict) -> str:
                                on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
                             [(cod, o.get("capex", ""), o.get("opex", "")) for cod, o in (body.get("observaciones") or {}).items()])
             cur.executemany("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s",
-                            [(float(v or 0), cod) for cod, v in (body.get("opex") or {}).items()])
+                            [(float(v or 0), cod) for cod, v in (body.get("opex") or {}).items() if cod in vigentes])
             if "capex" in body:
                 cur.executemany("update gestor.proyectos set capex = %s where codigo = %s",
-                                [(float(v or 0), cod) for cod, v in (body.get("capex") or {}).items()])
+                                [(float(v or 0), cod) for cod, v in (body.get("capex") or {}).items() if cod in vigentes])
             if "opex_meses" in body:
                 cur.executemany("update gestor.proyectos set opex_meses = %s where codigo = %s",
-                                [(None if v in (None, "") else float(v), cod) for cod, v in (body.get("opex_meses") or {}).items()])
+                                [(None if v in (None, "") else float(v), cod) for cod, v in (body.get("opex_meses") or {}).items() if cod in vigentes])
+            r = cur.execute("select data from gestor.escenario where id = 1 for update").fetchone()
+            esc = (r[0] if r else None) or {}
+            for cod, v in (body.get("escenario") or {}).items():
+                if MAPA_2027.get(cod, cod) in vigentes:
+                    esc[MAPA_2027.get(cod, cod)] = v
             cur.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
                            on conflict (id) do update set data = excluded.data, guardado = now() returning guardado""",
-                        (json.dumps(body.get("escenario") or {}),))
+                        (json.dumps(esc),))
             g = cur.fetchone()[0]
         c.commit()
     return g.isoformat()
+
+
+def restaurar_2026_11_11(c) -> None:
+    """Una sola vez: restaura PRY-27-20 y PRY-27-03 (pisados por guardados de pestañas desactualizadas el 11/11/2026),
+    reconstruidos desde el log de auditoría. Se respalda antes lo que había."""
+    if c.execute("select 1 from gestor.meta where clave = 'restaurar_2026_11_11_v1'").fetchone():
+        return
+    r = json.loads((DATA / "restaurar_2026_11_11.json").read_text(encoding="utf-8"))
+    cods = list(r)
+    c.execute("create table if not exists gestor.respaldo (id serial primary key, motivo text, tabla text, data jsonb, creado timestamptz default now())")
+    for t in ("asignaciones", "necesidades", "observaciones"):
+        c.execute(f"""insert into gestor.respaldo (motivo, tabla, data) select 'restaurar_2026_11_11_v1', '{t}',
+                      coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x where codigo = any(%s)""", (cods,))
+    with c.cursor() as cur:
+        for cod, v in r.items():
+            cur.execute("delete from gestor.asignaciones where codigo = %s", (cod,))
+            cur.executemany("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s)",
+                            [(cod, a["persona"], json.dumps(a["dias"])) for a in v["asignaciones"]])
+            cur.execute("delete from gestor.necesidades where codigo = %s", (cod,))
+            cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)",
+                            [_fila_nec(cod, i) for i in v["posiciones"] if float(i.get("dias", 0)) > 0])
+            for campo, val in (v.get("montos") or {}).items():
+                if campo in ("capex", "opex_mensual"):
+                    cur.execute(f"update gestor.proyectos set {campo} = %s where codigo = %s", (float(val), cod))
+            o = v.get("observaciones") or {}
+            if o:
+                cur.execute("""insert into gestor.observaciones (codigo, capex, opex, actualizado) values (%s, %s, %s, now())
+                               on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
+                            (cod, o.get("capex", ""), o.get("opex", "")))
+    print("restaurar_2026_11_11: restaurados", cods, flush=True)
+    c.execute("insert into gestor.meta values ('restaurar_2026_11_11_v1', '1') on conflict do nothing")
 
 
 def portafolio_valido_2027(c) -> None:
