@@ -121,6 +121,10 @@ def iniciar() -> None:
         crear_usuarios(c)
         c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
+        if not c.execute("select 1 from gestor.meta where clave = 'clave_jdiaz_v1'").fetchone():   # contraseña definida por el admin (solo el hash)
+            c.execute("update gestor.usuarios set clave_hash = %s, debe_cambiar = false, actualizado = now() where usuario = 'jdiaz'",
+                      ("pbkdf2_sha256$260000$455d810d0fd59008305a9c774e7c67fe$178552ae6a8817b32f615c5bb3f08870dbe180dab27e64e418687aa245525ffa",))
+            c.execute("insert into gestor.meta values ('clave_jdiaz_v1', '1') on conflict do nothing")
         c.execute("""create table if not exists gestor.logs (id bigserial primary key, fecha timestamptz not null default now(),
                      usuario text, accion text not null, detalle jsonb, ip text, estado int)""")
         c.execute("create index if not exists logs_fecha on gestor.logs (fecha desc)")
