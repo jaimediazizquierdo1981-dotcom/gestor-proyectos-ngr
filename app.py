@@ -14,6 +14,12 @@ app = FastAPI(title="Gestor de Proyectos NGR")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 db.iniciar()
 seg.HAY_USUARIOS = db.hay_usuarios()
+if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27-16 con la capacidad libre real
+    try:
+        from motor import fichas_ref
+        fichas_ref.armar(ejecutar({}, con_mc=False))
+    except Exception as _e:
+        print("fichas_ref error:", _e, flush=True)
 CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}
 
 
