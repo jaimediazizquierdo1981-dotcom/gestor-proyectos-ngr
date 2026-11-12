@@ -169,7 +169,8 @@ function grupoRol(k, rol, g, extra = "") {
 function pintarLista() {
   const q = buscar.value.trim().toLowerCase(), rol = filtroRol.value;
   const ok = p => (!rol || rol === p.perfil) && (!q || p.persona.toLowerCase().includes(q));
-  let h = "";
+  let h = D.personas.some(p => p.tipo !== "tercero" && ok(p))
+    ? `<div class="grupo ter-h" style="margin-top:2px">Personal propio · días hábiles/mes menos feriados, vacaciones y reserva para operación</div>` : "";
   for (const r of ROLES) {
     const g = D.personas.filter(p => p.tipo !== "tercero" && p.perfil === r && ok(p));
     if (g.length) h += grupoRol("int:" + r, r, g);
