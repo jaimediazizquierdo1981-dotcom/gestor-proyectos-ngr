@@ -46,6 +46,10 @@ function nav(activa) {
     if (!y) return;
     if (y.es_admin) document.querySelector("nav.tabs .tablist").insertAdjacentHTML("beforeend",
       `<a href="/usuarios" class="${activa === "Usuarios" ? "on" : ""}">Usuarios</a><a href="/actividad" class="${activa === "Actividad" ? "on" : ""}">Actividad</a>`);
+    if (y.solo_lectura) {
+      document.body.classList.add("lectura");
+      document.getElementById("quien").insertAdjacentHTML("beforebegin", '<span class="chip-lectura" title="Puedes consultar y simular; no puedes modificar información.">👁 Solo lectura</span>');
+    }
     if (y.nombre) document.getElementById("quien").innerHTML = `${y.nombre}${y.emergencia ? "" : ' · <a href="/cambiar-clave">cambiar contraseña</a>'}`;
   }).catch(() => {});
   const b = document.getElementById("chipReset");

@@ -40,7 +40,8 @@
       <div><label>Usuario</label><input id="nu" placeholder="ej. jperez" maxlength="30"></div>
       <div><label>Nombre</label><input id="nn" placeholder="Nombre y apellido"></div>
       <div><label>Área</label><input id="na" placeholder="Área"></div>
-      <label style="display:flex;gap:6px;align-items:center;padding-bottom:8px;color:var(--ink)"><input type="checkbox" id="nadm" style="width:auto"> Administrador</label>
+      <div><label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="nadm" style="width:auto"> Administrador</label>
+        <label style="display:flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="nlec" style="width:auto"> Solo lectura</label></div>
       <button class="btn pri" onclick="crear()">+ Crear usuario</button>
     </div>
     <div class="nota">Usuario: 3 a 30 caracteres en minúsculas (letras, números, punto o guion).</div>
@@ -74,18 +75,19 @@ async function cargar() {
   document.getElementById("cuenta").textContent = `${U.filter(u => u.activo).length} activos de ${U.length}`;
   document.getElementById("t").innerHTML = U.map(u => `<tr class="${u.activo ? "" : "off"}">
     <td><b>${esc(u.usuario)}</b></td><td>${esc(u.nombre)}</td><td>${esc(u.area) || "—"}</td>
-    <td><span class="tag ${u.es_admin ? "adm" : "usr"}">${u.es_admin ? "Administrador" : "Usuario"}</span></td>
+    <td><span class="tag ${u.es_admin ? "adm" : u.solo_lectura ? "ina" : "usr"}">${u.es_admin ? "Administrador" : u.solo_lectura ? "Solo lectura" : "Usuario (edita)"}</span></td>
     <td><span class="tag ${u.debe_cambiar ? "pend" : "ok"}">${u.debe_cambiar ? "Temporal (por cambiar)" : "Propia"}</span></td>
     <td><span class="tag ${u.activo ? "ok" : "ina"}">${u.activo ? "Activo" : "Inactivo"}</span></td>
     <td>${fecha(u.ultimo_ingreso)}</td>
     <td><button class="btn" onclick="resetear('${u.usuario}')">Resetear contraseña</button>${u.usuario === YO ? "" :
       `<button class="btn" onclick="editar('${u.usuario}', {activo: ${!u.activo}})">${u.activo ? "Desactivar" : "Activar"}</button>
-       <button class="btn" onclick="editar('${u.usuario}', {es_admin: ${!u.es_admin}})">${u.es_admin ? "Quitar admin" : "Hacer admin"}</button>`}</td></tr>`).join("");
+       <button class="btn" onclick="editar('${u.usuario}', {es_admin: ${!u.es_admin}})">${u.es_admin ? "Quitar admin" : "Hacer admin"}</button>
+       <button class="btn" onclick="editar('${u.usuario}', {solo_lectura: ${!u.solo_lectura}})">${u.solo_lectura ? "Permitir editar" : "Solo lectura"}</button>`}</td></tr>`).join("");
 }
 async function crear() {
   try {
-    const d = await api("/api/usuarios", {method: "POST", body: JSON.stringify({usuario: nu.value, nombre: nn.value, area: na.value, es_admin: nadm.checked})});
-    nu.value = nn.value = na.value = ""; nadm.checked = false;
+    const d = await api("/api/usuarios", {method: "POST", body: JSON.stringify({usuario: nu.value, nombre: nn.value, area: na.value, es_admin: nadm.checked, solo_lectura: nlec.checked})});
+    nu.value = nn.value = na.value = ""; nadm.checked = nlec.checked = false;
     mostrarTemporal(d.usuario, d.temporal, "Se creó el usuario"); cargar();
   } catch (e) { alert(e.message); }
 }

@@ -22,6 +22,7 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
             fichas_ref.sobrecargas(ejecutar({}, con_mc=False), ["PRY-27-10", "PRY-27-16"])
     except Exception as _e:
         print("fichas_ref error:", _e, flush=True)
+SOLO_LECTURA_OK = {"/api/calcular", "/api/montecarlo", "/api/auth/cambiar", "/api/auth/login"}
 CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}
 
 
@@ -57,6 +58,9 @@ async def sin_cache(request: Request, call_next):
             if ruta.startswith("/api/"):
                 return JSONResponse({"detail": "Debes cambiar tu contraseña."}, status_code=403)
             return RedirectResponse("/cambiar-clave", status_code=303)
+    # usuarios de solo lectura: pueden consultar y simular, pero no cambiar nada en la base
+    if q and q.get("solo_lectura") and request.method in ("POST", "PUT", "DELETE", "PATCH") and ruta not in SOLO_LECTURA_OK:
+        return JSONResponse({"detail": "Tu usuario es de solo lectura: no puede modificar información."}, status_code=403)
     accion = auditoria.accion(request.method, ruta)
     cuerpo = await request.body() if accion and "multipart" not in request.headers.get("content-type", "") else b""
     if accion == "Salida":
@@ -127,7 +131,7 @@ def api_yo(request: Request):
     q = _quien(request)
     if not q:
         return {"usuario": "", "nombre": "", "es_admin": not seg.activo(), "debe_cambiar": False}
-    return {k: q.get(k) for k in ("usuario", "nombre", "area", "es_admin", "debe_cambiar", "emergencia")}
+    return {k: q.get(k) for k in ("usuario", "nombre", "area", "es_admin", "debe_cambiar", "emergencia", "solo_lectura")}
 
 
 @app.post("/api/auth/cambiar")
@@ -177,7 +181,7 @@ def api_crear_usuario(request: Request, body: dict = Body(...)):
     if db.leer_usuario(usuario) or (seg.APP_USER and usuario == seg.APP_USER.lower()):
         raise HTTPException(400, f"El usuario {usuario} ya existe.")
     temporal = seg.clave_temporal()
-    db.crear_usuario(usuario, nombre, str(body.get("area", "")).strip(), seg.hash_clave(temporal), bool(body.get("es_admin")))
+    db.crear_usuario(usuario, nombre, str(body.get("area", "")).strip(), seg.hash_clave(temporal), bool(body.get("es_admin")), bool(body.get("solo_lectura")))
     seg.HAY_USUARIOS = True
     return {"ok": True, "usuario": usuario, "temporal": temporal}
 
@@ -199,7 +203,12 @@ def api_editar_usuario(request: Request, usuario: str, body: dict = Body(...)):
         raise HTTPException(404, "No existe el usuario.")
     if usuario.lower() == q["usuario"] and (body.get("activo") is False or body.get("es_admin") is False):
         raise HTTPException(400, "No puedes desactivarte ni quitarte el rol de administrador a ti mismo.")
-    db.actualizar_usuario(usuario, {k: body[k] for k in ("nombre", "area", "es_admin", "activo") if k in body})
+    campos = {k: body[k] for k in ("nombre", "area", "es_admin", "activo", "solo_lectura") if k in body}
+    if campos.get("solo_lectura"):
+        campos["es_admin"] = False
+    if usuario.lower() == q["usuario"] and campos.get("solo_lectura"):
+        raise HTTPException(400, "No puedes ponerte a ti mismo como solo lectura.")
+    db.actualizar_usuario(usuario, campos)
     return {"ok": True}
 
 

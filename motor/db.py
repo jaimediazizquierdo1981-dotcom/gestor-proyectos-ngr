@@ -119,6 +119,12 @@ def iniciar() -> None:
             c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Pratti' where codigo = 'TI-06'")
             c.execute("insert into gestor.meta values ('lider_ti_06_v1', '1') on conflict do nothing")
         crear_usuarios(c)
+        c.execute("alter table gestor.usuarios add column if not exists solo_lectura boolean not null default false")
+        if not c.execute("select 1 from gestor.meta where clave = 'usuario_mtaramona_v1'").fetchone():   # usuario de solo lectura (solo el hash)
+            c.execute("""insert into gestor.usuarios (usuario, nombre, area, clave_hash, es_admin, debe_cambiar, solo_lectura)
+                         values ('mtaramona', 'María Fernanda Taramona', 'PMO', %s, false, true, true) on conflict (usuario) do nothing""",
+                      ("pbkdf2_sha256$260000$86367475c35d17eaab53b41c8a0a1b68$c991f39bb464b0abeb4c55d9a2b54126914cd3a15ccbf3736680159bec7f8571",))
+            c.execute("insert into gestor.meta values ('usuario_mtaramona_v1', '1') on conflict do nothing")
         c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
         mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
@@ -738,13 +744,14 @@ def crear_usuarios(c) -> None:
     c.execute("insert into gestor.meta values ('usuarios_iniciales_v1', '1') on conflict do nothing")
 
 
-_COLS_U = "usuario, nombre, area, es_admin, debe_cambiar, activo, ultimo_ingreso, creado"
+_COLS_U = "usuario, nombre, area, es_admin, debe_cambiar, activo, ultimo_ingreso, creado, solo_lectura"
 
 
 def _u(r) -> dict:
     d = dict(zip([x.strip() for x in _COLS_U.split(",")], r))
     for k in ("ultimo_ingreso", "creado"):
         d[k] = d[k].isoformat() if d[k] else None
+    d["solo_lectura"] = bool(d.get("solo_lectura"))
     return d
 
 
@@ -771,10 +778,10 @@ def listar_usuarios() -> list[dict]:
         return [_u(r) for r in c.execute(f"select {_COLS_U} from gestor.usuarios order by es_admin desc, nombre").fetchall()]
 
 
-def crear_usuario(usuario: str, nombre: str, area: str, clave_hash: str, es_admin: bool) -> None:
+def crear_usuario(usuario: str, nombre: str, area: str, clave_hash: str, es_admin: bool, solo_lectura: bool = False) -> None:
     with _conn() as c:
-        c.execute("""insert into gestor.usuarios (usuario, nombre, area, clave_hash, es_admin, debe_cambiar)
-                     values (%s, %s, %s, %s, %s, true)""", (usuario.lower(), nombre, area, clave_hash, es_admin))
+        c.execute("""insert into gestor.usuarios (usuario, nombre, area, clave_hash, es_admin, debe_cambiar, solo_lectura)
+                     values (%s, %s, %s, %s, %s, true, %s)""", (usuario.lower(), nombre, area, clave_hash, es_admin and not solo_lectura, solo_lectura))
 
 
 def guardar_clave(usuario: str, clave_hash: str, debe_cambiar: bool) -> None:
@@ -784,7 +791,7 @@ def guardar_clave(usuario: str, clave_hash: str, debe_cambiar: bool) -> None:
 
 
 def actualizar_usuario(usuario: str, campos: dict) -> None:
-    permitidos = {k: v for k, v in campos.items() if k in ("nombre", "area", "es_admin", "activo")}
+    permitidos = {k: v for k, v in campos.items() if k in ("nombre", "area", "es_admin", "activo", "solo_lectura")}
     if not permitidos:
         return
     with _conn() as c:

@@ -24,3 +24,9 @@ nav.tabs a.salir{color:#cfd8ea;font-size:13px;border:1px solid rgba(255,255,255,
 nav.tabs a.salir:hover{background:rgba(255,255,255,.12);color:#fff}
 nav.tabs .quien{color:#cfd8ea;font-size:12.5px;white-space:nowrap}
 nav.tabs .quien a{color:#9fb4d9;text-decoration:underline;padding:0;border:0;background:none;font-size:12px}
+nav.tabs .chip-lectura{background:#fff4d6;color:#8a5a00;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+body.lectura #bGuardarHoja, body.lectura .acciones-ficha button, body.lectura button[onclick*="eliminarFicha"], body.lectura button[onclick*="pausarProyecto"],
+body.lectura button[onclick^="agregarPos"], body.lectura button[onclick^="promediar"], body.lectura #filtroProy{display:none !important}
+body.lectura #proyectos input, body.lectura #proyectos select, body.lectura #proyectos textarea, body.lectura #proyectos button,
+body.lectura .col, body.lectura main table select, body.lectura main table input[type=number]{pointer-events:none !important}
+body.lectura #proyectos input, body.lectura #proyectos select, body.lectura #proyectos textarea{background:#f7f5f1 !important}
