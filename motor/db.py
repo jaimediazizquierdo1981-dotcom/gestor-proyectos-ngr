@@ -124,6 +124,9 @@ def iniciar() -> None:
         mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
         deshacer_movimiento(c, "mover_19_a_05_v1", "deshacer_19_05_v1")   # el destino correcto era PRY-27-02
         mover_ficha(c, "PRY-27-19", "PRY-27-02", "mover_19_a_02_v1")
+        if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_27_02_v1'").fetchone():
+            c.execute("update gestor.proyectos set lider_ti = 'Julio More' where codigo = 'PRY-27-02'")
+            c.execute("insert into gestor.meta values ('lider_ti_27_02_v1', '1') on conflict do nothing")
         quitar_personas(c, "PRY-27-10", ["Carla Centeno", "Julio More", "Tercero Desarrollador 4", "Tercero Experto en Data 2",
                                          "Luis Chavez", "Tercero Desarrollador 3", "Juan Ramos", "Ángel Larreategui"], "quitar_27_10_v1")
         quitar_personas(c, "PRY-27-16", ["Christopher Camacho", "Jaime Diaz", "Miller Gomez", "Tercero Desarrollador 3",
