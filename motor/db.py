@@ -121,6 +121,7 @@ def iniciar() -> None:
         crear_usuarios(c)
         c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
+        mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
         if not c.execute("select 1 from gestor.meta where clave = 'clave_jdiaz_v1'").fetchone():   # contraseña definida por el admin (solo el hash)
             c.execute("update gestor.usuarios set clave_hash = %s, debe_cambiar = false, actualizado = now() where usuario = 'jdiaz'",
                       ("pbkdf2_sha256$260000$455d810d0fd59008305a9c774e7c67fe$178552ae6a8817b32f615c5bb3f08870dbe180dab27e64e418687aa245525ffa",))
@@ -484,6 +485,58 @@ def guardar_hoja(body: dict) -> str:
             g = cur.fetchone()[0]
         c.commit()
     return g.isoformat()
+
+
+def mover_ficha(c, origen: str, destino: str, clave: str) -> None:
+    """Una sola vez: pasa todo lo registrado en la ficha `origen` (asignaciones, posiciones, montos, observaciones,
+    activación y prioridad) a `destino`, y deja `origen` vacía, inactiva y sin prioridad. Se respalda antes."""
+    if c.execute("select 1 from gestor.meta where clave = %s", (clave,)).fetchone():
+        return
+    cods = [origen, destino]
+    for t in ("asignaciones", "necesidades", "observaciones", "proyectos"):
+        c.execute(f"""insert into gestor.respaldo (motivo, tabla, data) select %s, '{t}',
+                      coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x where codigo = any(%s)""", (clave, cods))
+    c.execute("insert into gestor.respaldo (motivo, tabla, data) select %s, 'escenario', data from gestor.escenario where id = 1", (clave,))
+    # asignaciones: si la persona ya estaba en el destino, se suman sus días
+    for persona, dias in c.execute("select persona, dias from gestor.asignaciones where codigo = %s", (origen,)).fetchall():
+        r = c.execute("select dias from gestor.asignaciones where codigo = %s and persona = %s", (destino, persona)).fetchone()
+        if r:
+            d = dict(r[0] or {})
+            for m, v in (dias or {}).items():
+                d[m] = round(float(d.get(m, 0) or 0) + float(v or 0), 2)
+            c.execute("update gestor.asignaciones set dias = %s where codigo = %s and persona = %s", (json.dumps(d), destino, persona))
+        else:
+            c.execute("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s)", (destino, persona, json.dumps(dias)))
+    c.execute("delete from gestor.asignaciones where codigo = %s", (origen,))
+    c.execute("update gestor.necesidades set codigo = %s where codigo = %s", (destino, origen))
+    # montos
+    o = c.execute("select coalesce(capex, 0), coalesce(opex_mensual, 0), opex_meses from gestor.proyectos where codigo = %s", (origen,)).fetchone()
+    if o:
+        c.execute("""update gestor.proyectos set capex = coalesce(capex, 0) + %s, opex_mensual = coalesce(opex_mensual, 0) + %s,
+                     opex_meses = coalesce(%s, opex_meses) where codigo = %s""", (o[0], o[1], o[2], destino))
+        c.execute("update gestor.proyectos set capex = 0, opex_mensual = 0, opex_meses = null where codigo = %s", (origen,))
+    # observaciones y comentarios: se concatenan si el destino ya tenía
+    ob = c.execute("select coalesce(capex,''), coalesce(opex,''), coalesce(comentarios,'') from gestor.observaciones where codigo = %s", (origen,)).fetchone()
+    if ob:
+        de = c.execute("select coalesce(capex,''), coalesce(opex,''), coalesce(comentarios,'') from gestor.observaciones where codigo = %s", (destino,)).fetchone() or ("", "", "")
+        une = [("\n".join(x for x in (a, b) if x)) for a, b in zip(de, ob)]
+        c.execute("""insert into gestor.observaciones (codigo, capex, opex, comentarios, actualizado) values (%s, %s, %s, %s, now())
+                     on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, comentarios = excluded.comentarios, actualizado = now()""",
+                  (destino, *une))
+        c.execute("delete from gestor.observaciones where codigo = %s", (origen,))
+    # activación, on hold, inicio y prioridad pasan al destino; el origen queda inactivo y sin prioridad
+    r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+    esc = (r[0] if r else None) or {}
+    prio = c.execute("select prioridad from gestor.proyectos where codigo = %s", (origen,)).fetchone()
+    eo = dict(esc.get(origen, {}))
+    if "prioridad" not in eo and prio:
+        eo["prioridad"] = prio[0]
+    esc[destino] = {**esc.get(destino, {}), **eo}
+    esc[origen] = {"incluir": False, "on_hold": False, "prioridad": None}
+    c.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
+                 on conflict (id) do update set data = excluded.data, guardado = now()""", (json.dumps(esc),))
+    print(f"mover_ficha: {origen} -> {destino}", esc[destino], flush=True)
+    c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
 
 
 def restaurar_2026_11_11(c) -> None:
