@@ -124,6 +124,8 @@ def iniciar() -> None:
         mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
         deshacer_movimiento(c, "mover_19_a_05_v1", "deshacer_19_05_v1")   # el destino correcto era PRY-27-02
         mover_ficha(c, "PRY-27-19", "PRY-27-02", "mover_19_a_02_v1")
+        quitar_personas(c, "PRY-27-10", ["Carla Centeno", "Julio More", "Tercero Desarrollador 4", "Tercero Experto en Data 2",
+                                         "Luis Chavez", "Tercero Desarrollador 3", "Juan Ramos", "Ángel Larreategui"], "quitar_27_10_v1")
         if not c.execute("select 1 from gestor.meta where clave = 'one_v1'").fetchone():   # One Drive se llama One
             c.execute("update gestor.proyectos set proyecto = 'One', lider_ti = 'Jean Pierre Pratti' where codigo = 'PRY-27-22'")
             c.execute("insert into gestor.meta values ('one_v1', '1') on conflict do nothing")
@@ -541,6 +543,17 @@ def mover_ficha(c, origen: str, destino: str, clave: str) -> None:
     c.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
                  on conflict (id) do update set data = excluded.data, guardado = now()""", (json.dumps(esc),))
     print(f"mover_ficha: {origen} -> {destino}", esc[destino], flush=True)
+    c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
+
+
+def quitar_personas(c, codigo: str, personas: list[str], clave: str) -> None:
+    """Una sola vez: saca a esas personas de la ficha (sus días quedan libres). Se respalda antes."""
+    if c.execute("select 1 from gestor.meta where clave = %s", (clave,)).fetchone():
+        return
+    c.execute("""insert into gestor.respaldo (motivo, tabla, data) select %s, 'asignaciones', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb)
+                 from gestor.asignaciones x where codigo = %s and persona = any(%s)""", (clave, codigo, personas))
+    n = c.execute("delete from gestor.asignaciones where codigo = %s and persona = any(%s)", (codigo, personas)).rowcount
+    print(f"quitar_personas: {codigo} -{n}", flush=True)
     c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
 
 
