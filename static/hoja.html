@@ -13,6 +13,10 @@
   aside h2{font-size:15px;margin:0 0 6px}
   aside input,aside select{width:100%;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
   .grupo{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:10px 0 4px;font-weight:700}
+  .grupo.rolg{cursor:pointer;user-select:none;padding:6px 8px;border-radius:8px;background:#f6f3ee;margin:6px 0 4px}
+  .grupo.rolg:hover{background:#efe9df}
+  .grupo.rolg small{text-transform:none;letter-spacing:0;font-weight:500;color:var(--muted)}
+  .grupo.rolg .fl{display:inline-block;width:10px}
   .col{display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:center;padding:6px 6px;border:1px solid #eee8dc;border-radius:10px;margin-bottom:5px;cursor:grab;background:#fdfcf9}
   .col.ter{background:#f7f4fb;border-style:dashed}
   .ter-h{margin-top:16px!important;padding-top:10px;border-top:2px solid var(--line);color:#5b3d8a!important}
@@ -154,17 +158,25 @@ function tarjeta(p) {
     <div class="mini">${lib.map((v, i) => { const c = p.capacidad[i] || 1, u = 1 - v / c;
       return `<i title="${fmtMes(D.meses[i])}: ${fmtD(v)} días libres" style="background:${v < -0.01 ? "#d64545" : u > .85 ? "#e8833a" : u > .4 ? "#e5a12a" : u > 0.01 ? "#9fd3b5" : "#dfe9e3"}"></i>`; }).join("")}</div></div></div>`;
 }
+let ROL_ABIERTO = new Set();   // grupos de rol expandidos en la lista (por defecto contraídos; al buscar o filtrar se abren)
+function abrirRol(k) { ROL_ABIERTO.has(k) ? ROL_ABIERTO.delete(k) : ROL_ABIERTO.add(k); pintarLista(); }
+function grupoRol(k, rol, g, extra = "") {
+  const ab = ROL_ABIERTO.has(k) || !!buscar.value.trim() || !!filtroRol.value;
+  const libres = g.reduce((a, p) => a + libre(p.persona).reduce((x, y) => x + y, 0), 0);
+  return `<div class="grupo rolg" style="color:${COL_PERFIL[rol]};${extra}" onclick="abrirRol('${k}')" title="Clic para ${ab ? "contraer" : "expandir"}">
+    <span class="fl">${ab ? "▾" : "▸"}</span> ${rol} <small>· ${g.length} · ${fmtD(libres)} días libres</small></div>` + (ab ? g.map(tarjeta).join("") : "");
+}
 function pintarLista() {
   const q = buscar.value.trim().toLowerCase(), rol = filtroRol.value;
   const ok = p => (!rol || rol === p.perfil) && (!q || p.persona.toLowerCase().includes(q));
   let h = "";
   for (const r of ROLES) {
     const g = D.personas.filter(p => p.tipo !== "tercero" && p.perfil === r && ok(p));
-    if (g.length) h += `<div class="grupo" style="color:${COL_PERFIL[r]}">${r}</div>` + g.map(tarjeta).join("");
+    if (g.length) h += grupoRol("int:" + r, r, g);
   }
   const t = D.personas.filter(p => p.tipo === "tercero" && ok(p));
   if (t.length) h += `<div class="grupo ter-h">Terceros · 22 días hábiles/mes menos feriados</div>` +
-    ROLES.map(r => t.filter(p => p.perfil === r)).filter(g => g.length).map(g => `<div class="grupo" style="color:${COL_PERFIL[g[0].perfil]};margin-top:4px">${g[0].perfil}</div>` + g.map(tarjeta).join("")).join("");
+    ROLES.map(r => t.filter(p => p.perfil === r)).filter(g => g.length).map(g => grupoRol("ter:" + g[0].perfil, g[0].perfil, g, "margin-top:4px")).join("");
   lista.innerHTML = h;
   lista.querySelectorAll(".col").forEach(el => el.ondragstart = e => { e.dataTransfer.setData("text/plain", el.dataset.p); e.dataTransfer.effectAllowed = "copy"; });
 }
