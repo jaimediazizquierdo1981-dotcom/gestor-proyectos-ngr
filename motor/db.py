@@ -122,6 +122,9 @@ def iniciar() -> None:
         c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
         mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
+        if not c.execute("select 1 from gestor.meta where clave = 'one_v1'").fetchone():   # One Drive se llama One
+            c.execute("update gestor.proyectos set proyecto = 'One', lider_ti = 'Jean Pierre Pratti' where codigo = 'PRY-27-22'")
+            c.execute("insert into gestor.meta values ('one_v1', '1') on conflict do nothing")
         if not c.execute("select 1 from gestor.meta where clave = 'clave_jdiaz_v1'").fetchone():   # contraseña definida por el admin (solo el hash)
             c.execute("update gestor.usuarios set clave_hash = %s, debe_cambiar = false, actualizado = now() where usuario = 'jdiaz'",
                       ("pbkdf2_sha256$260000$455d810d0fd59008305a9c774e7c67fe$178552ae6a8817b32f615c5bb3f08870dbe180dab27e64e418687aa245525ffa",))
