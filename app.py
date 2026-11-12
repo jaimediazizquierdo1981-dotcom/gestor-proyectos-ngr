@@ -18,6 +18,8 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
     try:
         from motor import fichas_ref
         fichas_ref.armar(ejecutar({}, con_mc=False))
+        if fichas_ref.redistribuir(["PRY-27-10", "PRY-27-16"], "2027-03", "2027-12", "redistribuir_10_16_mar_v1") is None:
+            fichas_ref.sobrecargas(ejecutar({}, con_mc=False), ["PRY-27-10", "PRY-27-16"])
     except Exception as _e:
         print("fichas_ref error:", _e, flush=True)
 CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}

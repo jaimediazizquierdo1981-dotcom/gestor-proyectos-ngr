@@ -87,3 +87,45 @@ def armar(salida: dict) -> list[str]:
             armados.append(cod)
         c.execute("insert into gestor.meta values ('fichas_ref_10_16_v1', '1') on conflict do nothing")
     return armados
+
+
+def redistribuir(cods: list[str], desde: str, hasta: str, clave: str) -> None:
+    """Una sola vez: el total de días de cada persona en esas fichas se reparte en partes iguales entre `desde` y `hasta`
+    (medios días; el último mes ajusta para que el total no cambie). Las posiciones pasan a ese mismo rango. Se respalda antes."""
+    meses = [f"2027-{m:02d}" for m in range(int(desde[5:]), int(hasta[5:]) + 1)]
+    with db._conn() as c:
+        if c.execute("select 1 from gestor.meta where clave = %s", (clave,)).fetchone():
+            return
+        for t in ("asignaciones", "necesidades"):
+            c.execute(f"""insert into gestor.respaldo (motivo, tabla, data) select %s, '{t}', coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb)
+                          from gestor.{t} x where codigo = any(%s)""", (clave, cods))
+        for cod, persona, dias in c.execute("select codigo, persona, dias from gestor.asignaciones where codigo = any(%s)", (cods,)).fetchall():
+            tot = round(sum(float(v or 0) for v in (dias or {}).values()) * 2) / 2
+            base = int(tot / len(meses) * 2) / 2
+            d = {m: base for m in meses}
+            resto = round(tot - base * len(meses), 2)
+            for m in reversed(meses):   # el resto se reparte de medio día en medio día desde el final
+                if resto <= 0:
+                    break
+                paso = min(0.5, resto); d[m] += paso; resto = round(resto - paso, 2)
+            d = {m: v for m, v in d.items() if v > 0}
+            c.execute("update gestor.asignaciones set dias = %s where codigo = %s and persona = %s", (json.dumps(d), cod, persona))
+        c.execute("update gestor.necesidades set mes_ini = %s, mes_fin = %s, dist = null where codigo = any(%s)", (desde, hasta, cods))
+        r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+        esc = (r[0] if r else None) or {}
+        for cod in cods:
+            esc[cod] = {**esc.get(cod, {}), "inicio": desde}
+        c.execute("update gestor.escenario set data = %s, guardado = now() where id = 1", (json.dumps(esc),))
+        c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
+        print(f"redistribuir: {cods} {desde}..{hasta}", flush=True)
+
+
+def sobrecargas(salida: dict, cods: list[str]) -> None:
+    """Imprime las personas de esas fichas que quedan por encima de su capacidad en algún mes."""
+    for x in salida["personas"]:
+        if not any(c in (x["asignado"].get(m) or {}) for m in salida["meses"] for c in cods):
+            continue
+        exc = {m: round(sum((x["asignado"].get(m) or {}).values()) - x["capacidad"][i], 1) for i, m in enumerate(salida["meses"])}
+        exc = {m: v for m, v in exc.items() if v > 0.05}
+        if exc:
+            print("sobrecarga:", x["persona"], exc, flush=True)
