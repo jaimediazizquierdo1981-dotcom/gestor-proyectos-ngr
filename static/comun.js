@@ -5,6 +5,9 @@ const leer = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); 
 const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const borrar = k => { try { localStorage.removeItem(k); } catch (e) {} };
 // portafolio 2027 validado: la prioridad vuelve a ser la del archivo (se olvida la guardada en este navegador)
+if (leer("gestor_ngr_mov1902") !== "1") {   // la ficha PRY-27-19 se movió a PRY-27-02 (no a la 05)
+  const e = leer(ESC_KEY) || {}; ["PRY-27-19", "PRY-27-05", "PRY-27-02"].forEach(k => delete e[k]); guardar(ESC_KEY, e); guardar("gestor_ngr_mov1902", "1");
+}
 if (leer("gestor_ngr_mov1905") !== "1") {   // la ficha PRY-27-19 se movió a PRY-27-05: se descartan ajustes locales viejos de ambas
   const e = leer(ESC_KEY) || {}; delete e["PRY-27-19"]; delete e["PRY-27-05"]; guardar(ESC_KEY, e); guardar("gestor_ngr_mov1905", "1");
 }

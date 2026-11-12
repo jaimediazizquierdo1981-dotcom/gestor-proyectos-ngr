@@ -122,6 +122,8 @@ def iniciar() -> None:
         c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
         mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
+        deshacer_movimiento(c, "mover_19_a_05_v1", "deshacer_19_05_v1")   # el destino correcto era PRY-27-02
+        mover_ficha(c, "PRY-27-19", "PRY-27-02", "mover_19_a_02_v1")
         if not c.execute("select 1 from gestor.meta where clave = 'one_v1'").fetchone():   # One Drive se llama One
             c.execute("update gestor.proyectos set proyecto = 'One', lider_ti = 'Jean Pierre Pratti' where codigo = 'PRY-27-22'")
             c.execute("insert into gestor.meta values ('one_v1', '1') on conflict do nothing")
@@ -539,6 +541,46 @@ def mover_ficha(c, origen: str, destino: str, clave: str) -> None:
     c.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
                  on conflict (id) do update set data = excluded.data, guardado = now()""", (json.dumps(esc),))
     print(f"mover_ficha: {origen} -> {destino}", esc[destino], flush=True)
+    c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
+
+
+def deshacer_movimiento(c, motivo: str, clave: str) -> None:
+    """Una sola vez: devuelve las dos fichas de un mover_ficha a como estaban antes (desde su respaldo)."""
+    if c.execute("select 1 from gestor.meta where clave = %s", (clave,)).fetchone():
+        return
+    snap = {t: d for t, d in c.execute("select tabla, data from gestor.respaldo where motivo = %s order by id", (motivo,)).fetchall()}
+    if not snap:
+        c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,)); return
+    prev = [x["codigo"] for x in snap.get("proyectos", [])]
+    for t in ("asignaciones", "necesidades", "observaciones", "proyectos", "escenario"):
+        c.execute(f"insert into gestor.respaldo (motivo, tabla, data) select %s, '{t}', " +
+                  ("data from gestor.escenario where id = 1" if t == "escenario" else
+                   f"coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x where codigo = any(%s)"),
+                  (clave,) if t == "escenario" else (clave, prev))
+    c.execute("delete from gestor.asignaciones where codigo = any(%s)", (prev,))
+    for a in snap.get("asignaciones", []):
+        c.execute("insert into gestor.asignaciones (codigo, persona, dias) values (%s, %s, %s)", (a["codigo"], a["persona"], json.dumps(a["dias"])))
+    c.execute("delete from gestor.necesidades where codigo = any(%s)", (prev,))
+    for n in snap.get("necesidades", []):
+        c.execute("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)",
+                  (n["codigo"], n["perfil"], n["dias"], n.get("mes_ini"), n.get("mes_fin"), json.dumps(n["dist"]) if n.get("dist") else None))
+    c.execute("delete from gestor.observaciones where codigo = any(%s)", (prev,))
+    for o in snap.get("observaciones", []):
+        c.execute("insert into gestor.observaciones (codigo, capex, opex, comentarios, actualizado) values (%s, %s, %s, %s, now())",
+                  (o["codigo"], o.get("capex"), o.get("opex"), o.get("comentarios")))
+    for p in snap.get("proyectos", []):
+        c.execute("update gestor.proyectos set capex = %s, opex_mensual = %s, opex_meses = %s where codigo = %s",
+                  (p.get("capex"), p.get("opex_mensual"), p.get("opex_meses"), p["codigo"]))
+    old = snap.get("escenario") or {}
+    r = c.execute("select data from gestor.escenario where id = 1").fetchone()
+    esc = (r[0] if r else None) or {}
+    for cod in prev:
+        if cod in old:
+            esc[cod] = old[cod]
+        else:
+            esc.pop(cod, None)
+    c.execute("update gestor.escenario set data = %s, guardado = now() where id = 1", (json.dumps(esc),))
+    print("deshacer_movimiento:", motivo, prev, flush=True)
     c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
 
 
