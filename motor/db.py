@@ -136,6 +136,9 @@ def iniciar() -> None:
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_27_16_v1'").fetchone():
             c.execute("update gestor.proyectos set lider_ti = 'Julio More' where codigo = 'PRY-27-16'")
             c.execute("insert into gestor.meta values ('lider_ti_27_16_v1', '1') on conflict do nothing")
+        if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_27_02_v2'").fetchone():
+            c.execute("update gestor.proyectos set lider_ti = 'Carlos Zambrano' where codigo = 'PRY-27-02'")
+            c.execute("insert into gestor.meta values ('lider_ti_27_02_v2', '1') on conflict do nothing")
         quitar_personas(c, "PRY-27-10", ["Carla Centeno", "Julio More", "Tercero Desarrollador 4", "Tercero Experto en Data 2",
                                          "Luis Chavez", "Tercero Desarrollador 3", "Juan Ramos", "Ángel Larreategui"], "quitar_27_10_v1")
         quitar_personas(c, "PRY-27-16", ["Christopher Camacho", "Jaime Diaz", "Miller Gomez", "Tercero Desarrollador 3",
