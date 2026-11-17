@@ -130,10 +130,11 @@ let BASE = null;
 const get = (o, r) => r.split(".").reduce((a, k) => a?.[k], o);
 const set = (o, r, v) => { const ks = r.split("."); let a = o; ks.slice(0, -1).forEach(k => a = a[k] = a[k] || {}); a[ks.at(-1)] = v; };
 
+let ADMIN = false, ORIG = null;   // criterios únicos para todos (en la base); solo el administrador los edita
 function pintar() {
-  const mod = leer(PAR_KEY) || {};
+  const mod = {};
   form.innerHTML = CAMPOS.map(([n, t, cs]) => `<div class="card"><h2><span class="n">${n}</span>${t}</h2>` + cs.map(([r, l, d, tipo]) => {
-    const v = get(mod, r) ?? get(BASE, r), m = get(mod, r) !== undefined ? "mod" : "";
+    const v = get(mod, r) ?? get(BASE, r), m = ORIG && get(ORIG, r) !== undefined && get(ORIG, r) !== get(BASE, r) ? "mod" : "";
     let inp;
     if (tipo === "bool") inp = `<select data-r="${r}" data-t="bool"><option value="1" ${v ? "selected" : ""}>Sí</option><option value="0" ${v ? "" : "selected"}>No</option></select>`;
     else if (tipo === "dist") inp = `<select data-r="${r}" data-t="txt"><option value="rayleigh" ${v === "rayleigh" ? "selected" : ""}>Rayleigh</option><option value="uniforme" ${v === "uniforme" ? "selected" : ""}>Uniforme</option></select>`;
@@ -142,21 +143,36 @@ function pintar() {
     else inp = `<input type="number" step="any" data-r="${r}" data-t="num" value="${v}">`;
     return `<div class="campo ${m}"><label>${l}<small>${d}</small></label>${inp}</div>`;
   }).join("") + "</div>").join("");
+  if (!ADMIN) form.querySelectorAll("input, select").forEach(x => x.disabled = true);
 }
 
-bGuardar.onclick = () => {
+bGuardar.onclick = async () => {
   const out = {};
   document.querySelectorAll("[data-r]").forEach(el => {
     const r = el.dataset.r, t = el.dataset.t;
     const v = t === "bool" ? el.value === "1" : t === "pct" ? +el.value / 100 : t === "num" ? +el.value : el.value;
     if (v !== get(BASE, r)) set(out, r, v);
   });
-  guardar(PAR_KEY, out); pintar();
-  msg.textContent = Object.keys(out).length ? "Guardado. El consolidado y el simulador ya usan estos valores." : "Sin cambios respecto a la base.";
+  if (!Object.keys(out).length) { msg.textContent = "Sin cambios."; return; }
+  const r = await fetch("/api/parametros", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({parametros: out})});
+  if (!r.ok) { msg.textContent = (await r.json().catch(() => ({}))).detail || "No se pudo guardar."; return; }
+  await cargarBase(); msg.textContent = "Guardado para todos los usuarios. El consolidado y el simulador ya usan estos valores.";
 };
-bBase.onclick = () => { borrar(PAR_KEY); pintar(); msg.textContent = "Se restauraron los valores base."; };
-
-fetch("/api/base").then(r => r.json()).then(b => { BASE = b.parametros; pintar(); });
+bBase.onclick = async () => {
+  if (!confirm("¿Volver a los valores base del archivo para TODOS los usuarios?")) return;
+  const r = await fetch("/api/parametros", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({restaurar: true})});
+  if (r.ok) { await cargarBase(); msg.textContent = "Se restauraron los valores base para todos."; }
+};
+async function cargarBase() { BASE = (await fetch("/api/base").then(r => r.json())).parametros; pintar(); }
+(async () => {
+  const y = await fetch("/api/yo").then(r => r.ok ? r.json() : null).catch(() => null);
+  ADMIN = !y || !y.usuario || !!y.es_admin;
+  if (!ADMIN) {
+    document.querySelectorAll(".acciones button, #bValidar, #bCargar, #bValidar2, #bCargar2, input[type=file]").forEach(x => x.disabled = true);
+    msg.textContent = "🔒 Los criterios son los mismos para todos y solo el administrador puede modificarlos.";
+  }
+  await cargarBase();
+})();
 
 // ---------- carga de colaboradores
 arch.onchange = () => { nomArch.textContent = arch.files[0]?.name || "Elegir archivo…"; bCargar.disabled = true; resCarga.innerHTML = ""; };

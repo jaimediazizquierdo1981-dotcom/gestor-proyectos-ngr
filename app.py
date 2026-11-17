@@ -252,14 +252,33 @@ def api_base():
 
 @app.post("/api/calcular")
 def api_calcular(entrada: dict = Body(default={})):
-    """Cálculo rápido (sin Monte Carlo)."""
+    """Cálculo rápido (sin Monte Carlo). Los criterios son únicos para todos: salen de la base, no del navegador."""
+    entrada.pop("parametros", None)
     return ejecutar(entrada, con_mc=False)
 
 
 @app.post("/api/montecarlo")
 def api_montecarlo(entrada: dict = Body(default={})):
     """Simulación PERT + Monte Carlo (más lenta)."""
+    entrada.pop("parametros", None)
     return ejecutar(entrada, con_mc=True)["montecarlo"]
+
+
+@app.put("/api/parametros")
+def api_parametros(request: Request, body: dict = Body(...)):
+    """Criterios: iguales para todos; solo el administrador los cambia."""
+    if seg.activo():
+        q = _quien(request)
+        if not q or not q.get("es_admin"):
+            raise HTTPException(403, "Solo el administrador puede modificar los criterios.")
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    from motor.modelo import _fusionar
+    import json
+    archivo = json.loads((Path(__file__).resolve().parent / "data" / "parametros.json").read_text(encoding="utf-8"))
+    nuevo = archivo if body.get("restaurar") else _fusionar(cargar_base()["parametros"], body.get("parametros") or {})
+    db.guardar_parametros(nuevo)
+    return {"ok": True}
 
 
 @app.put("/api/colaborador")
@@ -384,7 +403,9 @@ def api_plantilla_colaboradores():
 
 
 @app.post("/api/cargar/colaboradores")
-async def api_cargar_colaboradores(archivo: UploadFile = File(...), modo: str = "actualizar", confirmar: bool = False):
+async def api_cargar_colaboradores(request: Request, archivo: UploadFile = File(...), modo: str = "actualizar", confirmar: bool = False):
+    if seg.activo():
+        _admin(request)
     from motor import plantillas
     from motor.modelo import PERFILES
     if not db.disponible():
@@ -433,7 +454,9 @@ def api_plantilla_posiciones():
 
 
 @app.post("/api/cargar/posiciones")
-async def api_cargar_posiciones(archivo: UploadFile = File(...), confirmar: bool = False):
+async def api_cargar_posiciones(request: Request, archivo: UploadFile = File(...), confirmar: bool = False):
+    if seg.activo():
+        _admin(request)
     from motor import plantillas
     from motor.modelo import PERFILES
     if not db.disponible():

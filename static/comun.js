@@ -22,8 +22,20 @@ if (leer("gestor_ngr_portafolio") !== "valido_v1") {
 const _fetch = window.fetch.bind(window);
 window.fetch = async (...a) => { const r = await _fetch(...a); if (r.status === 401 && String(a[0]).startsWith("/api/") && !String(a[0]).startsWith("/api/auth")) location.href = "/login"; return r; };
 
+// Criterios: antes se guardaban en cada navegador; ahora viven en la base y son iguales para todos.
+// Si el administrador tenía criterios propios en su navegador, se suben una vez a la base; al resto se le descartan.
+const _criterios = (async () => {
+  const loc = leer(PAR_KEY); if (!loc) return;
+  const y = await fetch("/api/yo").then(r => r.ok ? r.json() : null).catch(() => null);
+  if (y && (y.es_admin || !y.usuario) && Object.keys(loc).length) {
+    const r = await fetch("/api/parametros", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({parametros: loc})}).catch(() => null);
+    if (!r || !r.ok) return;
+  }
+  borrar(PAR_KEY);
+})();
 async function calcular(extra = {}, ruta = "/api/calcular") {
-  const body = {escenario: leer(ESC_KEY) || {}, parametros: leer(PAR_KEY) || {}, ...extra};
+  await _criterios;
+  const body = {escenario: leer(ESC_KEY) || {}, ...extra};
   const r = await fetch(ruta, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
   if (!r.ok) throw new Error("Error " + r.status);
   return r.json();
@@ -37,7 +49,7 @@ function cargando(on, texto = "Calculando…") {
 }
 function nav(activa) {
   const tabs = [["/", "Consolidado"], ["/colaboradores", "Colaboradores"], ["/hoja", "Hoja de trabajo"], ["/simulador", "Simulador"], ["/criterios", "Criterios"]];
-  const mod = (leer(ESC_KEY) && Object.keys(leer(ESC_KEY)).length) || (leer(PAR_KEY) && Object.keys(leer(PAR_KEY)).length);
+  const mod = leer(ESC_KEY) && Object.keys(leer(ESC_KEY)).length;
   const chip = mod ? '<button class="chip-cfg" id="chipReset" title="Volver a los datos y parámetros base">Escenario modificado · restaurar</button>'
                    : '<span class="chip-cfg base">Escenario base</span>';
   document.body.insertAdjacentHTML("afterbegin", `<nav class="tabs"><div class="brand">Gestor de Proyectos · TyT NGR</div>

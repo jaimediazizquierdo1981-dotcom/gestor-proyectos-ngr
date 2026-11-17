@@ -485,6 +485,13 @@ def _norm(t: str) -> str:
     return "".join(ch for ch in unicodedata.normalize("NFD", (t or "").lower()) if unicodedata.category(ch) != "Mn").strip()
 
 
+def guardar_parametros(data: dict) -> None:
+    import psycopg
+    with psycopg.connect(URL) as c:
+        c.execute("""insert into gestor.parametros (id, data, actualizado) values (1, %s, now())
+                     on conflict (id) do update set data = excluded.data, actualizado = now()""", (json.dumps(data),))
+
+
 def fichas_de(nombre: str) -> set:
     """Códigos de las fichas cuyo Líder TI es esta persona (sin distinguir tildes/mayúsculas)."""
     import psycopg
