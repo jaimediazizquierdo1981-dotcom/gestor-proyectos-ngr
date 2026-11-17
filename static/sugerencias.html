@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sugerencia IA · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1500px}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media (max-width:1100px){.cols{grid-template-columns:1fr}}
+  .ins{border:1px solid var(--line);border-left:4px solid #9ca3af;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff}
+  .ins.alta{border-left-color:#d64545}.ins.media{border-left-color:#f0a35c}.ins.baja{border-left-color:#2e9e6a}
+  .ins h4{margin:0 0 4px;font-size:13.5px;display:flex;gap:8px;align-items:baseline}
+  .ins h4 .n{color:#1f3864;font-weight:800}
+  .ins p{margin:3px 0;font-size:12.5px;color:#374151}
+  .ins .rec{color:#1f3864}
+  .tag{font-size:10.5px;font-weight:700;text-transform:uppercase;border-radius:10px;padding:1px 7px;margin-left:auto;white-space:nowrap}
+  .tag.alta{background:#fde2e2;color:#b42318}.tag.media{background:#fdebd3;color:#a15c07}.tag.baja{background:#dcf2e5;color:#1d7a4a}
+  .vacio{font-size:12.5px;color:var(--muted);padding:8px 0}
+</style>
+</head>
+<body>
+<main>
+  <h1>Sugerencia IA</h1>
+  <div class="sub">Los 10 hallazgos más importantes de personas internas, terceros y proyectos, con una recomendación para cada uno. Se calculan en el momento con los datos de la Hoja de trabajo y los Criterios vigentes (proyectos activos), ordenados por impacto.</div>
+  <div class="cols">
+    <div class="card"><h2>👤 Personas internas</h2><div id="cInt"></div></div>
+    <div class="card"><h2>🤝 Terceros</h2><div id="cTer"></div></div>
+    <div class="card"><h2>📁 Proyectos</h2><div id="cPro"></div></div>
+  </div>
+</main>
+<script src="/static/comun.js"></script>
+<script>
+nav("Sugerencia IA");
+const sum = a => a.reduce((x, y) => x + y, 0);
+const pct = r => (r * 100).toLocaleString("es-PE", {minimumFractionDigits: 1, maximumFractionDigits: 1}) + "%";
+const S = n => "S/ " + Math.round(n).toLocaleString("es-PE");
+const nivel = s => s >= 70 ? "alta" : s >= 40 ? "media" : "baja";
+function pintar(id, L) {
+  const top = L.sort((a, b) => b.s - a.s).slice(0, 10);
+  document.getElementById(id).innerHTML = top.length ? top.map((x, i) => `<div class="ins ${nivel(x.s)}"><h4><span class="n">${i + 1}.</span> ${x.t}<span class="tag ${nivel(x.s)}">${nivel(x.s)}</span></h4><p>${x.d}</p><p class="rec">➜ ${x.r}</p></div>`).join("")
+    : '<div class="vacio">Sin hallazgos relevantes con los datos actuales.</div>';
+}
+(async () => {
+  cargando(true, "Analizando…");
+  const D = await calcular(); cargando(false);
+  const M = D.meses, P = Object.fromEntries(D.proyectos.map(p => [p.codigo, p]));
+  const act = D.proyectos.filter(p => p.incluir && !p.on_hold);
+  const costo = D.parametros.costos_terceros || {};
+  const per = D.personas.map(p => {
+    const u = M.map(m => sum(Object.values(p.asignado[m] || {})));
+    const porProy = {}; M.forEach(m => Object.entries(p.asignado[m] || {}).forEach(([c, d]) => porProy[c] = (porProy[c] || 0) + d));
+    return {p, u, porProy, tot: sum(u)};
+  });
+  const nom = c => `${c}${P[c] ? " · " + P[c].proyecto : ""}`;
+
+  // ---------- personas internas
+  const I = [], INT = per.filter(x => x.p.tipo !== "tercero");
+  for (const x of INT) {
+    const sobre = M.map((m, i) => ({m, e: x.u[i] - (x.p.capacidad[i] || 0)})).filter(o => o.e > 0.05);
+    if (sobre.length) {
+      const ex = sum(sobre.map(o => o.e));
+      I.push({s: 60 + Math.min(40, ex * 3), t: `${x.p.persona} está sobreasignado(a) en ${sobre.length} ${sobre.length === 1 ? "mes" : "meses"}`,
+        d: `Exceso total de ${fmtD(ex)} días (${sobre.map(o => fmtMes(o.m)).join(", ")}). Cargo: ${x.p.perfil}. Proyectos: ${Object.keys(x.porProy).map(nom).join("; ")}.`,
+        r: `Reducir días en esos meses, mover parte del trabajo a otra persona de ${x.p.perfil} con capacidad libre o cubrirlo con un tercero.`});
+    }
+    const cap = sum(x.p.capacidad), r = cap ? x.tot / cap : 0;
+    const alta = M.filter((m, i) => x.p.capacidad[i] && x.u[i] / x.p.capacidad[i] >= .85 && x.u[i] - x.p.capacidad[i] <= 0.05).length;
+    if (!sobre.length && alta >= 4) I.push({s: 40 + alta * 2, t: `${x.p.persona} trabaja al límite ${alta} meses`,
+      d: `Entre 85% y 100% de su capacidad en ${alta} meses (uso anual ${pct(r)}). Sin holgura para incidencias.`, r: `Liberar algo de carga en los meses pico o prever un reemplazo temporal.`});
+    const np = Object.keys(x.porProy).length;
+    if (np >= 3) I.push({s: 35 + np * 5, t: `${x.p.persona} está repartido(a) en ${np} proyectos`,
+      d: `Proyectos: ${Object.entries(x.porProy).sort((a, b) => b[1] - a[1]).map(([c, d]) => `${c} (${fmtD(d)} d)`).join(", ")}.`, r: `Concentrar su dedicación en menos proyectos para reducir cambios de contexto.`});
+  }
+  // capacidad ociosa por cargo
+  const libres = {};
+  for (const x of INT) { const cap = sum(x.p.capacidad); if (cap && x.tot / cap < .2) (libres[x.p.perfil] = libres[x.p.perfil] || []).push({x, l: cap - x.tot}); }
+  for (const [pf, L] of Object.entries(libres)) {
+    const dl = sum(L.map(o => o.l));
+    I.push({s: Math.min(55, 20 + dl / 15), t: `${L.length} ${L.length === 1 ? "persona" : "personas"} de ${pf} con menos de 20% de uso`,
+      d: `${L.map(o => o.x.p.persona).join(", ")}: ${fmtD(dl)} días libres en el año.`, r: `Asignarlas a proyectos con posiciones de ${pf} sin cubrir antes de contratar terceros.`});
+  }
+  // dependencia de una persona
+  for (const p of act) {
+    const dias = per.filter(x => x.p.tipo !== "tercero").map(x => ({x, d: x.porProy[p.codigo] || 0})).filter(o => o.d > 0);
+    const tot = sum(per.map(x => x.porProy[p.codigo] || 0));
+    const top = dias.sort((a, b) => b.d - a.d)[0];
+    if (top && tot > 40 && top.d / tot >= .5) I.push({s: 45 + top.d / tot * 20, t: `${p.codigo} depende de ${top.x.p.persona}`,
+      d: `${top.x.p.persona} concentra ${pct(top.d / tot)} de los días del proyecto ${p.proyecto}.`, r: `Asignar un respaldo y documentar su conocimiento para no detener el proyecto si falta.`});
+  }
+  pintar("cInt", I);
+
+  // ---------- terceros
+  const T = [], TER = per.filter(x => x.p.tipo === "tercero" && x.tot > 0);
+  for (const x of TER) {
+    const sobre = M.map((m, i) => ({m, e: x.u[i] - (x.p.capacidad[i] || 0)})).filter(o => o.e > 0.05);
+    if (sobre.length) { const ex = sum(sobre.map(o => o.e));
+      T.push({s: 65 + Math.min(35, ex * 3), t: `${x.p.persona} supera su capacidad en ${sobre.length} ${sobre.length === 1 ? "mes" : "meses"}`,
+        d: `Exceso de ${fmtD(ex)} días (${sobre.map(o => fmtMes(o.m)).join(", ")}). Proyectos: ${Object.keys(x.porProy).map(nom).join("; ")}.`, r: `Pasar el exceso a otro tercero del mismo rol (${x.p.perfil}) o mover días a meses con holgura.`}); }
+    const meses = M.map((m, i) => i).filter(i => x.u[i] > 0), cap = sum(meses.map(i => x.p.capacidad[i] || 0)), r = cap ? x.tot / cap : 0;
+    if (meses.length && r < .5) {
+      T.push({s: 30 + (1 - r) * 40, t: `${x.p.persona} con dedicación baja (${pct(r)})`,
+        d: `${fmtD(x.tot)} de ${fmtD(cap)} días disponibles en ${meses.length} ${meses.length === 1 ? "mes" : "meses"}: trabajo muy fragmentado para un tercero a tiempo completo.`,
+        r: `Juntar su carga con la de otro tercero del mismo rol, o aprovechar su capacidad libre en otros proyectos.`}); }
+  }
+  const terPorRol = {}; TER.forEach(x => (terPorRol[x.p.perfil] = terPorRol[x.p.perfil] || []).push(x));
+  for (const [pf, L] of Object.entries(terPorRol)) {
+    const ociosos = per.filter(x => x.p.tipo !== "tercero" && x.p.perfil === pf && sum(x.p.capacidad) && x.tot / sum(x.p.capacidad) < .5);
+    if (ociosos.length) T.push({s: 55, t: `Se usan terceros de ${pf} habiendo internos con capacidad`,
+      d: `${L.length} ${L.length === 1 ? "tercero" : "terceros"} asignados (${fmtD(sum(L.map(x => x.tot)))} días) mientras ${ociosos.map(x => x.p.persona).join(", ")} ${ociosos.length === 1 ? "está" : "están"} bajo 50% de uso.`,
+      r: `Priorizar a los internos antes que a los terceros para bajar el Capex.`});
+  }
+  const capT = D.proyectos.filter(p => p.capex_terceros > 0).sort((a, b) => b.capex_terceros - a.capex_terceros).slice(0, 3);
+  capT.forEach((p, i) => T.push({s: 35 - i * 5, t: `${p.codigo} es de los que más gasta en terceros`,
+    d: `${S(p.capex_terceros)} en terceros (${fmtD(p.dias_terceros)} días) para ${p.proyecto}.`, r: `Validar que los roles de terceros no puedan cubrirse con personal interno.`}));
+  pintar("cTer", T);
+
+  // ---------- proyectos
+  const R = [], nP = D.proyectos.length;
+  for (const p of act) {
+    const prio = p.prioridad ? (nP - p.prioridad + 1) / nP : .3;   // prioridad 1 = más peso
+    const asig = (p.dias_base || 0) + (p.dias_terceros || 0);
+    if (!asig) { R.push({s: 50 + prio * 40, t: `${p.codigo} no tiene equipo asignado`, d: `${p.proyecto} está activo${p.prioridad ? ` (prioridad ${p.prioridad})` : ""} pero no tiene personas en la Hoja.`, r: `Que su Líder TI (${p.lider_ti || "sin asignar"}) cargue posiciones y personas, o ponerlo en On hold.`}); continue; }
+    if (p.dias_requeridos > 0 && p.cobertura < .8) R.push({s: 40 + (1 - p.cobertura) * 30 + prio * 25, t: `${p.codigo} cubierto solo al ${pct(p.cobertura)}`,
+      d: `${p.proyecto}: requiere ${fmtD(p.dias_requeridos)} días-persona.${p.prioridad ? ` Prioridad ${p.prioridad}.` : ""} Líder TI: ${p.lider_ti || "sin asignar"}.`, r: `Completar las posiciones faltantes con internos libres o terceros.`});
+    if (asig > 40 && p.dias_terceros / asig > .6) R.push({s: 40 + prio * 15, t: `${p.codigo} depende de terceros (${pct(p.dias_terceros / asig)})`,
+      d: `${fmtD(p.dias_terceros)} de ${fmtD(asig)} días son de terceros (${S(p.capex_terceros)}).`, r: `Asegurar que haya un interno que se quede con el conocimiento al cierre.`});
+    if (p.fin_hoja && p.fin && p.fin_hoja > p.fin) R.push({s: 45 + prio * 20, t: `${p.codigo} termina después de lo planificado`,
+      d: `Fin planificado ${fmtMes(p.fin)}, pero la Hoja tiene trabajo hasta ${fmtMes(p.fin_hoja)}.`, r: `Ajustar el plan o redistribuir días para cumplir la fecha.`});
+    if (!p.lider_ti) R.push({s: 45, t: `${p.codigo} no tiene Líder TI`, d: `${p.proyecto} está activo sin responsable de TI; nadie puede editar su ficha salvo el administrador.`, r: `Asignar un Líder TI.`});
+  }
+  const sinPrio = act.filter(p => !p.prioridad);
+  if (sinPrio.length) R.push({s: 35, t: `${sinPrio.length} proyectos activos sin prioridad`, d: sinPrio.map(p => p.codigo).join(", ") + ".", r: `Definir su prioridad para ordenar el portafolio.`});
+  pintar("cPro", R);
+})();
+</script>
+</body>
+</html>

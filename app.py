@@ -480,7 +480,7 @@ def api_estado():
     return db.estado()
 
 
-VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html", "/tops": "tops.html"}
+VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html", "/tops": "tops.html", "/sugerencias": "sugerencias.html"}
 for ruta, archivo in VISTAS.items():
     app.add_api_route(ruta, (lambda a=archivo: FileResponse(STATIC / a)), methods=["GET"], include_in_schema=False)
 
