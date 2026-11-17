@@ -1,5 +1,6 @@
 """Gestor de Proyectos NGR: API y vistas."""
 from pathlib import Path
+import json
 
 from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -25,6 +26,9 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
     try:   # una sola vez: aplica la propuesta para equilibrar terceros (pedido del administrador, 17/11/2026)
         from motor import equilibrio
         equilibrio.aplicar(ejecutar({}, con_mc=False), "equilibrar_terceros_v1")
+        _R = ejecutar({}, con_mc=False)
+        for _x in equilibrio.proponer_mensual(_R):
+            print("PROPUESTA_TERCERO", json.dumps(_x, ensure_ascii=False), flush=True)
         _R = ejecutar({}, con_mc=False)   # diagnóstico en el log: terceros que aún pasan su capacidad (mes, días, proyectos)
         for _p in [x for x in _R["personas"] if x.get("tipo") == "tercero"]:
             for _i, _m in enumerate(_R["meses"]):

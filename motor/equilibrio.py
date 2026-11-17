@@ -73,3 +73,39 @@ def aplicar(R: dict, clave: str) -> list[dict] | None:
         c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
         print(f"{clave}: " + json.dumps(movs, ensure_ascii=False), flush=True)
         return movs
+
+
+def proponer_mensual(R: dict) -> list[dict]:
+    """Primero proyectos completos (proponer); lo que quede, por mes: el exceso del proyecto más chico del mes
+    pasa a un tercero del mismo rol con días libres ese mes (prefiere al que ya recibió ese proyecto)."""
+    M = R["meses"]
+    ter = [p for p in R["personas"] if p.get("tipo") == "tercero"]
+    uso = {p["persona"]: [sum((p["asignado"].get(m) or {}).values()) for m in M] for p in ter}
+    asig = {p["persona"]: {m: dict(p["asignado"].get(m) or {}) for m in M} for p in ter}
+    cap = {p["persona"]: [float(x) for x in p["capacidad"]] for p in ter}
+    out, receptor = [], {}
+    for p in sorted(ter, key=lambda p: p["persona"]):
+        n = p["persona"]
+        for i, m in enumerate(M):
+            ex = uso[n][i] - cap[n][i]
+            if ex <= 0.05:
+                continue
+            for c, d in sorted(asig[n][m].items(), key=lambda kv: kv[1]):   # empieza por el proyecto más chico del mes
+                if ex <= 0.05:
+                    break
+                mover = min(d, ex)
+                cands = [o["persona"] for o in ter if o["perfil"] == p["perfil"] and o["persona"] != n and cap[o["persona"]][i] - uso[o["persona"]][i] > 0.05]
+                cands.sort(key=lambda o: (receptor.get((n, c)) != o, c not in asig[o][m], -(cap[o][i] - uso[o][i])))
+                for o in cands:
+                    if ex <= 0.05 or mover <= 0.05:
+                        break
+                    x = min(mover, cap[o][i] - uso[o][i])
+                    x = float(int(x * 2)) / 2 if x >= 0.5 else x
+                    if x <= 0.05:
+                        continue
+                    uso[n][i] -= x; uso[o][i] += x; asig[n][m][c] -= x; asig[o][m][c] = asig[o][m].get(c, 0) + x
+                    ex -= x; mover -= x; receptor[(n, c)] = o
+                    out.append({"de": n, "rol": p["perfil"], "mes": m, "codigo": c, "dias": x, "a": o})
+            if ex > 0.05:
+                out.append({"de": n, "rol": p["perfil"], "mes": m, "codigo": None, "dias": ex, "a": None})
+    return out
