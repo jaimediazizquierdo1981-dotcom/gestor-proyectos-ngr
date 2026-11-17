@@ -99,6 +99,8 @@
   .barra .k{background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 12px;font-size:12px;color:var(--muted)}
   .barra .k b{display:block;font-size:16px;color:var(--ink)}
   #msg{font-size:12.5px;color:var(--ok)}
+  .prl select.tipo{font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;margin-left:4px}
+  .prl+.prl{margin-left:10px}
 </style>
 </head>
 <body>
@@ -205,7 +207,7 @@ function pintarProyectos() {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
     return `<div class="proy ${p.on_hold ? "pausa" : ""}" data-c="${p.codigo}">${p.on_hold ? '<div class="banda">⏸ On hold: sus días no se descuentan de la capacidad. Usa ▶ Reactivar para volver a contarlo.</div>' : ""}
-      <div class="ph"><label class="prl" title="Prioridad: única, entre 1 y ${D.proyectos.length}">Prioridad <input class="prio" type="number" min="1" max="${D.proyectos.length}" step="1" value="${p.prioridad ?? ""}" ${p.on_hold ? "" : ""} onchange="cambiarPrioridad('${p.codigo}', this)"></label><h3 title="${(p.descripcion || "").replace(/"/g, "&quot;")}">${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
+      <div class="ph"><label class="prl" title="Prioridad: única, entre 1 y ${D.proyectos.length}">Prioridad <input class="prio" type="number" min="1" max="${D.proyectos.length}" step="1" value="${p.prioridad ?? ""}" ${p.on_hold ? "" : ""} onchange="cambiarPrioridad('${p.codigo}', this)"></label><label class="prl" title="Transformacional o no: el Consolidado puede mostrar solo las transformacionales">Tipo <select class="tipo" onchange="cambiarTipo('${p.codigo}', this.value)">${["Transformacional", "No transformacional"].map(t => `<option ${t === (p.tipo || "Transformacional") ? "selected" : ""}>${t}</option>`).join("")}</select></label><h3 title="${(p.descripcion || "").replace(/"/g, "&quot;")}">${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <button class="xs-proy" title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: no descuenta capacidad"}" onclick="pausarProyecto('${p.codigo}', ${!p.on_hold})">${p.on_hold ? "▶ Reactivar" : "⏸ On hold"}</button>
         <button class="xs-proy del" title="Eliminar la ficha: borra sus posiciones, asignaciones y observaciones y la quita de la hoja" onclick="eliminarFicha('${p.codigo}')">🗑 Eliminar ficha</button>
         <span class="cob" style="color:${req && asig / req >= .98 ? "#2e9e6a" : asig ? "#e5a12a" : "#d64545"}">${req ? Math.round(asig / req * 100) : 0}% cubierto</span></div>
@@ -325,6 +327,11 @@ async function cambiarCapex(codigo, valor) {
   const p = proyecto(codigo); p.capex = Math.max(0, +valor || 0); pintarProyectos();
   const r = await fetch("/api/proyecto", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo, capex: p.capex})});
   aviso(r.ok ? "Capex adicional guardado." : "No se pudo guardar el Capex adicional.", r.ok);
+}
+async function cambiarTipo(codigo, tipo) {
+  const p = proyecto(codigo); p.tipo = tipo;
+  const r = await fetch("/api/proyecto", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo, tipo})});
+  aviso(r.ok ? `Tipo guardado: ${tipo}.` : "No se pudo guardar el tipo.", r.ok);
 }
 async function cambiarOpex(codigo, valor) {
   const p = proyecto(codigo); p.opex_mensual = Math.max(0, +valor || 0); pintarProyectos();

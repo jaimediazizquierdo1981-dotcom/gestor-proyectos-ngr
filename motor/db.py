@@ -405,6 +405,11 @@ def guardar_necesidades(codigo: str, items: list[dict]) -> None:
             cur.executemany("insert into gestor.necesidades (codigo, perfil, dias, mes_ini, mes_fin, dist) values (%s, %s, %s, %s, %s, %s)", filas)
 
 
+def actualizar_tipo(codigo: str, tipo: str) -> None:
+    with _conn() as c:
+        c.execute("update gestor.proyectos set tipo = %s, actualizado = now() where codigo = %s", (tipo, codigo))
+
+
 def actualizar_capex(codigo: str, capex: float) -> None:
     """Capex adicional del proyecto (equipos, asesorías, licencias…), aparte del Capex de terceros."""
     with _conn() as c:

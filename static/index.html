@@ -77,6 +77,7 @@
   .heat th{font-size:11px;padding:5px 3px;text-align:center}
   .heat td.l{text-align:left;padding-left:8px}
   .note{color:var(--muted);font-size:12px;margin-top:8px}
+  small.nt{background:#eef2f9;color:#1f3864;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:4px}
 </style>
 </head>
 <body>
@@ -84,14 +85,14 @@
 <script>nav("Consolidado")</script>
 <main>
   <h1>Consolidado de proyectos: Capex, Opex y recursos</h1>
-  <div class="sub" id="sub">Portafolio 2027 validado (las iniciativas sin prioridad se ven vacías y en gris). Los proyectos se activan uno a uno desde la Hoja de trabajo (los no activos se ven en gris), y allí se ponen On hold o se reactivan; la prioridad también se cambia allí; aquí puedes cambiar el mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
+  <div class="sub" id="sub">Portafolio 2027 validado. Con el interruptor apagado se consideran solo los proyectos transformacionales (el tipo se marca en cada ficha de la Hoja). Los proyectos se activan uno a uno desde la Hoja de trabajo (los no activos se ven en gris), y allí se ponen On hold o se reactivan; la prioridad también se cambia allí; aquí puedes cambiar el mes de inicio; se recalcula al instante y queda guardado en este navegador.</div>
   <div class="kpis" id="kpis"></div>
 
   <div class="vista"><button id="bContraer" onclick="vistaCols(true)">⇤ Contraer columnas</button><button id="bTodas" onclick="vistaCols(false)">⇔ Ver todas las columnas</button>
     <div class="grp"><span>Recursos internos</span><button data-g="int" data-v="1" onclick="vistaGrupo('int',true)">⇤ Contraer</button><button data-g="int" data-v="0" onclick="vistaGrupo('int',false)">⇔ Expandir</button></div>
     <div class="grp"><span>Terceros</span><button data-g="ter" data-v="1" onclick="vistaGrupo('ter',true)">⇤ Contraer</button><button data-g="ter" data-v="0" onclick="vistaGrupo('ter',false)">⇔ Expandir</button></div>
     <div class="grp"><span>Inversión y soporte</span><button data-g="inv" data-v="1" onclick="vistaGrupo('inv',true)">⇤ Contraer</button><button data-g="inv" data-v="0" onclick="vistaGrupo('inv',false)">⇔ Expandir</button></div>
-    <label class="tgl" title="Solo afecta lo que se muestra en la tabla: los totales siempre cuentan todos los proyectos activos, con o sin prioridad"><input type="checkbox" id="chkSinPrio" onchange="verSinPrio(this.checked)"><i></i>Mostrar proyectos sin priorización</label></div>
+    <label class="tgl" title="Apagado: la tabla, los totales y todos los indicadores consideran solo los proyectos transformacionales. Encendido: consideran todos los proyectos."><input type="checkbox" id="chkSinPrio" onchange="verSinPrio(this.checked)"><i></i>Incluir proyectos no transformacionales</label></div>
   <div class="tbl"><table id="t"></table></div>
   <div class="note"><span id="notaRec">Recursos internos y Terceros = días asignados a personas en la Hoja de trabajo, por rol.</span> <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
@@ -149,14 +150,15 @@ function cambiar(cod, campo, valor) {
 let CONTRAIDO = leer("gestor_ngr_contraido") === true;
 function vistaCols(c) { CONTRAIDO = c; guardar("gestor_ngr_contraido", c); tabla(); }
 let GRP = leer("gestor_ngr_grupos") || {};   // grupos contraídos: int, ter, inv
-let SIN_PRIO = leer("gestor_ngr_sin_prio") === true;
-function verSinPrio(v) { SIN_PRIO = v; guardar("gestor_ngr_sin_prio", v); tabla(); }
+let TODOS = leer("gestor_ngr_no_transf") === true;   // incluir proyectos no transformacionales en tabla, totales e indicadores
+const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
+function verSinPrio(v) { TODOS = v; guardar("gestor_ngr_no_transf", v); cargar(); }
 function vistaGrupo(g, c) { GRP = {...GRP, [g]: c}; guardar("gestor_ngr_grupos", GRP); tabla(); }
 function tabla() {
-  chkSinPrio.checked = SIN_PRIO;
-  const P = D.proyectos.slice().sort(ordPrio).filter(p => SIN_PRIO || p.prioridad);
+  chkSinPrio.checked = TODOS;
+  const P = D.proyectos.slice().sort(ordPrio).filter(p => TODOS || esTransf(p));
   const PF = PFT.filter(f => D.personas.some(x => x.tipo !== "tercero" && x.perfil === f) || P.some(p => (p.recursos[f] || 0) > 0));
-  const inc = D.proyectos.filter(activo);   // los totales cuentan todos los activos, se muestren o no en la tabla
+  const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
   let h = `<thead><tr class="g"><th></th><th colspan="${CONTRAIDO ? 3 : 8}" class="mor">Alineamiento estratégico</th><th colspan="3"></th><th colspan="${GRP.int ? 1 : PF.length + 1}" class="sep">${GRP.int ? "Internos" : "Recursos internos (días por tipo)"}</th><th colspan="${GRP.ter ? 1 : TF.length + 1}" class="sep">${GRP.ter ? "Terceros" : "Terceros (días)"}</th><th colspan="${GRP.inv ? 2 : 3}" class="sep">${GRP.inv ? "Inversión" : "Inversión y soporte"}</th><th colspan="2" class="sep">Cobertura</th></tr>
   <tr><th>Prior.</th><th class="l mor cx">PE</th><th class="mor cx">OE.Cod</th><th class="l mor cx">OE.Descripción</th><th class="l mor">ID.PMO</th><th class="l mor">Programa</th><th class="l mor">Iniciativa</th><th class="l mor cx">Responsable.PMO</th><th class="l mor cx">Lider.TI</th><th class="l">Inicio</th><th class="l">Fin</th><th>Meses</th>
@@ -169,7 +171,7 @@ function tabla() {
       <td>${p.prioridad ? `<span class="prio" title="La prioridad se cambia en la Hoja de trabajo">${p.prioridad}</span>` : ""}</td>
       <td class="l txt cx" title="${p.pe}">${p.pe}</td><td class="cx">${p.oe_cod}</td><td class="l txt cx" title="${p.oe_desc}">${p.oe_desc}</td>
       <td class="l"><b>${p.codigo}</b></td><td class="l txt" title="${p.programa}">${p.programa}</td>
-      <td class="l nom" title="${(p.descripcion || p.proyecto).replace(/"/g, "&quot;")}"><b>${p.proyecto}</b></td><td class="l txt cx" title="${p.responsable}">${p.responsable}</td><td class="l txt cx" title="${p.lider_ti || ""}">${p.lider_ti || ""}</td>
+      <td class="l nom" title="${(p.descripcion || p.proyecto).replace(/"/g, "&quot;")}"><b>${p.proyecto}</b>${esTransf(p) ? "" : ' <small class="nt">No transf.</small>'}</td><td class="l txt cx" title="${p.responsable}">${p.responsable}</td><td class="l txt cx" title="${p.lider_ti || ""}">${p.lider_ti || ""}</td>
 
       <td class="l">${p.ini_hoja ? `<span title="Primer mes con días asignados en la Hoja de trabajo">${fmtMes(p.ini_hoja)}</span>` : `<select onchange="cambiar('${p.codigo}','inicio',this.value)">${D.meses.map(m => `<option value="${m}" ${m === p.inicio ? "selected" : ""}>${fmtMes(m)}</option>`).join("")}</select>`}</td>
       <td class="l" title="${p.fin_hoja !== p.fin_plan ? "Último mes con días asignados en la Hoja de trabajo" : ""}">${fmtMes(p.fin_hoja || p.fin_plan)}</td><td>${p.duracion_meses}</td>
@@ -190,7 +192,7 @@ function tabla() {
   document.querySelectorAll(".vista .grp button").forEach(b => b.classList.toggle("on", !!GRP[b.dataset.g] === (b.dataset.v === "1")));
   bContraer.classList.toggle("on", CONTRAIDO); bTodas.classList.toggle("on", !CONTRAIDO);
   const cub = inc.filter(p => p.estado === "cubierto");
-  kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + D.proyectos.length],
+  kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
     ["Cubiertos al 100%", cub.length + " de " + inc.length],
     ["Capex total", fmtK(s(p => p.capex + (p.capex_terceros || 0)))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex + (p.capex_terceros || 0), 0))],
     ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Días requeridos", fmtD(s("dias_requeridos"))]]
@@ -290,6 +292,16 @@ let MC = null;
 async function cargar() {
   cargando(true, "Calculando cobertura…");
   D = await calcular();
+  if (!TODOS) {   // solo transformacionales: se recalcula sin las no transformacionales para que no consuman capacidad ni sumen
+    const fuera = D.proyectos.filter(p => !esTransf(p) && activo(p));
+    if (fuera.length) {
+      const esc = {...(leer(ESC_KEY) || {})};
+      fuera.forEach(p => esc[p.codigo] = {...(esc[p.codigo] || {}), incluir: false});
+      const tipos = Object.fromEntries(D.proyectos.map(p => [p.codigo, p.tipo]));
+      D = await calcular({escenario: esc});
+      D.proyectos.forEach(p => { p.tipo = tipos[p.codigo]; });
+    }
+  }
   tabla(); pie(); barras(); heat();
   sub.textContent = sub.textContent.replace(/^Datos ficticios\./, `Portafolio 2027 (desde ${D.origen}).`);
   if (D.modo !== "hoja") notaRec.textContent = "Recursos internos = esfuerzo base del equipo propio en días-persona (sin contingencia). Terceros = días de proveedores externos.";
