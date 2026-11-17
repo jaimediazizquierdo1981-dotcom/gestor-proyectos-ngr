@@ -127,6 +127,7 @@ def iniciar() -> None:
             c.execute("insert into gestor.meta values ('usuario_mtaramona_v1', '1') on conflict do nothing")
         c.execute("alter table gestor.observaciones add column if not exists comentarios text")
         restaurar_2026_11_11(c)
+        restaurar_2026_11_11(c, "restaurar_2026_11_17.json", "restaurar_27_19_2026_11_17_v1")   # PRY-27-19 pisado por un guardado desactualizado
         mover_ficha(c, "PRY-27-19", "PRY-27-05", "mover_19_a_05_v1")
         deshacer_movimiento(c, "mover_19_a_05_v1", "deshacer_19_05_v1")   # el destino correcto era PRY-27-02
         mover_ficha(c, "PRY-27-19", "PRY-27-02", "mover_19_a_02_v1")
@@ -509,8 +510,9 @@ def guardar_hoja(body: dict) -> str:
                                 [(None if v in (None, "") else float(v), cod) for cod, v in (body.get("opex_meses") or {}).items() if cod in vigentes])
             r = cur.execute("select data from gestor.escenario where id = 1 for update").fetchone()
             esc = (r[0] if r else None) or {}
-            for cod, v in (body.get("escenario") or {}).items():
-                if MAPA_2027.get(cod, cod) in vigentes:
+            existen = {r[0] for r in cur.execute("select codigo from gestor.proyectos")}
+            for cod, v in (body.get("escenario") or {}).items():   # escenario (incluir/prioridad) puede venir de más fichas que las editadas
+                if MAPA_2027.get(cod, cod) in existen:
                     esc[MAPA_2027.get(cod, cod)] = v
             cur.execute("""insert into gestor.escenario (id, data, guardado) values (1, %s, now())
                            on conflict (id) do update set data = excluded.data, guardado = now() returning guardado""",
@@ -623,17 +625,17 @@ def deshacer_movimiento(c, motivo: str, clave: str) -> None:
     c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
 
 
-def restaurar_2026_11_11(c) -> None:
+def restaurar_2026_11_11(c, archivo: str = "restaurar_2026_11_11.json", clave: str = "restaurar_2026_11_11_v1") -> None:
     """Una sola vez: restaura PRY-27-20 y PRY-27-03 (pisados por guardados de pestañas desactualizadas el 11/11/2026),
     reconstruidos desde el log de auditoría. Se respalda antes lo que había."""
-    if c.execute("select 1 from gestor.meta where clave = 'restaurar_2026_11_11_v1'").fetchone():
+    if c.execute("select 1 from gestor.meta where clave = %s", (clave,)).fetchone():
         return
-    r = json.loads((DATA / "restaurar_2026_11_11.json").read_text(encoding="utf-8"))
+    r = json.loads((DATA / archivo).read_text(encoding="utf-8"))
     cods = list(r)
     c.execute("create table if not exists gestor.respaldo (id serial primary key, motivo text, tabla text, data jsonb, creado timestamptz default now())")
     for t in ("asignaciones", "necesidades", "observaciones"):
         c.execute(f"""insert into gestor.respaldo (motivo, tabla, data) select 'restaurar_2026_11_11_v1', '{t}',
-                      coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x where codigo = any(%s)""", (cods,))
+                      coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb) from gestor.{t} x where codigo = any(%s)""".replace("'restaurar_2026_11_11_v1'", "%s"), (clave, cods))
     with c.cursor() as cur:
         for cod, v in r.items():
             cur.execute("delete from gestor.asignaciones where codigo = %s", (cod,))
@@ -650,8 +652,8 @@ def restaurar_2026_11_11(c) -> None:
                 cur.execute("""insert into gestor.observaciones (codigo, capex, opex, actualizado) values (%s, %s, %s, now())
                                on conflict (codigo) do update set capex = excluded.capex, opex = excluded.opex, actualizado = now()""",
                             (cod, o.get("capex", ""), o.get("opex", "")))
-    print("restaurar_2026_11_11: restaurados", cods, flush=True)
-    c.execute("insert into gestor.meta values ('restaurar_2026_11_11_v1', '1') on conflict do nothing")
+    print(f"{clave}: restaurados", cods, flush=True)
+    c.execute("insert into gestor.meta values (%s, '1') on conflict do nothing", (clave,))
 
 
 def portafolio_valido_2027(c) -> None:
