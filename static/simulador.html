@@ -159,9 +159,9 @@ function pintarBarra(p, i) {
   const cap = D.personas.find(x => x.persona === p).capacidad[i] || 0, u = usado[p] || 0;
   const libre = Math.max(cap - u, 0), r = cap ? u / cap : 0, {b, t} = bars[p];
   const w = cap ? libre / cap * window.BW : 0; b.setAttribute("width", w); b.style.width = w + "px";
-  b.setAttribute("fill", r >= .98 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a");
+  b.setAttribute("fill", r > 1.0001 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a");
   t.textContent = `${fmtD(libre)}/${fmtD(cap)} d libres`;
-  t.setAttribute("fill", r >= .98 ? "#d64545" : "#6b7280");
+  t.setAttribute("fill", r > 1.0001 ? "#d64545" : "#6b7280");
 }
 
 // tablero de recepción: nombres de proyectos en verde (en ejecución) y rojo (en espera)

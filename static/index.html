@@ -114,12 +114,12 @@
 
   <div class="card">
     <h2>Uso de la capacidad por perfil y mes</h2>
-    <div class="sub">Equipo interno: días asignados / días de capacidad del perfil y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = perfil saturado.</div>
+    <div class="sub">Equipo interno: días asignados / días de capacidad del perfil y, entre paréntesis, % sobre los días netos disponibles del perfil (ya descontada la reserva para operación). Rojo = pasa el 100% (sobreasignado); 100% exacto es naranja.</div>
     <div style="overflow:auto"><table class="heat" id="heat"></table></div>
   </div>
   <div class="card">
     <h2>Uso de la capacidad por persona y mes</h2>
-    <div class="sub">Equipo interno agrupado por cargo (mismo orden que el cuadro por perfil). Haz clic en un cargo (▸) para ver a sus personas; la fila del cargo muestra su total. Días asignados a la persona en la Hoja de trabajo / sus días de capacidad del mes y, entre paréntesis, el %. Mismos colores de alerta: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98% (persona saturada).</div>
+    <div class="sub">Equipo interno agrupado por cargo (mismo orden que el cuadro por perfil). Haz clic en un cargo (▸) para ver a sus personas; la fila del cargo muestra su total. Días asignados a la persona en la Hoja de trabajo / sus días de capacidad del mes y, entre paréntesis, el %. Mismos colores de alerta: amarillo ≥ 60%, naranja ≥ 85%, rojo solo si pasa el 100% (sobreasignada); 100% exacto es naranja.</div>
     <div style="overflow:auto"><table class="heat" id="heatPer"></table></div>
   </div>
   <div class="fila2b">
@@ -240,11 +240,11 @@ function barras() {
 
 function celda(usado, cap, vacia) {
   if (vacia && !usado) return `<td style="background:#fff"></td>`;
-  const r = cap ? usado / cap : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
-  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(usado)} de ${fmtD(cap)} días">${fmtD(usado)} / ${fmtD(cap)} d <small>(${Math.round(r * 100)}%)</small></td>`;
+  const r = cap ? usado / cap : 0, bg = r > 1.0001 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
+  return `<td style="background:${bg};color:${r > 1.0001 ? "#fff" : "#1f2430"}" title="${fmtD(usado)} de ${fmtD(cap)} días">${fmtD(usado)} / ${fmtD(cap)} d <small>(${Math.round(r * 100)}%)</small></td>`;
 }
 function barrasCap(el, cap, usado) {
-  const fila = (lbl, c, u, cls = "") => { const r = c ? u / c : 0, col = r >= .98 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a";
+  const fila = (lbl, c, u, cls = "") => { const r = c ? u / c : 0, col = r > 1.0001 ? "#dc2626" : r >= .85 ? "#ea580c" : r >= .6 ? "#d97706" : "#16a34a";
     return `<div class="cm ${cls}"><span>${lbl}</span><div class="b" title="${fmtD(u)} de ${fmtD(c)} días"><i style="width:${Math.min(r, 1) * 100}%;background:${col}"></i></div>
       <span class="t"><b>${fmtD(u)}</b> usados de <b>${fmtD(c)}</b> días</span></div>`; };
   const tc = cap.reduce((a, b) => a + b, 0), tu = usado.reduce((a, b) => a + b, 0);

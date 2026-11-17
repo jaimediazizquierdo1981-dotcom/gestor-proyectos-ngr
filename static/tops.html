@@ -25,7 +25,7 @@
 <body>
 <main>
   <h1>Tops de utilización</h1>
-  <div class="sub">Ranking por días asignados en el año (Hoja de trabajo, proyectos activos). Cada mes muestra días asignados / días de capacidad del mes, con 1 decimal. Colores: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98%.</div>
+  <div class="sub">Ranking por días asignados en el año (Hoja de trabajo, proyectos activos). Cada mes muestra días asignados / días de capacidad del mes, con 1 decimal. Colores: amarillo ≥ 60%, naranja ≥ 85% hasta 100%, rojo solo si pasa el 100%.</div>
   <div class="card">
     <h2>Recursos internos</h2>
     <div class="ctrl">Mostrar <select id="nInt"><option value="10">Top 10</option><option value="20">Top 20</option><option value="0" selected>Todos</option></select></div>
@@ -50,8 +50,8 @@ let D = null;
 const sum = a => a.reduce((x, y) => x + y, 0);
 function celda(u, c, blanco) {
   if (blanco && !u) return `<td></td>`;
-  const r = c ? u / c : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
-  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(u)} de ${fmtD(c)} días · ${(r * 100).toLocaleString("es-PE", {maximumFractionDigits: 1})}%">${fmtD(u)} / ${fmtD(c)} <small style="color:inherit;opacity:.75">(${(r * 100).toLocaleString("es-PE", {minimumFractionDigits: 1, maximumFractionDigits: 1})}%)</small></td>`;
+  const r = c ? u / c : 0, bg = r > 1.0001 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
+  return `<td style="background:${bg};color:${r > 1.0001 ? "#fff" : "#1f2430"}" title="${fmtD(u)} de ${fmtD(c)} días · ${(r * 100).toLocaleString("es-PE", {maximumFractionDigits: 1})}%">${fmtD(u)} / ${fmtD(c)} <small style="color:inherit;opacity:.75">(${(r * 100).toLocaleString("es-PE", {minimumFractionDigits: 1, maximumFractionDigits: 1})}%)</small></td>`;
 }
 function filas(tipoTer) {
   return D.personas.filter(p => (p.tipo === "tercero") === tipoTer).map(p => {
