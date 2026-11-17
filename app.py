@@ -37,6 +37,17 @@ def _quien(request: Request) -> dict | None:
     return d if d and d["activo"] else None
 
 
+def _dueno(request: Request, codigo: str) -> None:
+    """Solo el Líder TI de la ficha (o el administrador) puede modificarla."""
+    if not seg.activo():
+        return
+    q = _quien(request)
+    if q and q.get("es_admin"):
+        return
+    if not q or str(codigo) not in db.fichas_de(q.get("nombre", "")):
+        raise HTTPException(403, f"Solo el Líder TI de {codigo} puede modificar esta ficha.")
+
+
 def _admin(request: Request) -> dict:
     q = _quien(request)
     if not q or not q["es_admin"]:
@@ -272,7 +283,8 @@ def api_asignaciones():
 
 
 @app.put("/api/asignaciones")
-def api_guardar_asignacion(body: dict = Body(...)):
+def api_guardar_asignacion(request: Request, body: dict = Body(...)):
+    _dueno(request, body["codigo"])
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     db.guardar_asignacion(str(body["codigo"]), str(body["persona"]), body.get("dias") or {})
@@ -280,7 +292,8 @@ def api_guardar_asignacion(body: dict = Body(...)):
 
 
 @app.delete("/api/asignaciones")
-def api_borrar_asignacion(codigo: str, persona: str):
+def api_borrar_asignacion(request: Request, codigo: str, persona: str):
+    _dueno(request, codigo)
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     db.borrar_asignacion(codigo, persona)
@@ -293,7 +306,8 @@ def api_necesidades():
 
 
 @app.put("/api/necesidades")
-def api_guardar_necesidades(body: dict = Body(...)):
+def api_guardar_necesidades(request: Request, body: dict = Body(...)):
+    _dueno(request, body["codigo"])
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     db.guardar_necesidades(str(body["codigo"]), body.get("items") or [])
@@ -301,7 +315,8 @@ def api_guardar_necesidades(body: dict = Body(...)):
 
 
 @app.put("/api/proyecto")
-def api_proyecto(body: dict = Body(...)):
+def api_proyecto(request: Request, body: dict = Body(...)):
+    _dueno(request, body["codigo"])
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     op = body.get("opex_mensual")
@@ -323,7 +338,8 @@ def api_observaciones():
 
 
 @app.put("/api/observaciones")
-def api_guardar_observacion(body: dict = Body(...)):
+def api_guardar_observacion(request: Request, body: dict = Body(...)):
+    _dueno(request, body["codigo"])
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     campo = str(body.get("campo"))
@@ -386,7 +402,8 @@ async def api_cargar_colaboradores(archivo: UploadFile = File(...), modo: str = 
 
 
 @app.delete("/api/hoja/ficha")
-def api_eliminar_ficha(codigo: str):
+def api_eliminar_ficha(request: Request, codigo: str):
+    _dueno(request, codigo)
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     db.eliminar_ficha(codigo)

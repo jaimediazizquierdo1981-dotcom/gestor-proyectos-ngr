@@ -29,6 +29,9 @@
   .mini i{height:6px;border-radius:1px;display:block}
   .proy{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;transition:box-shadow .15s,border-color .15s}
   .proy.pausa{filter:grayscale(1);opacity:.6;background:#f1f1f1}
+  .proy.ajena{filter:grayscale(1);opacity:.55;background:#eceff3}
+  .proy.ajena .drop{display:none}
+  .banda.lec{background:#6b7280}
   .banda{background:#8a8f99;color:#fff;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:14px 14px 0 0}
   .vacio{background:#fff;border:2px dashed #d9d4c9;border-radius:14px;padding:40px;text-align:center;color:#6b7280;font-size:14px}
   .proy.foco{border-color:#e5a12a;box-shadow:0 0 0 4px rgba(229,161,42,.3)}
@@ -200,13 +203,17 @@ function necesidad(p) {
   return out;
 }
 
+// fichas propias: el usuario es su Líder TI (el administrador edita todas; sin login, todas)
+let YO = null;
+const normN = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const esMia = p => !YO || !YO.usuario ? true : YO.solo_lectura ? false : YO.es_admin ? true : normN(p.lider_ti) === normN(YO.nombre);
 function pintarProyectos() {
-  const P = D.proyectos.filter(p => p.incluir).sort(ordPrio);
+  const P = D.proyectos.filter(p => p.incluir).sort((a, b) => (esMia(b) - esMia(a)) || ordPrio(a, b));
   if (!P.length) { proyectos.innerHTML = '<div class="vacio">La hoja está vacía. Usa <b>“Seleccionar o activar un proyecto…”</b> a la izquierda para agregar los proyectos uno a uno.</div>'; return; }
   proyectos.innerHTML = P.map(p => {
     const nec = necesidad(p), req = Object.values(nec).reduce((a, v) => a + v.req, 0), asig = Object.values(nec).reduce((a, v) => a + Math.min(v.asig, v.req), 0);
     const filas = ASIG.filter(a => a.codigo === p.codigo), vm = mesesProyecto(p);
-    return `<div class="proy ${p.on_hold ? "pausa" : ""}" data-c="${p.codigo}">${p.on_hold ? '<div class="banda">⏸ On hold: sus días no se descuentan de la capacidad. Usa ▶ Reactivar para volver a contarlo.</div>' : ""}
+    return `<div class="proy ${p.on_hold ? "pausa" : ""} ${esMia(p) ? "" : "ajena"}" data-c="${p.codigo}">${esMia(p) ? "" : `<div class="banda lec">🔒 Solo lectura · Líder TI: ${p.lider_ti || "sin asignar"}</div>`}${p.on_hold ? '<div class="banda">⏸ On hold: sus días no se descuentan de la capacidad. Usa ▶ Reactivar para volver a contarlo.</div>' : ""}
       <div class="ph"><label class="prl" title="Prioridad: única, entre 1 y ${D.proyectos.length}">Prioridad <input class="prio" type="number" min="1" max="${D.proyectos.length}" step="1" value="${p.prioridad ?? ""}" ${p.on_hold ? "" : ""} onchange="cambiarPrioridad('${p.codigo}', this)"></label><label class="prl" title="Transformacional o no: el Consolidado puede mostrar solo las transformacionales">Tipo <select class="tipo" onchange="cambiarTipo('${p.codigo}', this.value)">${["Transformacional", "No transformacional"].map(t => `<option ${t === (p.tipo || "Transformacional") ? "selected" : ""}>${t}</option>`).join("")}</select></label><h3 title="${(p.descripcion || "").replace(/"/g, "&quot;")}">${p.codigo} · ${p.proyecto}</h3><span class="ven">${fmtMes(p.inicio_plan)} a ${fmtMes(p.fin_plan)} · ${fmtD(req)} días-persona</span>
         <button class="xs-proy" title="${p.on_hold ? "Reactivar el proyecto" : "Poner en pausa: no descuenta capacidad"}" onclick="pausarProyecto('${p.codigo}', ${!p.on_hold})">${p.on_hold ? "▶ Reactivar" : "⏸ On hold"}</button>
         <button class="xs-proy del" title="Eliminar la ficha: borra sus posiciones, asignaciones y observaciones y la quita de la hoja" onclick="eliminarFicha('${p.codigo}')">🗑 Eliminar ficha</button>
@@ -229,7 +236,8 @@ function pintarProyectos() {
       ${pie(p)}</div>`;
   }).join("");
   proyectos.querySelectorAll(".proy.pausa input:not(.prio), .proy.pausa textarea, .proy.pausa select, .proy.pausa button:not(.xs-proy)").forEach(x => x.disabled = true);
-  proyectos.querySelectorAll(".proy:not(.pausa)").forEach(el => {
+  proyectos.querySelectorAll(".proy.ajena input, .proy.ajena textarea, .proy.ajena select, .proy.ajena button").forEach(x => x.disabled = true);
+  proyectos.querySelectorAll(".proy:not(.pausa):not(.ajena)").forEach(el => {
     el.ondragover = e => { e.preventDefault(); el.classList.add("sobre"); };
     el.ondragleave = () => el.classList.remove("sobre");
     el.ondrop = e => { e.preventDefault(); el.classList.remove("sobre"); agregar(el.dataset.c, e.dataTransfer.getData("text/plain")); };
@@ -250,6 +258,7 @@ function irA(codigo) {
 async function seleccionarProyecto() {
   const c = filtroProy.value; if (!c) return;
   const p = proyecto(c);
+  if (!p.incluir && !esMia(p)) { filtroProy.value = ""; aviso(`Solo el Líder TI de ${c} (${p.lider_ti || "sin asignar"}) puede activar esta ficha.`, false); return; }
   if (!p.incluir) {   // no tiene sección: se abre una nueva incluyéndolo en el escenario
     const e = leer(ESC_KEY) || {};
     e[c] = {...(e[c] || {}), incluir: true}; guardar(ESC_KEY, e);
@@ -505,9 +514,10 @@ async function guardarTodo() {
   bGuardarHoja.onclick = guardarTodo;
   fetch("/api/escenario").then(r => r.json()).then(e => { if (e.guardado) estadoGuardado.textContent = "Último guardado: " + new Date(e.guardado).toLocaleString("es-PE"); }).catch(() => {});
   cargando(true, "Cargando hoja de trabajo…");
-  [D, ASIG, NEC, OBS] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => []),
+  [D, ASIG, NEC, OBS, YO] = await Promise.all([calcular(), fetch("/api/asignaciones").then(r => r.json()).catch(() => []),
                                       fetch("/api/necesidades").then(r => r.json()).catch(() => ({})),
-                                      fetch("/api/observaciones").then(r => r.json()).catch(() => ({}))]);
+                                      fetch("/api/observaciones").then(r => r.json()).catch(() => ({})),
+                                      fetch("/api/yo").then(r => r.ok ? r.json() : null).catch(() => null)]);
   rolesCargados().forEach(r => filtroRol.insertAdjacentHTML("beforeend", `<option>${r}</option>`));
   pintarSelector();
   filtroProy.onchange = seleccionarProyecto;
