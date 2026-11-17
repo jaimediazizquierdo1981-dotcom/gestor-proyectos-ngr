@@ -28,19 +28,19 @@
   <div class="sub">Ranking por días asignados en el año (Hoja de trabajo, proyectos activos). Cada mes muestra días asignados / días de capacidad del mes, con 1 decimal. Colores: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98%.</div>
   <div class="card">
     <h2>Recursos internos</h2>
-    <div class="ctrl">Mostrar <select id="nInt"><option value="10">Top 10</option><option value="20" selected>Top 20</option><option value="0">Todos</option></select></div>
+    <div class="ctrl">Mostrar <select id="nInt"><option value="10">Top 10</option><option value="20">Top 20</option><option value="0" selected>Todos</option></select></div>
     <div style="overflow:auto"><table class="rk" id="tInt"></table></div>
   </div>
   <div class="card">
     <h2>Terceros</h2>
     <div class="sub">Solo terceros con días asignados. Exceso = días asignados por encima de su capacidad del mes (en rojo).</div>
-    <div class="ctrl">Mostrar <select id="nTer"><option value="10">Top 10</option><option value="20" selected>Top 20</option><option value="0">Todos</option></select></div>
+    <div class="ctrl">Mostrar <select id="nTer"><option value="10">Top 10</option><option value="20">Top 20</option><option value="0" selected>Todos</option></select></div>
     <div style="overflow:auto"><table class="rk" id="tTer"></table></div>
   </div>
   <div class="card">
-    <h2>Excesos de terceros</h2>
-    <div class="sub">Cada mes en que un tercero tiene más días asignados que su capacidad, ordenado de mayor a menor exceso.</div>
-    <div style="overflow:auto"><table class="rk" id="tExc"></table></div>
+    <h2>Propuesta para equilibrar terceros</h2>
+    <div class="sub">Para cada tercero que pasa su capacidad, se propone pasar un proyecto completo (todos sus meses) a otro tercero del mismo rol que tenga días libres, para que el proyecto siga con una sola persona. Si ningún tercero puede tomarlo, se indica agregar una posición. Es solo una propuesta: el cambio lo hace el Líder TI en la Hoja de trabajo.</div>
+    <div style="overflow:auto"><table class="rk" id="tPro"></table></div>
   </div>
 </main>
 <script src="/static/comun.js"></script>
@@ -71,17 +71,55 @@ function tabla(id, F, n, ter) {
       (ter ? `<td class="${f.exc > 0.05 ? "exc" : ""}">${f.exc > 0.05 ? fmtD(f.exc) + " d" : "—"}</td>` : "") + "</tr>").join("") ||
      `<tr><td colspan="${D.meses.length + 7}" class="l"><small>Sin datos.</small></td></tr>`);
 }
-function excesos(F) {
-  const L = F.flatMap(f => D.meses.map((m, i) => ({f, m, u: f.usado[i], c: f.p.capacidad[i] || 0, e: f.exceso[i],
-    pr: Object.entries(f.p.asignado[m] || {}).filter(([, d]) => d > 0).map(([c, d]) => `${c} (${fmtD(d)})`).join(", ")})))
-    .filter(x => x.e > 0.05).sort((a, b) => b.e - a.e);
-  tExc.innerHTML = `<tr><th>#</th><th class="l">Tercero</th><th class="l">Cargo</th><th>Mes</th><th>Asignado</th><th>Capacidad</th><th>Exceso</th><th class="l">Proyectos (días)</th></tr>` +
-    (L.map((x, i) => `<tr><td class="n">${i + 1}</td><td class="l"><b>${x.f.p.persona}</b></td><td class="l"><small>${x.f.p.perfil}</small></td><td>${fmtMes(x.m)}</td><td>${fmtD(x.u)} d</td><td>${fmtD(x.c)} d</td><td class="exc">${fmtD(x.e)} d</td><td class="l"><small>${x.pr}</small></td></tr>`).join("") ||
-     `<tr><td colspan="8" class="l"><small>No hay terceros con exceso. 👍</small></td></tr>`);
+function propuesta(F) {
+  // estado: días libres por tercero y mes (incluye terceros sin asignar)
+  const ter = D.personas.filter(p => p.tipo === "tercero");
+  const uso = Object.fromEntries(ter.map(p => [p.persona, D.meses.map(m => sum(Object.values(p.asignado[m] || {})))]));
+  const asig = Object.fromEntries(ter.map(p => [p.persona, JSON.parse(JSON.stringify(p.asignado))]));
+  const cap = Object.fromEntries(ter.map(p => [p.persona, p.capacidad]));
+  const exceso = n => D.meses.reduce((a, m, i) => a + Math.max(0, uso[n][i] - (cap[n][i] || 0)), 0);
+  const L = [];
+  const conExceso = ter.filter(p => exceso(p.persona) > 0.05).sort((a, b) => exceso(b.persona) - exceso(a.persona));
+  for (const t of conExceso) {
+    let guard = 0;
+    while (exceso(t.persona) > 0.05 && guard++ < 10) {
+      // proyectos del tercero: días por mes
+      const proys = {}; D.meses.forEach((m, i) => Object.entries(asig[t.persona][m] || {}).forEach(([c, d]) => { if (d > 0) (proys[c] = proys[c] || D.meses.map(() => 0))[i] = d; }));
+      const exAntes = exceso(t.persona);
+      // candidatos: mover el proyecto que más baja el exceso a un tercero del mismo rol que lo pueda tomar completo
+      let mejor = null;
+      for (const [c, dias] of Object.entries(proys)) {
+        const baja = D.meses.reduce((a, m, i) => a + Math.max(0, uso[t.persona][i] - (cap[t.persona][i] || 0)) - Math.max(0, uso[t.persona][i] - dias[i] - (cap[t.persona][i] || 0)), 0);
+        if (baja < 0.05) continue;
+        for (const o of ter.filter(o => o.perfil === t.perfil && o.persona !== t.persona)) {
+          const cabe = D.meses.every((m, i) => !dias[i] || uso[o.persona][i] + dias[i] <= (cap[o.persona][i] || 0) + 0.05);
+          if (!cabe) continue;
+          const libre = sum(D.meses.map((m, i) => (cap[o.persona][i] || 0) - uso[o.persona][i]));
+          const sc = baja * 1000 - sum(dias) + (sum(uso[o.persona]) ? 0 : 5);   // prioriza bajar el exceso; luego mover menos días; luego un tercero libre
+          if (!mejor || sc > mejor.sc) mejor = {c, dias, o, baja, sc, libre};
+        }
+      }
+      if (!mejor) {
+        L.push({t, c: null, ex: exAntes});
+        break;
+      }
+      D.meses.forEach((m, i) => { if (mejor.dias[i]) { uso[t.persona][i] -= mejor.dias[i]; uso[mejor.o.persona][i] += mejor.dias[i];
+        delete asig[t.persona][m][mejor.c]; (asig[mejor.o.persona][m] = asig[mejor.o.persona][m] || {})[mejor.c] = mejor.dias[i]; } });
+      L.push({t, c: mejor.c, dias: mejor.dias, o: mejor.o, ex: exAntes, exDesp: exceso(t.persona)});
+    }
+  }
+  const mesesTxt = d => { const i = D.meses.map((m, k) => k).filter(k => d[k] > 0); return i.length ? `${fmtMes(D.meses[i[0]])} a ${fmtMes(D.meses[i.at(-1)])}` : ""; };
+  tPro.innerHTML = `<tr><th>#</th><th class="l">Tercero con exceso</th><th class="l">Cargo</th><th>Exceso</th><th class="l">Proyecto a mover</th><th>Meses</th><th>Días</th><th class="l">Pasar a</th><th>Queda con exceso</th></tr>` +
+    (L.map((x, i) => x.c ? `<tr><td class="n">${i + 1}</td><td class="l"><b>${x.t.persona}</b></td><td class="l"><small>${x.t.perfil}</small></td><td class="exc">${fmtD(x.ex)} d</td>
+        <td class="l">${x.c} <small>${(D.proyectos.find(p => p.codigo === x.c) || {}).proyecto || ""}</small></td><td>${mesesTxt(x.dias)}</td><td>${fmtD(sum(x.dias))} d</td>
+        <td class="l"><b style="color:#2e9e6a">${x.o.persona}</b></td><td>${x.exDesp > 0.05 ? `<span class="exc">${fmtD(x.exDesp)} d</span>` : "✓ 0 d"}</td></tr>`
+      : `<tr><td class="n">${i + 1}</td><td class="l"><b>${x.t.persona}</b></td><td class="l"><small>${x.t.perfil}</small></td><td class="exc">${fmtD(x.ex)} d</td>
+        <td class="l" colspan="5"><span class="exc">Ningún tercero de ${x.t.perfil} puede tomar un proyecto completo:</span> agregar una posición de ${x.t.perfil} o repartir días entre meses.</td></tr>`).join("") ||
+     `<tr><td colspan="9" class="l"><small>No hay terceros con exceso. 👍</small></td></tr>`);
 }
 function pintar() {
   tabla("tInt", filas(false), nInt.value, false);
-  const T = filas(true); tabla("tTer", T, nTer.value, true); excesos(T);
+  const T = filas(true); tabla("tTer", T, nTer.value, true); propuesta(T);
 }
 nInt.onchange = pintar; nTer.onchange = pintar;
 (async () => { cargando(true, "Calculando…"); D = await calcular(); cargando(false); pintar(); })();
