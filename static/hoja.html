@@ -490,10 +490,13 @@ async function guardarTodo() {
     const r = await fetch("/api/hoja/guardar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
     if (!r.ok) throw new Error((await r.json()).detail || r.status);
     const j = await r.json();
-    borrar(ESC_KEY);   // ya quedó en la base: el navegador deja de tener cambios pendientes
-    PEND.clear(); tomarFoto();
+    const ok = j.guardadas || codigos, omit = j.omitidas || [];
+    ok.forEach(c => { SNAP[c] = estadoFicha(c); PEND.delete(c); });   // las fichas no propias siguen pendientes en esta pestaña
+    if (!PEND.size) borrar(ESC_KEY);
     if (j.guardado) estadoGuardado.textContent = "Guardado en la base: " + new Date(j.guardado).toLocaleString("es-PE");
-    aviso(codigos.length ? `Guardado en la base: ${codigos.length} ficha(s) modificada(s) (${codigos.join(", ")}). Las demás fichas no se tocan.` : "No hay cambios por guardar.");
+    let msg = ok.length ? `Guardado en la base: ${ok.length} ficha(s) (${ok.join(", ")}). Las demás fichas no se tocan.` : (omit.length ? "" : "No hay cambios por guardar.");
+    if (omit.length) msg += ` No se guardaron ${omit.length} ficha(s) porque no eres su Líder TI: ${omit.join(", ")}.`;
+    aviso(msg.trim(), !omit.length);
   } catch (e) { aviso("No se pudo guardar: " + e.message, false); }
   bGuardarHoja.disabled = false; bGuardarHoja.textContent = "💾 Guardar hoja de trabajo";
 }

@@ -339,15 +339,23 @@ def api_escenario():
 
 
 @app.post("/api/hoja/guardar")
-def api_guardar_hoja(body: dict = Body(...)):
+def api_guardar_hoja(request: Request, body: dict = Body(...)):
     """Guarda en la base toda la hoja: asignaciones, posiciones, observaciones, opex y escenario (incluir, on hold, prioridad, inicio)."""
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     if not isinstance(body.get("codigos"), list):
         raise HTTPException(409, "Esta pestaña tiene una versión antigua de la Hoja de trabajo. Recarga la página (F5) y vuelve a guardar; tus cambios ya hechos se guardaron al editarlos.")
-    if not body["codigos"]:
-        return {"ok": True, "guardado": None, "fichas": 0}
-    return {"ok": True, "guardado": db.guardar_hoja(body), "fichas": len(body["codigos"])}
+    omitidas = []
+    q = _quien(request)
+    if seg.activo() and not (q and q.get("es_admin")):
+        # cada usuario guarda SOLO las fichas donde es Líder TI; el administrador guarda todas
+        propias = db.fichas_de(q["nombre"] if q else "")
+        omitidas = [c for c in body["codigos"] if c not in propias]
+        body = {**body, "codigos": [c for c in body["codigos"] if c in propias],
+                "escenario": {k: v for k, v in (body.get("escenario") or {}).items() if k in propias}}
+    if not body["codigos"] and not body.get("escenario"):
+        return {"ok": True, "guardado": None, "fichas": 0, "guardadas": [], "omitidas": omitidas}
+    return {"ok": True, "guardado": db.guardar_hoja(body), "fichas": len(body["codigos"]), "guardadas": body["codigos"], "omitidas": omitidas}
 
 
 @app.get("/api/plantilla/colaboradores")

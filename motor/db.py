@@ -474,6 +474,21 @@ def leer_escenario() -> dict:
     return {"data": r[0], "guardado": r[1].isoformat()} if r else {"data": {}, "guardado": None}
 
 
+def _norm(t: str) -> str:
+    import unicodedata
+    return "".join(ch for ch in unicodedata.normalize("NFD", (t or "").lower()) if unicodedata.category(ch) != "Mn").strip()
+
+
+def fichas_de(nombre: str) -> set:
+    """Códigos de las fichas cuyo Líder TI es esta persona (sin distinguir tildes/mayúsculas)."""
+    import psycopg
+    n = _norm(nombre)
+    if not n:
+        return set()
+    with psycopg.connect(URL) as c:
+        return {cod for cod, l in c.execute("select codigo, lider_ti from gestor.proyectos") if _norm(l) == n}
+
+
 def guardar_hoja(body: dict) -> str:
     """Guarda SOLO las fichas que el usuario modificó (body["codigos"]): así un usuario no pisa el trabajo de otro."""
     import psycopg
