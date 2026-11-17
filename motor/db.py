@@ -134,6 +134,15 @@ def iniciar() -> None:
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_27_02_v1'").fetchone():
             c.execute("update gestor.proyectos set lider_ti = 'Julio More' where codigo = 'PRY-27-02'")
             c.execute("insert into gestor.meta values ('lider_ti_27_02_v1', '1') on conflict do nothing")
+        if not c.execute("select 1 from gestor.meta where clave = 'costos_terceros_admin_v1'").fetchone():
+            # criterios del administrador (17/11/2026): iguales para todos
+            r = c.execute("select data from gestor.parametros where id = 1").fetchone()
+            par = (r[0] if r else None) or json.loads((DATA / "parametros.json").read_text(encoding="utf-8"))
+            par.setdefault("costos_terceros", {}).update({"Devops": 10000, "Soporte": 4000, "Gestor de TI": 16000, "Arquitecto": 14000,
+                                                          "Experto en Data": 12000, "Demanda de Servicios": 4000})
+            c.execute("insert into gestor.parametros (id, data) values (1, %s) on conflict (id) do update set data = excluded.data, actualizado = now()", (json.dumps(par),))
+            c.execute("insert into gestor.meta values ('costos_terceros_admin_v1', '1') on conflict do nothing")
+            print("costos_terceros_admin_v1:", par["costos_terceros"], flush=True)
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_ti01_jprati_v1'").fetchone():
             c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Prati' where codigo = 'TI-01'")
             c.execute("insert into gestor.meta values ('lider_ti_ti01_jprati_v1', '1') on conflict do nothing")

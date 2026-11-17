@@ -35,11 +35,11 @@
     "Analista Funcional": 11000,
     "Analista Técnico": 11500,
     "Seguridad TI": 13000,
-    "Devops": 0,
-    "Soporte": 0,
-    "Demanda de Servicios": 0,
-    "Gestor de TI": 0,
-    "Arquitecto": 0,
-    "Experto en Data": 0
+    "Devops": 10000,
+    "Soporte": 4000,
+    "Demanda de Servicios": 4000,
+    "Gestor de TI": 16000,
+    "Arquitecto": 14000,
+    "Experto en Data": 12000
   }
 }
