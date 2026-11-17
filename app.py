@@ -25,6 +25,12 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
     try:   # una sola vez: aplica la propuesta para equilibrar terceros (pedido del administrador, 17/11/2026)
         from motor import equilibrio
         equilibrio.aplicar(ejecutar({}, con_mc=False), "equilibrar_terceros_v1")
+        _R = ejecutar({}, con_mc=False)   # diagnóstico en el log: terceros que aún pasan su capacidad (mes, días, proyectos)
+        for _p in [x for x in _R["personas"] if x.get("tipo") == "tercero"]:
+            for _i, _m in enumerate(_R["meses"]):
+                _a = {k: v for k, v in (_p["asignado"].get(_m) or {}).items() if v}
+                if sum(_a.values()) > float(_p["capacidad"][_i]) + 0.05:
+                    print("SOBRECARGA_TERCERO", _p["persona"], _m, f"{sum(_a.values()):g}/{float(_p['capacidad'][_i]):g}", _a, flush=True)
     except Exception as _e:
         print("equilibrio error:", _e, flush=True)
 SOLO_LECTURA_OK = {"/api/calcular", "/api/montecarlo", "/api/auth/cambiar", "/api/auth/login"}
