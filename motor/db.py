@@ -116,7 +116,7 @@ def iniciar() -> None:
         iniciativas_ti_2027(c)
         iniciativas_ti_2027(c, "iniciativa_ti_06_v1")   # TI-06 Data Governance
         if not c.execute("select 1 from gestor.meta where clave = 'lider_ti_06_v1'").fetchone():
-            c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Pratti' where codigo = 'TI-06'")
+            c.execute("update gestor.proyectos set lider_ti = 'Jean Pierre Prati' where codigo = 'TI-06'")
             c.execute("insert into gestor.meta values ('lider_ti_06_v1', '1') on conflict do nothing")
         crear_usuarios(c)
         c.execute("alter table gestor.usuarios add column if not exists solo_lectura boolean not null default false")
@@ -143,8 +143,12 @@ def iniciar() -> None:
                                          "Luis Chavez", "Tercero Desarrollador 3", "Juan Ramos", "Ángel Larreategui"], "quitar_27_10_v1")
         quitar_personas(c, "PRY-27-16", ["Christopher Camacho", "Jaime Diaz", "Miller Gomez", "Tercero Desarrollador 3",
                                          "Tercero Desarrollador 4", "Yoni Chaupi"], "quitar_27_16_v1")
+        if not c.execute("select 1 from gestor.meta where clave = 'prati_v1'").fetchone():   # el apellido es Prati (una t)
+            for t, col in (("proyectos", "lider_ti"), ("proyectos", "responsable"), ("equipo", "persona"), ("usuarios", "nombre")):
+                c.execute(f"update gestor.{t} set {col} = replace({col}, 'Pratti', 'Prati') where {col} like '%%Pratti%%'")
+            c.execute("insert into gestor.meta values ('prati_v1', '1') on conflict do nothing")
         if not c.execute("select 1 from gestor.meta where clave = 'one_v1'").fetchone():   # One Drive se llama One
-            c.execute("update gestor.proyectos set proyecto = 'One', lider_ti = 'Jean Pierre Pratti' where codigo = 'PRY-27-22'")
+            c.execute("update gestor.proyectos set proyecto = 'One', lider_ti = 'Jean Pierre Prati' where codigo = 'PRY-27-22'")
             c.execute("insert into gestor.meta values ('one_v1', '1') on conflict do nothing")
         if not c.execute("select 1 from gestor.meta where clave = 'clave_jdiaz_v1'").fetchone():   # contraseña definida por el admin (solo el hash)
             c.execute("update gestor.usuarios set clave_hash = %s, debe_cambiar = false, actualizado = now() where usuario = 'jdiaz'",
