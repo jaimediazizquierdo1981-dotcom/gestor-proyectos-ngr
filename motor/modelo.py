@@ -17,8 +17,8 @@ import numpy as np
 import pandas as pd
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-PERFILES = ["Gestor de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Experto en Data", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"]
-TERCEROS = ["Gestor de TI", "Arquitecto", "Experto en Data", "Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI", "Devops", "Soporte", "Demanda de Servicios", "Infra"]  # días de terceros: no consumen capacidad interna
+PERFILES = ["Gestor de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Experto en Data", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios", "Especialista de Gobierno de Datos"]
+TERCEROS = ["Gestor de TI", "Arquitecto", "Experto en Data", "Dev", "QA", "Analista Funcional", "Analista Técnico", "Seguridad TI", "Devops", "Soporte", "Demanda de Servicios", "Infra", "Especialista de Gobierno de Datos"]  # días de terceros: no consumen capacidad interna
 
 
 # ---------------------------------------------------------------- utilidades
