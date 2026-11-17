@@ -121,6 +121,7 @@
       <h2 style="margin-top:8px">Colaboradores</h2>
       <input id="buscar" placeholder="Buscar por nombre…">
       <select id="filtroRol"><option value="">Todos los roles</option></select>
+      <select id="filtroTipo"><option value="">Personal propio y terceros</option><option value="interno">Solo personal propio</option><option value="tercero">Solo posiciones de terceros</option></select>
       <div id="lista"></div>
     </aside>
     <section id="proyectos"></section>
@@ -130,7 +131,7 @@
 let D, ASIG = [], NEC = {}, OBS = {};
 const ROLES = ["Gestor de TI", "Lider Tecnico", "Arquitecto", "Analista Funcional", "Analista Técnico", "Desarrollador", "Analytics engineer", "Data Engineer", "Experto en Data", "Practicante Data", "QA", "Infra", "Devops", "Seguridad TI", "Soporte", "Demanda de Servicios"];
 const rolesCargados = () => ROLES.filter(r => D && D.personas.some(x => x.perfil === r));   // solo roles con colaboradores cargados
-buscar.oninput = filtroRol.onchange = () => pintarLista();
+buscar.oninput = filtroRol.onchange = filtroTipo.onchange = () => pintarLista();
 
 const muneco = (color, s = 26) => `<svg width="${s}" height="${s}" viewBox="-14 -14 28 42"><path d="M-11,26 Q-11,6 0,6 Q11,6 11,26 Z" fill="${color}"/><circle cx="0" cy="-3" r="8" fill="#e6b58f"/></svg>`;
 const persona = n => D.personas.find(p => p.persona === n);
@@ -166,14 +167,15 @@ function tarjeta(p) {
 let ROL_ABIERTO = new Set();   // grupos de rol expandidos en la lista (por defecto contraídos; al buscar o filtrar se abren)
 function abrirRol(k) { ROL_ABIERTO.has(k) ? ROL_ABIERTO.delete(k) : ROL_ABIERTO.add(k); pintarLista(); }
 function grupoRol(k, rol, g, extra = "") {
-  const ab = ROL_ABIERTO.has(k) || !!buscar.value.trim() || !!filtroRol.value;
+  const ab = ROL_ABIERTO.has(k) || !!buscar.value.trim() || !!filtroRol.value;   // (filtrar por tipo no abre los grupos)
   const libres = g.reduce((a, p) => a + libre(p.persona).reduce((x, y) => x + y, 0), 0);
   return `<div class="grupo rolg" style="color:${COL_PERFIL[rol]};${extra}" onclick="abrirRol('${k}')" title="Clic para ${ab ? "contraer" : "expandir"}">
     <span class="fl">${ab ? "▾" : "▸"}</span> ${rol} <small>· ${g.length} · ${fmtD(libres)} días libres</small></div>` + (ab ? g.map(tarjeta).join("") : "");
 }
 function pintarLista() {
   const q = buscar.value.trim().toLowerCase(), rol = filtroRol.value;
-  const ok = p => (!rol || rol === p.perfil) && (!q || p.persona.toLowerCase().includes(q));
+  const tipo = filtroTipo.value;
+  const ok = p => (!rol || rol === p.perfil) && (!q || p.persona.toLowerCase().includes(q)) && (!tipo || (tipo === "tercero") === (p.tipo === "tercero"));
   let h = D.personas.some(p => p.tipo !== "tercero" && ok(p))
     ? `<div class="grupo ter-h" style="margin-top:2px">Personal propio · días hábiles/mes menos feriados, vacaciones y reserva para operación</div>` : "";
   for (const r of ROLES) {
