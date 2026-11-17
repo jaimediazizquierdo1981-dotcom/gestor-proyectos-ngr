@@ -50,8 +50,8 @@ let D = null;
 const sum = a => a.reduce((x, y) => x + y, 0);
 function celda(u, c, blanco) {
   if (blanco && !u) return `<td></td>`;
-  const r = c ? u / c : (u ? 9 : 0), bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
-  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(u)} de ${fmtD(c)} días · ${(r * 100).toLocaleString("es-PE", {maximumFractionDigits: 1})}%">${fmtD(u)} / ${fmtD(c)}</td>`;
+  const r = c ? u / c : 0, bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
+  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(u)} de ${fmtD(c)} días · ${(r * 100).toLocaleString("es-PE", {maximumFractionDigits: 1})}%">${fmtD(u)} / ${fmtD(c)} <small style="color:inherit;opacity:.75">(${(r * 100).toLocaleString("es-PE", {minimumFractionDigits: 1, maximumFractionDigits: 1})}%)</small></td>`;
 }
 function filas(tipoTer) {
   return D.personas.filter(p => (p.tipo === "tercero") === tipoTer).map(p => {
@@ -67,7 +67,7 @@ function tabla(id, F, n, ter) {
   document.getElementById(id).innerHTML = `<tr><th>#</th><th class="l">Persona</th><th class="l">Cargo</th><th>Proy.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total año</th><th>% capacidad</th>${ter ? "<th>Exceso</th>" : ""}</tr>` +
     (ver.map((f, i) => `<tr><td class="n">${i + 1}</td><td class="l"><b>${f.p.persona}</b></td><td class="l"><small>${f.p.perfil}</small></td><td>${f.proys}</td>` +
       D.meses.map((m, k) => celda(f.usado[k], f.p.capacidad[k] || 0, ter)).join("") +
-      `<td class="tot">${fmtD(f.total)} / ${fmtD(f.capAnual)} d</td><td>${f.capAnual ? (f.total / f.capAnual * 100).toLocaleString("es-PE", {maximumFractionDigits: 1}) : 0}%</td>` +
+      `<td class="tot">${fmtD(f.total)} / ${fmtD(f.capAnual)} d</td><td>${(f.capAnual ? f.total / f.capAnual * 100 : 0).toLocaleString("es-PE", {minimumFractionDigits: 1, maximumFractionDigits: 1})}%</td>` +
       (ter ? `<td class="${f.exc > 0.05 ? "exc" : ""}">${f.exc > 0.05 ? fmtD(f.exc) + " d" : "—"}</td>` : "") + "</tr>").join("") ||
      `<tr><td colspan="${D.meses.length + 7}" class="l"><small>Sin datos.</small></td></tr>`);
 }
