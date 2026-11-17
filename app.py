@@ -22,6 +22,11 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
             fichas_ref.sobrecargas(ejecutar({}, con_mc=False), ["PRY-27-10", "PRY-27-16"])
     except Exception as _e:
         print("fichas_ref error:", _e, flush=True)
+    try:   # una sola vez: aplica la propuesta para equilibrar terceros (pedido del administrador, 17/11/2026)
+        from motor import equilibrio
+        equilibrio.aplicar(ejecutar({}, con_mc=False), "equilibrar_terceros_v1")
+    except Exception as _e:
+        print("equilibrio error:", _e, flush=True)
 SOLO_LECTURA_OK = {"/api/calcular", "/api/montecarlo", "/api/auth/cambiar", "/api/auth/login"}
 CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}
 
