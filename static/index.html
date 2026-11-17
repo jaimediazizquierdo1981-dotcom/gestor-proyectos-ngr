@@ -260,6 +260,8 @@ function capacidadConsolidada() {
 }
 let ABIERTOS = new Set();   // cargos expandidos en el cuadro por persona (por defecto todos contraídos)
 function abrirGrupo(g) { ABIERTOS.has(g) ? ABIERTOS.delete(g) : ABIERTOS.add(g); heat(); }
+let PER_ABIERTAS = new Set();   // personas expandidas para ver sus proyectos
+function abrirPersona(n, ev) { ev.stopPropagation(); PER_ABIERTAS.has(n) ? PER_ABIERTAS.delete(n) : PER_ABIERTAS.add(n); heat(); }
 function heat() {
   capacidadConsolidada();
   const cab = `<tr><th class="l">Perfil</th><th>Pers.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total</th></tr>`;
@@ -278,7 +280,13 @@ function heat() {
       + u.capacidad.map((c, i) => celda(u.usado[i], c)).join("") + total(u) + "</tr>";
     for (const x of gente) {
       const usado = D.meses.map(m => Object.values(x.asignado[m] || {}).reduce((a, b) => a + b, 0));
-      hp += `<tr data-g="${g}" style="${ab ? "" : "display:none"}"><td class="l" style="padding-left:30px">${x.persona}</td><td></td>` + x.capacidad.map((c, i) => celda(usado[i], c)).join("") + total({usado, capacidad: x.capacidad}) + "</tr>";
+      const cods = [...new Set(D.meses.flatMap(m => Object.keys(x.asignado[m] || {}).filter(c => (x.asignado[m][c] || 0) > 0)))];
+      const pa = PER_ABIERTAS.has(x.persona), n = x.persona.replace(/'/g, "\\'");
+      hp += `<tr data-g="${g}" style="${ab ? "" : "display:none"}${cods.length ? ";cursor:pointer" : ""}" ${cods.length ? `onclick="abrirPersona('${n}', event)" title="Clic para ${pa ? "ocultar" : "ver"} sus proyectos"` : ""}><td class="l" style="padding-left:30px">${cods.length ? `<span class="flecha">${pa ? "▾" : "▸"}</span> ` : ""}${x.persona} <small style="color:#6b7280">· ${cods.length} ${cods.length === 1 ? "proyecto" : "proyectos"}</small></td><td></td>` + x.capacidad.map((c, i) => celda(usado[i], c)).join("") + total({usado, capacidad: x.capacidad}) + "</tr>";
+      if (ab && pa) for (const c of cods) {
+        const pr = D.proyectos.find(p => p.codigo === c), us = D.meses.map(m => (x.asignado[m] || {})[c] || 0);
+        hp += `<tr class="sub-proy"><td class="l" style="padding-left:56px;font-size:12px;color:#4b5563">${c} · ${pr ? pr.proyecto : ""}</td><td></td>` + x.capacidad.map((cap, i) => celda(us[i], cap, true)).join("") + total({usado: us, capacidad: x.capacidad}) + "</tr>";
+      }
     }
   }
   document.getElementById("heatPer").innerHTML = hp;
