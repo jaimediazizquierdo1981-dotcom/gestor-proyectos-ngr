@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tops · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1600px}
+  table.rk{border-collapse:collapse;font-size:12px;width:100%}
+  .rk th{position:sticky;top:0;background:#fff;z-index:1;font-size:11.5px;color:var(--muted);font-weight:600;padding:6px 4px;border-bottom:2px solid var(--line);white-space:nowrap}
+  .rk td{padding:5px 4px;border-bottom:1px solid #f0ece4;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .rk td.l,.rk th.l{text-align:left}
+  .rk td.n{font-weight:700;color:#1f3864;width:28px}
+  .rk td.tot{font-weight:700;background:#f6f4ef}
+  .rk td.exc{font-weight:700;color:#d64545}
+  .rk small{color:#6b7280}
+  .ley{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:6px 0}
+  .ley i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+  .ctrl{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin:6px 0}
+  .ctrl select{font:inherit;padding:2px 4px;border-radius:6px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Tops de utilización</h1>
+  <div class="sub">Ranking por días asignados en el año (Hoja de trabajo, proyectos activos). Cada mes muestra días asignados / días de capacidad del mes, con 1 decimal. Colores: amarillo ≥ 60%, naranja ≥ 85%, rojo ≥ 98%.</div>
+  <div class="card">
+    <h2>Recursos internos</h2>
+    <div class="ctrl">Mostrar <select id="nInt"><option value="10">Top 10</option><option value="20" selected>Top 20</option><option value="0">Todos</option></select></div>
+    <div style="overflow:auto"><table class="rk" id="tInt"></table></div>
+  </div>
+  <div class="card">
+    <h2>Terceros</h2>
+    <div class="sub">Solo terceros con días asignados. Exceso = días asignados por encima de su capacidad del mes (en rojo).</div>
+    <div class="ctrl">Mostrar <select id="nTer"><option value="10">Top 10</option><option value="20" selected>Top 20</option><option value="0">Todos</option></select></div>
+    <div style="overflow:auto"><table class="rk" id="tTer"></table></div>
+  </div>
+  <div class="card">
+    <h2>Excesos de terceros</h2>
+    <div class="sub">Cada mes en que un tercero tiene más días asignados que su capacidad, ordenado de mayor a menor exceso.</div>
+    <div style="overflow:auto"><table class="rk" id="tExc"></table></div>
+  </div>
+</main>
+<script src="/static/comun.js"></script>
+<script>
+nav("Tops");
+let D = null;
+const sum = a => a.reduce((x, y) => x + y, 0);
+function celda(u, c, blanco) {
+  if (blanco && !u) return `<td></td>`;
+  const r = c ? u / c : (u ? 9 : 0), bg = r >= .98 ? "#d64545" : r >= .85 ? "#f0a35c" : r >= .6 ? "#f6d58e" : r > 0 ? "#dff0e6" : "#f6f4ef";
+  return `<td style="background:${bg};color:${r >= .98 ? "#fff" : "#1f2430"}" title="${fmtD(u)} de ${fmtD(c)} días · ${(r * 100).toLocaleString("es-PE", {maximumFractionDigits: 1})}%">${fmtD(u)} / ${fmtD(c)}</td>`;
+}
+function filas(tipoTer) {
+  return D.personas.filter(p => (p.tipo === "tercero") === tipoTer).map(p => {
+    const usado = D.meses.map(m => sum(Object.values(p.asignado[m] || {})));
+    const exceso = D.meses.map((m, i) => Math.max(0, usado[i] - (p.capacidad[i] || 0)));
+    const capAnual = tipoTer ? sum(p.capacidad.filter((c, i) => usado[i] > 0)) : sum(p.capacidad);
+    const proys = new Set(D.meses.flatMap(m => Object.keys(p.asignado[m] || {}).filter(c => p.asignado[m][c] > 0)));
+    return {p, usado, exceso, total: sum(usado), capAnual, exc: sum(exceso), proys: proys.size};
+  }).filter(f => !tipoTer || f.total > 0).sort((a, b) => b.total - a.total || b.exc - a.exc);
+}
+function tabla(id, F, n, ter) {
+  const ver = +n ? F.slice(0, +n) : F;
+  document.getElementById(id).innerHTML = `<tr><th>#</th><th class="l">Persona</th><th class="l">Cargo</th><th>Proy.</th>${D.meses.map(m => `<th>${fmtMes(m)}</th>`).join("")}<th>Total año</th><th>% capacidad</th>${ter ? "<th>Exceso</th>" : ""}</tr>` +
+    (ver.map((f, i) => `<tr><td class="n">${i + 1}</td><td class="l"><b>${f.p.persona}</b></td><td class="l"><small>${f.p.perfil}</small></td><td>${f.proys}</td>` +
+      D.meses.map((m, k) => celda(f.usado[k], f.p.capacidad[k] || 0, ter)).join("") +
+      `<td class="tot">${fmtD(f.total)} / ${fmtD(f.capAnual)} d</td><td>${f.capAnual ? (f.total / f.capAnual * 100).toLocaleString("es-PE", {maximumFractionDigits: 1}) : 0}%</td>` +
+      (ter ? `<td class="${f.exc > 0.05 ? "exc" : ""}">${f.exc > 0.05 ? fmtD(f.exc) + " d" : "—"}</td>` : "") + "</tr>").join("") ||
+     `<tr><td colspan="${D.meses.length + 7}" class="l"><small>Sin datos.</small></td></tr>`);
+}
+function excesos(F) {
+  const L = F.flatMap(f => D.meses.map((m, i) => ({f, m, u: f.usado[i], c: f.p.capacidad[i] || 0, e: f.exceso[i],
+    pr: Object.entries(f.p.asignado[m] || {}).filter(([, d]) => d > 0).map(([c, d]) => `${c} (${fmtD(d)})`).join(", ")})))
+    .filter(x => x.e > 0.05).sort((a, b) => b.e - a.e);
+  tExc.innerHTML = `<tr><th>#</th><th class="l">Tercero</th><th class="l">Cargo</th><th>Mes</th><th>Asignado</th><th>Capacidad</th><th>Exceso</th><th class="l">Proyectos (días)</th></tr>` +
+    (L.map((x, i) => `<tr><td class="n">${i + 1}</td><td class="l"><b>${x.f.p.persona}</b></td><td class="l"><small>${x.f.p.perfil}</small></td><td>${fmtMes(x.m)}</td><td>${fmtD(x.u)} d</td><td>${fmtD(x.c)} d</td><td class="exc">${fmtD(x.e)} d</td><td class="l"><small>${x.pr}</small></td></tr>`).join("") ||
+     `<tr><td colspan="8" class="l"><small>No hay terceros con exceso. 👍</small></td></tr>`);
+}
+function pintar() {
+  tabla("tInt", filas(false), nInt.value, false);
+  const T = filas(true); tabla("tTer", T, nTer.value, true); excesos(T);
+}
+nInt.onchange = pintar; nTer.onchange = pintar;
+(async () => { cargando(true, "Calculando…"); D = await calcular(); cargando(false); pintar(); })();
+</script>
+</body>
+</html>

@@ -84,7 +84,8 @@ def capacidad(equipo: list[dict], feriados: list[dict], p: dict, lista: list[str
             habiles = sum(1 for d in dias if d.date() not in fer)
             vac = float(c.get("dias_vacaciones_anual", 0)) / 12
             bruto = max(habiles - vac, 0) * fd
-            fila.append(bruto * (1 - float(c.get("reserva_operacion_pct", 0))))
+            neto = bruto * (1 - float(c.get("reserva_operacion_pct", 0)))
+            fila.append(float(np.floor(neto + 0.5)))   # capacidad en días completos (vacaciones y reserva prorrateadas dejan fracciones)
         out[e["persona"]] = np.array(fila)
     return out
 
