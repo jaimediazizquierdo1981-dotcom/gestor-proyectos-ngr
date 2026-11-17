@@ -71,7 +71,7 @@ function nav(activa) {
 const MES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const fmtMes = m => MES[+m.slice(5) - 1] + "-" + m.slice(2, 4);
 const activo = p => p.incluir && !p.on_hold;   // con o sin prioridad, todo proyecto activo suma
-const fmtD = n => (Math.abs(n) < 10 && Math.round(n) !== n ? n.toFixed(1).replace(".", ",") : Math.round(n).toLocaleString("es-PE"));
+const fmtD = n => (+n || 0).toLocaleString("es-PE", {maximumFractionDigits: 1});   // días siempre con 1 decimal (sin decimal si es entero)
 const fmtS = n => "S/ " + Math.round(n).toLocaleString("es-PE");
 const fmtK = n => fmtS(n);   // siempre el número completo (sin k ni M)
 const fmtPct = n => n == null ? "–" : Math.round(n * 100) + "%";
