@@ -181,7 +181,7 @@ function pintarLista() {
     if (g.length) h += grupoRol("int:" + r, r, g);
   }
   const t = D.personas.filter(p => p.tipo === "tercero" && ok(p));
-  if (t.length) h += `<div class="grupo ter-h">Terceros · 22 días hábiles/mes menos feriados</div>` +
+  if (t.length) h += `<div class="grupo ter-h">Terceros · días hábiles reales del mes menos feriados</div>` +
     ROLES.map(r => t.filter(p => p.perfil === r)).filter(g => g.length).map(g => grupoRol("ter:" + g[0].perfil, g[0].perfil, g, "margin-top:4px")).join("");
   lista.innerHTML = h;
   lista.querySelectorAll(".col").forEach(el => el.ondragstart = e => { e.dataTransfer.setData("text/plain", el.dataset.p); e.dataTransfer.effectAllowed = "copy"; });

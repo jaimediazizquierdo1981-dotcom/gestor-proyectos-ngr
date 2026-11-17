@@ -70,10 +70,10 @@ def capacidad(equipo: list[dict], feriados: list[dict], p: dict, lista: list[str
     fer = {pd.Timestamp(f["fecha"]).date() for f in feriados} if c.get("descontar_feriados", True) else set()
     out = {}
     for e in equipo:
-        if e.get("tipo") == "tercero":   # terceros: 22 días hábiles al mes menos los feriados del mes (sin vacaciones ni reserva)
-            base = float(c.get("dias_habiles_mes_tercero", 22))
+        if e.get("tipo") == "tercero":   # terceros: días hábiles reales del mes menos feriados (sin vacaciones ni reserva), con tope del criterio
+            tope = float(c.get("dias_habiles_mes_tercero", 22))
             out[e["persona"]] = np.array([
-                max(base - sum(1 for d in pd.bdate_range(pd.Period(m, "M").start_time, pd.Period(m, "M").end_time) if d.date() in fer), 0)
+                float(min(tope, sum(1 for d in pd.bdate_range(pd.Period(m, "M").start_time, pd.Period(m, "M").end_time) if d.date() not in fer)))
                 for m in lista])
             continue
         fila = []

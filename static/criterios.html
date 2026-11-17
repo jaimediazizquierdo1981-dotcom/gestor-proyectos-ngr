@@ -124,7 +124,7 @@ const CAMPOS = [
     ["costos_terceros.Arquitecto", "Arquitecto", "Costo mensual de un tercero a tiempo completo.", "num"],
     ["costos_terceros.Experto en Data", "Experto en Data", "Costo mensual de un tercero a tiempo completo.", "num"],
     ["costos_terceros.Demanda de Servicios", "Demanda de Servicios", "Costo mensual de un tercero a tiempo completo.", "num"],
-    ["capacidad.dias_habiles_mes_tercero", "Días hábiles por mes de un tercero", "Se le restan los feriados del mes.", "num"]]],
+    ["capacidad.dias_habiles_mes_tercero", "Tope de días por mes de un tercero", "Se usan los días hábiles reales de cada mes menos feriados, sin pasar este tope.", "num"]]],
 ];
 let BASE = null;
 const get = (o, r) => r.split(".").reduce((a, k) => a?.[k], o);
