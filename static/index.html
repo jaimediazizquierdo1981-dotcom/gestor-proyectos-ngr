@@ -227,12 +227,16 @@ function barras() {
   const svg = document.getElementById("barras"); svg.setAttribute("viewBox", `0 0 900 ${H}`);
   let h = "";
   P.forEach((p, i) => {
-    const v = val(p), y = 10 + i * fh, sc = x => x / mx * W, falta = v.py - v.ca;
+    const v = val(p), y = 10 + i * fh, sc = x => x / mx * W;
+    // lo que falta se mide por rol: sobrar en un rol no compensa lo que falta en otro
+    const huecos = Object.keys(p.dias_proyectados || {}).filter(r => !pf || r === pf)
+      .map(r => [r, (p.dias_proyectados[r] || 0) - (p.capacidad_asignada[r] || 0)]).filter(([, d]) => d > 0.05);
+    const falta = huecos.reduce((a, [, d]) => a + d, 0);
     h += `<text x="${L - 10}" y="${y + 16}" text-anchor="end" font-size="12.5" fill="#1f2430">${p.codigo} · ${p.proyecto.length > 30 ? p.proyecto.slice(0, 29) + "…" : p.proyecto}</text>
       <rect x="${L}" y="${y + 2}" width="${sc(v.py)}" height="11" rx="2" fill="#1F3864"/>
       <rect x="${L}" y="${y + 15}" width="${sc(v.ca)}" height="11" rx="2" fill="${COL[p.estado]}"/>
-      <text x="${L + Math.max(sc(v.py), sc(v.ca)) + 6}" y="${y + 18}" font-size="11.5" fill="${falta > 0.5 && p.estado !== "cubierto" ? "#d64545" : "#6b7280"}">${
-        falta > 0.5 && p.estado !== "cubierto" ? `${fmtD(v.ca)} de ${fmtD(v.py)} días · faltan ${fmtD(falta)} días` : (v.py ? `${fmtD(v.ca)} días · cubierto` : "sin posiciones definidas")}</text>`;
+      <text x="${L + Math.max(sc(v.py), sc(v.ca)) + 6}" y="${y + 18}" font-size="11.5" fill="${falta > 0.05 ? "#d64545" : "#6b7280"}">${
+        falta > 0.05 ? `${fmtD(v.ca)} de ${fmtD(v.py)} días · faltan ${fmtD(falta)} d en ${huecos.map(([r, d]) => `${r} ${fmtD(d)}`).join(", ")}` : (v.py ? `${fmtD(v.ca)} días · cubierto` : "sin posiciones definidas")}</text>`;
   });
   svg.innerHTML = h;
   subAv.textContent = D.modo === "hoja" ? "Días proyectados = días de las posiciones que necesita el proyecto. Capacidad real = días asignados a personas en la Hoja de trabajo." : "Días proyectados = lo que tomará el proyecto (con contingencia). Capacidad real = días que el equipo le puede asignar según la prioridad.";
