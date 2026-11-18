@@ -82,7 +82,7 @@ let D = null, DEP = {}, YO = null, CERR = new Set(), ARR = null;
 const TODOS = leer("gestor_ngr_no_transf") === true;
 const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
 const normN = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-const puede = p => !YO || !YO.usuario ? true : YO.solo_lectura ? false : YO.es_admin || normN(p.lider_ti) === normN(YO.nombre);
+const puede = p => !YO || !YO.usuario ? true : YO.edita_dependencias ? true : YO.solo_lectura ? false : YO.es_admin || normN(p.lider_ti) === normN(YO.nombre);
 
 async function cargar() {
   cargando(true, "Cargando…");

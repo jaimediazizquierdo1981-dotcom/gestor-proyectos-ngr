@@ -38,6 +38,7 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
                     print("SOBRECARGA_TERCERO", _p["persona"], _m, f"{sum(_a.values()):g}/{float(_p['capacidad'][_i]):g}", _a, flush=True)
     except Exception as _e:
         print("equilibrio error:", _e, flush=True)
+EDITORES_DEPENDENCIAS = {"mtaramona"}   # además del administrador y del Líder TI: pueden mover cualquier dependencia
 SOLO_LECTURA_OK = {"/api/calcular", "/api/montecarlo", "/api/excel", "/api/auth/cambiar", "/api/auth/login"}
 CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}
 
@@ -64,6 +65,13 @@ def _dueno(request: Request, codigo: str) -> None:
         raise HTTPException(403, f"Solo el Líder TI de {codigo} puede modificar esta ficha.")
 
 
+def _dueno_dep(request: Request, codigo: str) -> None:
+    q = _quien(request) if seg.activo() else None
+    if q and q.get("usuario") in EDITORES_DEPENDENCIAS:
+        return
+    _dueno(request, codigo)
+
+
 def _admin(request: Request) -> dict:
     q = _quien(request)
     if not q or not q["es_admin"]:
@@ -86,7 +94,8 @@ async def sin_cache(request: Request, call_next):
                 return JSONResponse({"detail": "Debes cambiar tu contraseña."}, status_code=403)
             return RedirectResponse("/cambiar-clave", status_code=303)
     # usuarios de solo lectura: pueden consultar y simular, pero no cambiar nada en la base
-    if q and q.get("solo_lectura") and request.method in ("POST", "PUT", "DELETE", "PATCH") and ruta not in SOLO_LECTURA_OK:
+    if q and q.get("solo_lectura") and request.method in ("POST", "PUT", "DELETE", "PATCH") and ruta not in SOLO_LECTURA_OK \
+            and not (ruta.startswith("/api/dependencias") and q.get("usuario") in EDITORES_DEPENDENCIAS):
         return JSONResponse({"detail": "Tu usuario es de solo lectura: no puede modificar información."}, status_code=403)
     accion = auditoria.accion(request.method, ruta)
     cuerpo = await request.body() if accion and "multipart" not in request.headers.get("content-type", "") else b""
@@ -158,7 +167,8 @@ def api_yo(request: Request):
     q = _quien(request)
     if not q:
         return {"usuario": "", "nombre": "", "es_admin": not seg.activo(), "debe_cambiar": False}
-    return {k: q.get(k) for k in ("usuario", "nombre", "area", "es_admin", "debe_cambiar", "emergencia", "solo_lectura")}
+    return {**{k: q.get(k) for k in ("usuario", "nombre", "area", "es_admin", "debe_cambiar", "emergencia", "solo_lectura")},
+            "edita_dependencias": q.get("usuario") in EDITORES_DEPENDENCIAS}
 
 
 @app.post("/api/auth/cambiar")
@@ -397,7 +407,7 @@ def api_dependencias():
 
 @app.put("/api/dependencias")
 def api_guardar_dependencias(request: Request, body: dict = Body(...)):
-    _dueno(request, body["codigo"])
+    _dueno_dep(request, body["codigo"])
     if not db.disponible():
         raise HTTPException(503, "No hay base de datos conectada.")
     try:
@@ -410,7 +420,7 @@ def api_guardar_dependencias(request: Request, body: dict = Body(...)):
 @app.post("/api/dependencias/rel")
 def api_agregar_dependencia(request: Request, body: dict = Body(...)):
     """Arrastrar y soltar: 'codigo' depende de 'prerequisito' (o '__raiz__' = rama principal)."""
-    _dueno(request, body["codigo"])
+    _dueno_dep(request, body["codigo"])
     try:
         db.agregar_dependencia(body["codigo"], body["prerequisito"])
     except ValueError as e:
@@ -420,7 +430,7 @@ def api_agregar_dependencia(request: Request, body: dict = Body(...)):
 
 @app.delete("/api/dependencias/rel")
 def api_quitar_dependencia(request: Request, codigo: str, prerequisito: str):
-    _dueno(request, codigo)
+    _dueno_dep(request, codigo)
     db.quitar_dependencia(codigo, prerequisito)
     return {"ok": True}
 
