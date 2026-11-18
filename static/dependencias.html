@@ -7,60 +7,78 @@
 <title>Dependencias · Gestor de Proyectos NGR</title>
 <link rel="stylesheet" href="/static/comun.css">
 <style>
-  main{max-width:1600px}
-  .dos{display:grid;grid-template-columns:minmax(560px,1fr) minmax(520px,1fr);gap:16px;align-items:start}
-  @media (max-width:1200px){.dos{grid-template-columns:1fr}}
-  table.dp{width:100%;border-collapse:collapse;font-size:12.5px}
-  .dp th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:6px;border-bottom:2px solid var(--line);white-space:nowrap}
-  .dp td{padding:6px;border-bottom:1px solid #f0ece4;vertical-align:top}
-  .dp td.pr{width:34px;text-align:center}
-  .prio{display:inline-block;min-width:22px;padding:1px 6px;border-radius:10px;background:#1f3864;color:#fff;font-weight:700;font-size:11px;text-align:center}
-  .chip{display:inline-flex;align-items:center;gap:4px;background:#eef2f9;border:1px solid #c9d5ea;color:#1f3864;border-radius:12px;padding:1px 8px;margin:1px 3px 1px 0;font-size:11.5px;white-space:nowrap}
-  .chip.req{background:#fff5e6;border-color:#f0c98a;color:#8a5300}
-  .ola{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 6px;background:#e8f5ee;color:#1d7a4a;white-space:nowrap}
-  .btn-e{font:inherit;font-size:11.5px;border:1px solid #c8cdd6;background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer}
-  .btn-e:disabled{opacity:.4;cursor:not-allowed}
-  .ed{margin-top:6px;border:1px solid #c9d5ea;border-radius:8px;padding:8px;background:#fafbfe;max-height:260px;overflow:auto}
-  .ed label{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:12px}
-  .ed .acc{display:flex;gap:8px;margin-top:6px}
-  .ed .acc button{font:inherit;font-size:12px;border-radius:6px;padding:4px 12px;cursor:pointer;border:1px solid #1f3864}
-  .ed .acc .ok{background:#1f3864;color:#fff}.ed .acc .no{background:#fff;color:#1f3864}
-  /* árbol */
-  .arbol ul{list-style:none;margin:0;padding-left:22px;position:relative}
+  main{max-width:1700px}
+  .dos{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(380px,1fr);gap:16px;align-items:start}
+  @media (max-width:1100px){.dos{grid-template-columns:1fr}}
+  .prio{display:inline-block;min-width:20px;padding:1px 6px;border-radius:10px;background:#1f3864;color:#fff;font-weight:700;font-size:10.5px;text-align:center}
+  .ola{display:inline-block;font-size:10px;font-weight:700;border-radius:4px;padding:1px 5px;background:#e8f5ee;color:#1d7a4a;white-space:nowrap}
+  /* lienzo (izquierda) */
+  #lienzo{min-height:520px;border:2px dashed #c9d5ea;border-radius:12px;padding:16px;background:#fbfcfe;transition:background .15s,border-color .15s}
+  #lienzo.sobre{background:#eef4ff;border-color:#4f81bd}
+  .guia{color:var(--muted);font-size:13px;text-align:center;padding:120px 20px}
+  .guia b{color:#1f3864}
+  .arbol ul{list-style:none;margin:0;padding-left:26px;position:relative}
   .arbol > ul{padding-left:0}
-  .arbol li{position:relative;padding:3px 0 3px 18px}
+  .arbol li{position:relative;padding:4px 0 4px 18px}
+  .arbol > ul > li{padding-left:0;margin-bottom:8px}
   .arbol ul ul li:before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:2px solid #c9d5ea}
-  .arbol ul ul li:last-child:before{bottom:auto;height:16px}
-  .arbol ul ul li:after{content:"";position:absolute;left:0;top:16px;width:14px;border-top:2px solid #c9d5ea}
-  .nodo{display:inline-flex;align-items:center;gap:8px;border:1px solid #c9d5ea;border-radius:8px;padding:5px 10px;background:#fff;font-size:12.5px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .arbol ul ul li:last-child:before{bottom:auto;height:20px}
+  .arbol ul ul li:after{content:"";position:absolute;left:0;top:20px;width:16px;border-top:2px solid #c9d5ea}
+  .nodo{display:inline-flex;align-items:center;gap:8px;border:1px solid #c9d5ea;border-radius:8px;padding:6px 10px;background:#fff;font-size:12.5px;box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:grab;transition:box-shadow .12s,border-color .12s}
   .nodo.raiz{border:2px solid #1f3864;background:#eef2f9;font-weight:600}
+  .nodo.drop{border-color:#2e9e6a;box-shadow:0 0 0 3px rgba(46,158,106,.25);background:#effaf4}
   .nodo .tg{cursor:pointer;color:#1f3864;font-size:11px;width:12px}
   .nodo small{color:#6b7280;font-weight:400}
-  .nodo .tambien{font-size:10.5px;color:#8a5300}
-  .grupo{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px}
-  .vacio{color:var(--muted);font-size:12.5px;padding:8px 0}
-  .aviso-err{color:#b42318;font-size:12px;margin-top:4px}
+  .nodo .x{cursor:pointer;color:#9ca3af;font-weight:700;margin-left:4px;padding:0 3px;border-radius:4px}
+  .nodo .x:hover{color:#b42318;background:#fde2e2}
+  .tambien{font-size:10.5px;color:#8a5300;font-weight:400}
+  /* lista de proyectos (derecha) */
+  .lista{display:flex;flex-direction:column;gap:6px;max-height:430px;overflow:auto;padding-right:4px}
+  .item{display:flex;align-items:center;gap:8px;border:1px solid #e3e6ec;border-radius:8px;padding:6px 9px;background:#fff;font-size:12.5px;cursor:grab}
+  .item:hover{border-color:#4f81bd;background:#f6f9ff}
+  .item.usado{background:#f6f7f9;color:#6b7280}
+  .item .lt{color:#6b7280;font-size:11px}
+  .item .ok{margin-left:auto;color:#2e9e6a;font-size:11px;white-space:nowrap}
+  .item[draggable=false]{cursor:not-allowed;opacity:.55}
+  /* relaciones */
+  table.rel{width:100%;border-collapse:collapse;font-size:12px}
+  .rel th{text-align:left;font-size:11px;color:var(--muted);font-weight:600;padding:5px 6px;border-bottom:2px solid var(--line)}
+  .rel td{padding:5px 6px;border-bottom:1px solid #f0ece4;vertical-align:top}
+  .rel .fl{color:#1f3864;font-weight:700;text-align:center}
+  .rel .x{cursor:pointer;color:#9ca3af;font-weight:700}
+  .rel .x:hover{color:#b42318}
+  .vacio{color:var(--muted);font-size:12.5px;padding:6px 0}
+  .msg{font-size:12px;margin-top:6px;min-height:16px}
+  .msg.err{color:#b42318}
 </style>
 </head>
 <body>
 <main>
   <h1>Dependencias entre proyectos</h1>
-  <div class="sub">Proyectos activos ordenados por prioridad (mismo criterio de la palanca del Consolidado). En cada proyecto marca de qué otros depende (sus prerrequisitos). El árbol pone en la rama principal los proyectos que son prerrequisito de otros, y debajo los que dependen de ellos. La "Ola" indica el orden de ejecución: Ola 1 no depende de nadie, Ola 2 depende solo de proyectos de la Ola 1, etc. Solo el Líder TI de cada proyecto (o el administrador) edita sus dependencias.</div>
+  <div class="sub">Arrastra los proyectos de la derecha al lienzo. Suéltalo en un espacio vacío para ponerlo en la <b>rama principal</b> (es prerrequisito de otros); suéltalo <b>sobre otro proyecto</b> para indicar que depende de él. Un proyecto puede depender de varios: arrástralo de nuevo sobre otro. La ✕ quita la relación. La "Ola" es el orden de ejecución. Proyectos activos con el criterio de la palanca del Consolidado; solo el Líder TI de cada proyecto (o el administrador) mueve su proyecto.</div>
   <div class="dos">
     <div class="card">
-      <h2>Proyectos activos</h2>
-      <table class="dp" id="tP"></table>
-    </div>
-    <div class="card">
       <h2>Árbol de dependencias</h2>
-      <div class="arbol" id="arbol"></div>
+      <div id="lienzo" class="arbol"></div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Proyectos activos <small style="font-weight:400;color:#6b7280">· arrástralos al árbol</small></h2>
+        <div class="lista" id="lista"></div>
+      </div>
+      <div class="card">
+        <h2>Quién es prerrequisito de quién</h2>
+        <div id="rels"></div>
+      </div>
     </div>
   </div>
 </main>
 <script src="/static/comun.js"></script>
 <script>
 nav("Dependencias");
-let D = null, DEP = {}, YO = null, EDIT = null, CERR = new Set(), ERR = "";
+const RAIZ = "__raiz__";
+let D = null, DEP = {}, YO = null, CERR = new Set(), ARR = null;
 const TODOS = leer("gestor_ngr_no_transf") === true;
 const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
 const normN = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -73,64 +91,85 @@ async function cargar() {
   cargando(false);
   pintar();
 }
-function proyectos() {
-  return D.proyectos.filter(p => activo(p) && (TODOS || esTransf(p))).sort(ordPrio);
-}
-function olas(P) {   // nivel topológico dentro de los proyectos activos
-  const cods = new Set(P.map(p => p.codigo)), memo = {};
-  const ola = (c, pila = new Set()) => {
-    if (memo[c]) return memo[c];
-    if (pila.has(c)) return 1;
-    pila.add(c);
-    const pre = (DEP[c] || []).filter(x => cods.has(x));
-    memo[c] = pre.length ? 1 + Math.max(...pre.map(x => ola(x, pila))) : 1;
-    return memo[c];
-  };
-  P.forEach(p => ola(p.codigo));
-  return memo;
-}
+const proyectos = () => D.proyectos.filter(p => activo(p) && (TODOS || esTransf(p))).sort(ordPrio);
+function aviso(t, err) { msg.textContent = t || ""; msg.className = "msg" + (err ? " err" : ""); if (t && !err) setTimeout(() => msg.textContent === t && (msg.textContent = ""), 3500); }
+
 function pintar() {
-  const P = proyectos(), M = Object.fromEntries(P.map(p => [p.codigo, p])), O = olas(P);
+  const P = proyectos(), M = Object.fromEntries(P.map(p => [p.codigo, p]));
+  const pre = c => (DEP[c] || []).filter(x => M[x]);                       // prerrequisitos activos
   const dependientes = {};
-  P.forEach(p => (DEP[p.codigo] || []).filter(x => M[x]).forEach(x => (dependientes[x] ||= []).push(p.codigo)));
-  // ---- tabla
-  let h = `<tr><th>Prior.</th><th>Proyecto</th><th>Depende de (prerrequisitos)</th><th>Es prerrequisito de</th><th>Ola</th><th></th></tr>`;
-  for (const p of P) {
-    const pre = (DEP[p.codigo] || []), dep = dependientes[p.codigo] || [], ed = EDIT === p.codigo;
-    h += `<tr><td class="pr">${p.prioridad ? `<span class="prio">${p.prioridad}</span>` : ""}</td>
-      <td><b>${p.codigo}</b> ${p.proyecto}<br><small style="color:#6b7280">${p.lider_ti || "Sin Líder TI"}</small></td>
-      <td>${pre.length ? pre.map(c => `<span class="chip req" title="${M[c] ? M[c].proyecto : "No activo en este escenario"}">${c}${M[c] ? "" : " (no activo)"}</span>`).join("") : '<small style="color:#9ca3af">—</small>'}
-        ${ed ? `<div class="ed">${P.filter(x => x.codigo !== p.codigo).map(x => `<label><input type="checkbox" value="${x.codigo}" ${pre.includes(x.codigo) ? "checked" : ""}> <b>${x.codigo}</b> ${x.proyecto}</label>`).join("")}
-          <div class="acc"><button class="ok" onclick="guardarDep('${p.codigo}', this)">Guardar</button><button class="no" onclick="EDIT=null;ERR='';pintar()">Cancelar</button></div>${ERR ? `<div class="aviso-err">${ERR}</div>` : ""}</div>` : ""}</td>
-      <td>${dep.length ? dep.map(c => `<span class="chip" title="${M[c].proyecto}">${c}</span>`).join("") : '<small style="color:#9ca3af">—</small>'}</td>
-      <td><span class="ola">Ola ${O[p.codigo]}</span></td>
-      <td><button class="btn-e" ${puede(p) ? "" : "disabled title='Solo el Líder TI del proyecto o el administrador'"} onclick="EDIT='${p.codigo}';ERR='';pintar()">Editar</button></td></tr>`;
-  }
-  tP.innerHTML = P.length ? h : '<tr><td class="vacio">No hay proyectos activos.</td></tr>';
-  // ---- árbol: rama principal = prerrequisitos que no dependen de nadie (dentro del escenario)
-  const raices = P.filter(p => dependientes[p.codigo] && !(DEP[p.codigo] || []).some(x => M[x]));
+  P.forEach(p => pre(p.codigo).forEach(x => (dependientes[x] ||= []).push(p.codigo)));
+  const memo = {}, ola = (c, vis = new Set()) => memo[c] ||= (vis.has(c) ? 1 : (vis.add(c), pre(c).length ? 1 + Math.max(...pre(c).map(x => ola(x, vis))) : 1));
+  P.forEach(p => ola(p.codigo));
+  const enArbol = c => (DEP[c] || []).includes(RAIZ) || pre(c).length || dependientes[c];
+  const raices = P.filter(p => !pre(p.codigo).length && ((DEP[p.codigo] || []).includes(RAIZ) || dependientes[p.codigo]));
+
+  // ---- árbol
   const nodo = (c, padre, camino) => {
-    const p = M[c], hijos = (dependientes[c] || []).filter(x => !camino.includes(x)), k = (padre || "") + ">" + c, abierto = !CERR.has(k);
-    const otros = (DEP[c] || []).filter(x => M[x] && x !== padre);
-    return `<li><span class="nodo ${padre ? "" : "raiz"}">${hijos.length ? `<span class="tg" onclick="plegar('${k}')">${abierto ? "▾" : "▸"}</span>` : ""}
-      ${p.prioridad ? `<span class="prio">${p.prioridad}</span>` : ""}<span><b>${c}</b> ${p.proyecto} <small>· Ola ${O[c]}${hijos.length ? ` · ${hijos.length} dependiente${hijos.length > 1 ? "s" : ""}` : ""}</small>
-      ${padre && otros.length ? `<br><span class="tambien">también depende de ${otros.join(", ")}</span>` : ""}</span></span>
-      ${hijos.length && abierto ? `<ul>${hijos.map(x => nodo(x, c, [...camino, x])).join("")}</ul>` : ""}</li>`;
+    const p = M[c], hijos = (dependientes[c] || []).filter(x => !camino.includes(x)), k = (padre || "") + ">" + c, ab = !CERR.has(k);
+    const otros = pre(c).filter(x => x !== padre);
+    return `<li><span class="nodo ${padre ? "" : "raiz"}" draggable="${puede(p)}" data-c="${c}" data-padre="${padre || ""}">
+      ${hijos.length ? `<span class="tg" onclick="plegar('${k}')">${ab ? "▾" : "▸"}</span>` : ""}
+      ${p.prioridad ? `<span class="prio">${p.prioridad}</span>` : ""}
+      <span><b>${c}</b> ${p.proyecto} <span class="ola">Ola ${memo[c]}</span>
+        ${padre && otros.length ? `<br><span class="tambien">también depende de ${otros.join(", ")}</span>` : ""}</span>
+      ${puede(p) ? `<span class="x" title="${padre ? `Quitar: ${c} ya no depende de ${padre}` : "Quitar de la rama principal"}" onclick="quitar('${c}','${padre || RAIZ}')">✕</span>` : ""}</span>
+      ${hijos.length && ab ? `<ul>${hijos.map(x => nodo(x, c, [...camino, x])).join("")}</ul>` : ""}</li>`;
   };
-  const sueltos = P.filter(p => !dependientes[p.codigo] && !(DEP[p.codigo] || []).some(x => M[x]));
-  arbol.innerHTML = (raices.length ? `<div class="grupo">Rama principal · prerrequisitos de otros proyectos (${raices.length})</div><ul>${raices.map(p => nodo(p.codigo, null, [p.codigo])).join("")}</ul>`
-      : '<div class="vacio">Aún no hay dependencias registradas. Usa “Editar” en la tabla para marcar de qué proyectos depende cada uno.</div>')
-    + (sueltos.length ? `<div class="grupo">Proyectos independientes (${sueltos.length})</div><div>${sueltos.map(p => `<span class="chip" title="${p.proyecto}">${p.codigo}</span>`).join("")}</div>` : "");
+  lienzo.innerHTML = raices.length ? `<ul>${raices.map(p => nodo(p.codigo, null, [p.codigo])).join("")}</ul>`
+    : `<div class="guia">Arrastra aquí un proyecto de la lista de la derecha para empezar el árbol.<br><b>Suelta en vacío</b> = rama principal · <b>suelta sobre un proyecto</b> = depende de él.</div>`;
+
+  // ---- lista de proyectos
+  lista.innerHTML = P.map(p => `<div class="item ${enArbol(p.codigo) ? "usado" : ""}" draggable="${puede(p)}" data-c="${p.codigo}" title="${puede(p) ? "Arrastra al árbol" : "Solo el Líder TI del proyecto o el administrador"}">
+      ${p.prioridad ? `<span class="prio">${p.prioridad}</span>` : '<span class="prio" style="background:#9ca3af">–</span>'}
+      <span><b>${p.codigo}</b> ${p.proyecto}<br><span class="lt">${p.lider_ti || "Sin Líder TI"}</span></span>
+      ${enArbol(p.codigo) ? `<span class="ok">✓ Ola ${memo[p.codigo]}</span>` : ""}</div>`).join("") || '<div class="vacio">No hay proyectos activos.</div>';
+
+  // ---- relaciones
+  const R = [];
+  P.forEach(p => pre(p.codigo).forEach(x => R.push([x, p.codigo])));
+  R.sort((a, b) => (memo[a[0]] - memo[b[0]]) || a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
+  rels.innerHTML = R.length ? `<table class="rel"><tr><th>Prerrequisito</th><th></th><th>Proyecto que depende</th><th></th></tr>` +
+    R.map(([a, b]) => `<tr><td><b>${a}</b> ${M[a].proyecto} <span class="ola">Ola ${memo[a]}</span></td><td class="fl">→</td>
+      <td><b>${b}</b> ${M[b].proyecto} <span class="ola">Ola ${memo[b]}</span></td>
+      <td>${puede(M[b]) ? `<span class="x" title="Quitar relación" onclick="quitar('${b}','${a}')">✕</span>` : ""}</td></tr>`).join("") + "</table>"
+    : '<div class="vacio">Aún no hay relaciones. Suelta un proyecto sobre otro en el árbol para crear una.</div>';
+
+  // ---- arrastrar y soltar
+  document.querySelectorAll('[draggable="true"]').forEach(el => {
+    el.ondragstart = e => { ARR = {c: el.dataset.c, padre: el.dataset.padre || null}; e.dataTransfer.setData("text/plain", el.dataset.c); e.dataTransfer.effectAllowed = "copyMove"; e.stopPropagation(); };
+  });
+  lienzo.querySelectorAll(".nodo").forEach(el => {
+    el.ondragover = e => { if (ARR && ARR.c !== el.dataset.c) { e.preventDefault(); e.stopPropagation(); el.classList.add("drop"); lienzo.classList.remove("sobre"); } };
+    el.ondragleave = () => el.classList.remove("drop");
+    el.ondrop = e => { e.preventDefault(); e.stopPropagation(); el.classList.remove("drop"); soltar(el.dataset.c); };
+  });
+  lienzo.ondragover = e => { if (ARR) { e.preventDefault(); lienzo.classList.add("sobre"); } };
+  lienzo.ondragleave = e => { if (!lienzo.contains(e.relatedTarget)) lienzo.classList.remove("sobre"); };
+  lienzo.ondrop = e => { e.preventDefault(); lienzo.classList.remove("sobre"); soltar(null); };
+}
+
+async function soltar(destino) {
+  if (!ARR) return;
+  const {c, padre} = ARR; ARR = null;
+  const prereq = destino || RAIZ;
+  if ((DEP[c] || []).includes(prereq)) return;
+  const r = await fetch("/api/dependencias/rel", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo: c, prerequisito: prereq})});
+  if (!r.ok) { aviso((await r.json().catch(() => ({}))).detail || "No se pudo guardar.", true); return; }
+  (DEP[c] ||= []).push(prereq);
+  // al colgarlo de otro proyecto deja de ser "rama principal"; si se movió desde el árbol, se suelta de su padre anterior
+  if (destino && (DEP[c] || []).includes(RAIZ)) await quitar(c, RAIZ, true);
+  if (padre && padre !== prereq) await quitar(c, padre, true);
+  aviso(destino ? `${c} ahora depende de ${destino}.` : `${c} quedó en la rama principal.`);
+  pintar();
+}
+async function quitar(c, prereq, silencioso) {
+  const r = await fetch(`/api/dependencias/rel?codigo=${encodeURIComponent(c)}&prerequisito=${encodeURIComponent(prereq)}`, {method: "DELETE"});
+  if (!r.ok) { aviso((await r.json().catch(() => ({}))).detail || "No se pudo quitar.", true); return; }
+  DEP[c] = (DEP[c] || []).filter(x => x !== prereq); if (!DEP[c].length) delete DEP[c];
+  if (!silencioso) { aviso(prereq === RAIZ ? `${c} salió de la rama principal.` : `${c} ya no depende de ${prereq}.`); pintar(); }
 }
 function plegar(k) { CERR.has(k) ? CERR.delete(k) : CERR.add(k); pintar(); }
-async function guardarDep(cod, btn) {
-  const pre = [...btn.closest(".ed").querySelectorAll("input:checked")].map(i => i.value);
-  const fuera = (DEP[cod] || []).filter(x => !proyectos().some(p => p.codigo === x));   // conserva prerrequisitos de proyectos no activos
-  const r = await fetch("/api/dependencias", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo: cod, prerequisitos: [...pre, ...fuera]})});
-  if (!r.ok) { ERR = (await r.json().catch(() => ({}))).detail || "No se pudo guardar."; pintar(); return; }
-  DEP[cod] = [...pre, ...fuera].sort(); if (!DEP[cod].length) delete DEP[cod];
-  EDIT = null; ERR = ""; pintar();
-}
 cargar();
 </script>
 </body>

@@ -407,6 +407,24 @@ def api_guardar_dependencias(request: Request, body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.post("/api/dependencias/rel")
+def api_agregar_dependencia(request: Request, body: dict = Body(...)):
+    """Arrastrar y soltar: 'codigo' depende de 'prerequisito' (o '__raiz__' = rama principal)."""
+    _dueno(request, body["codigo"])
+    try:
+        db.agregar_dependencia(body["codigo"], body["prerequisito"])
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return {"ok": True}
+
+
+@app.delete("/api/dependencias/rel")
+def api_quitar_dependencia(request: Request, codigo: str, prerequisito: str):
+    _dueno(request, codigo)
+    db.quitar_dependencia(codigo, prerequisito)
+    return {"ok": True}
+
+
 @app.get("/api/observaciones")
 def api_observaciones():
     return db.leer_observaciones() if db.disponible() else {}

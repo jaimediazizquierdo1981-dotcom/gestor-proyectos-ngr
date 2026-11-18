@@ -456,6 +456,21 @@ def leer_dependencias() -> dict:
         return out
 
 
+RAIZ = "__raiz__"   # marca: el proyecto se colocó en la rama principal del árbol
+
+
+def agregar_dependencia(codigo: str, prerequisito: str) -> None:
+    actual = leer_dependencias().get(codigo, [])
+    if prerequisito in actual:
+        return
+    guardar_dependencias(codigo, actual + [prerequisito])
+
+
+def quitar_dependencia(codigo: str, prerequisito: str) -> None:
+    with _conn() as c:
+        c.execute("delete from gestor.dependencias where codigo = %s and prerequisito = %s", (codigo, prerequisito))
+
+
 def guardar_dependencias(codigo: str, prereqs: list) -> None:
     prereqs = sorted({str(x) for x in prereqs if x and str(x) != codigo})
     with _conn() as c:
@@ -467,7 +482,7 @@ def guardar_dependencias(codigo: str, prereqs: list) -> None:
         def llega(desde, hasta, vistos=()):
             return desde == hasta or any(llega(x, hasta, vistos + (desde,)) for x in actual.get(desde, ()) if x not in vistos)
         for pre in prereqs:
-            if llega(pre, codigo):
+            if pre != RAIZ and llega(pre, codigo):
                 raise ValueError(f"{pre} ya depende (directa o indirectamente) de {codigo}: se formaría un ciclo.")
         c.execute("delete from gestor.dependencias where codigo = %s", (codigo,))
         for pre in prereqs:
