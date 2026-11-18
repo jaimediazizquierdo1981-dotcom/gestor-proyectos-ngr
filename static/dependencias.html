@@ -50,15 +50,19 @@
   .vacio{color:var(--muted);font-size:12.5px;padding:6px 0}
   .msg{font-size:12px;margin-top:6px;min-height:16px}
   .msg.err{color:#b42318}
+  #bGuardar:disabled,#bDescartar:disabled{opacity:.45;cursor:not-allowed}
 </style>
 </head>
 <body>
 <main>
   <h1>Dependencias entre proyectos</h1>
-  <div class="sub">Arrastra los proyectos de la derecha al lienzo. Suéltalo en un espacio vacío para ponerlo en la <b>rama principal</b> (es prerrequisito de otros); suéltalo <b>sobre otro proyecto</b> para indicar que depende de él. Un proyecto puede depender de varios: arrástralo de nuevo sobre otro. La ✕ quita la relación. La "Ola" es el orden de ejecución. Proyectos activos con el criterio de la palanca del Consolidado; solo el Líder TI de cada proyecto (o el administrador) mueve su proyecto.</div>
+  <div class="sub">Arrastra los proyectos de la derecha al lienzo. Suéltalo en un espacio vacío para ponerlo en la <b>rama principal</b> (es prerrequisito de otros); suéltalo <b>sobre otro proyecto</b> para indicar que depende de él. Un proyecto puede depender de varios: arrástralo de nuevo sobre otro. La ✕ quita la relación. Los cambios se aplican al presionar <b>Guardar dependencias</b>. La "Ola" es el orden de ejecución. Proyectos activos con el criterio de la palanca del Consolidado; solo el Líder TI de cada proyecto (o el administrador) mueve su proyecto.</div>
   <div class="dos">
     <div class="card">
-      <h2>Árbol de dependencias</h2>
+      <div style="display:flex;align-items:center;gap:10px"><h2 style="margin:0">Árbol de dependencias</h2>
+        <span id="pend" style="font-size:12px;color:#a15c07"></span>
+        <button id="bDescartar" onclick="descartar()" style="margin-left:auto;font:inherit;font-size:12.5px;border:1px solid #c8cdd6;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer">Descartar cambios</button>
+        <button id="bGuardar" onclick="guardarTodo()" style="font:inherit;font-size:13px;font-weight:600;border:0;background:#1f3864;color:#fff;border-radius:8px;padding:7px 16px;cursor:pointer">💾 Guardar dependencias</button></div>
       <div id="lienzo" class="arbol"></div>
       <div class="msg" id="msg"></div>
     </div>
@@ -78,7 +82,7 @@
 <script>
 nav("Dependencias");
 const RAIZ = "__raiz__";
-let D = null, DEP = {}, YO = null, CERR = new Set(), ARR = null;
+let D = null, DEP = {}, ORIG = {}, YO = null, CERR = new Set(), ARR = null;   // DEP = borrador en pantalla; ORIG = lo guardado
 const TODOS = leer("gestor_ngr_no_transf") === true;
 const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
 const normN = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -89,8 +93,13 @@ async function cargar() {
   [D, DEP, YO] = await Promise.all([calcular(), fetch("/api/dependencias").then(r => r.json()).catch(() => ({})),
                                     fetch("/api/yo").then(r => r.ok ? r.json() : null).catch(() => null)]);
   cargando(false);
+  ORIG = JSON.parse(JSON.stringify(DEP));
   pintar();
 }
+const norm = a => [...new Set(a || [])].sort().join("|");
+const cambiados = () => [...new Set([...Object.keys(DEP), ...Object.keys(ORIG)])].filter(c => norm(DEP[c]) !== norm(ORIG[c]));
+window.hayCambiosSinGuardar = () => !!(D && cambiados().length);
+window.addEventListener("beforeunload", e => { if (window.hayCambiosSinGuardar()) { e.preventDefault(); e.returnValue = ""; } });
 const proyectos = () => D.proyectos.filter(p => activo(p) && (TODOS || esTransf(p))).sort(ordPrio);
 function aviso(t, err) { msg.textContent = t || ""; msg.className = "msg" + (err ? " err" : ""); if (t && !err) setTimeout(() => msg.textContent === t && (msg.textContent = ""), 3500); }
 
@@ -135,6 +144,9 @@ function pintar() {
       <td>${puede(M[b]) ? `<span class="x" title="Quitar relación" onclick="quitar('${b}','${a}')">✕</span>` : ""}</td></tr>`).join("") + "</table>"
     : '<div class="vacio">Aún no hay relaciones. Suelta un proyecto sobre otro en el árbol para crear una.</div>';
 
+  const n = cambiados().length;
+  pend.textContent = n ? `● ${n} proyecto${n > 1 ? "s" : ""} con cambios sin guardar` : "";
+  bGuardar.disabled = bDescartar.disabled = !n;
   // ---- arrastrar y soltar
   document.querySelectorAll('[draggable="true"]').forEach(el => {
     el.ondragstart = e => { ARR = {c: el.dataset.c, padre: el.dataset.padre || null}; e.dataTransfer.setData("text/plain", el.dataset.c); e.dataTransfer.effectAllowed = "copyMove"; e.stopPropagation(); };
@@ -149,25 +161,43 @@ function pintar() {
   lienzo.ondrop = e => { e.preventDefault(); lienzo.classList.remove("sobre"); soltar(null); };
 }
 
-async function soltar(destino) {
+function llega(desde, hasta, vis = new Set()) {   // ¿"desde" depende (directa o indirectamente) de "hasta"?
+  if (desde === hasta) return true;
+  if (vis.has(desde)) return false;
+  vis.add(desde);
+  return (DEP[desde] || []).some(x => x !== RAIZ && llega(x, hasta, vis));
+}
+function soltar(destino) {
   if (!ARR) return;
   const {c, padre} = ARR; ARR = null;
   const prereq = destino || RAIZ;
   if ((DEP[c] || []).includes(prereq)) return;
-  const r = await fetch("/api/dependencias/rel", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo: c, prerequisito: prereq})});
-  if (!r.ok) { aviso((await r.json().catch(() => ({}))).detail || "No se pudo guardar.", true); return; }
+  if (destino && llega(destino, c)) { aviso(`${destino} ya depende (directa o indirectamente) de ${c}: se formaría un ciclo.`, true); return; }
   (DEP[c] ||= []).push(prereq);
   // al colgarlo de otro proyecto deja de ser "rama principal"; si se movió desde el árbol, se suelta de su padre anterior
-  if (destino && (DEP[c] || []).includes(RAIZ)) await quitar(c, RAIZ, true);
-  if (padre && padre !== prereq) await quitar(c, padre, true);
-  aviso(destino ? `${c} ahora depende de ${destino}.` : `${c} quedó en la rama principal.`);
+  if (destino) DEP[c] = DEP[c].filter(x => x !== RAIZ);
+  if (padre && padre !== prereq) DEP[c] = DEP[c].filter(x => x !== padre);
+  aviso(destino ? `${c} depende de ${destino} (falta guardar).` : `${c} en la rama principal (falta guardar).`);
   pintar();
 }
-async function quitar(c, prereq, silencioso) {
-  const r = await fetch(`/api/dependencias/rel?codigo=${encodeURIComponent(c)}&prerequisito=${encodeURIComponent(prereq)}`, {method: "DELETE"});
-  if (!r.ok) { aviso((await r.json().catch(() => ({}))).detail || "No se pudo quitar.", true); return; }
+function quitar(c, prereq) {
   DEP[c] = (DEP[c] || []).filter(x => x !== prereq); if (!DEP[c].length) delete DEP[c];
-  if (!silencioso) { aviso(prereq === RAIZ ? `${c} salió de la rama principal.` : `${c} ya no depende de ${prereq}.`); pintar(); }
+  aviso(prereq === RAIZ ? `${c} salió de la rama principal (falta guardar).` : `${c} ya no depende de ${prereq} (falta guardar).`);
+  pintar();
+}
+function descartar() { DEP = JSON.parse(JSON.stringify(ORIG)); aviso("Se descartaron los cambios."); pintar(); }
+async function guardarTodo() {
+  // primero los que solo quitan relaciones (evita ciclos transitorios en la base), luego los que agregan
+  const cods = cambiados().sort((a, b) => ((DEP[a] || []).filter(x => !(ORIG[a] || []).includes(x)).length) - ((DEP[b] || []).filter(x => !(ORIG[b] || []).includes(x)).length));
+  bGuardar.disabled = true; bGuardar.textContent = "Guardando…";
+  for (const c of cods) {
+    const r = await fetch("/api/dependencias", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo: c, prerequisitos: DEP[c] || []})});
+    if (!r.ok) { aviso(`${c}: ${(await r.json().catch(() => ({}))).detail || "no se pudo guardar"}`, true); bGuardar.textContent = "💾 Guardar dependencias"; pintar(); return; }
+    if (DEP[c]) ORIG[c] = [...DEP[c]]; else delete ORIG[c];
+  }
+  bGuardar.textContent = "💾 Guardar dependencias";
+  aviso(`Dependencias guardadas (${cods.length} proyecto${cods.length > 1 ? "s" : ""}).`);
+  pintar();
 }
 function plegar(k) { CERR.has(k) ? CERR.delete(k) : CERR.add(k); pintar(); }
 cargar();
