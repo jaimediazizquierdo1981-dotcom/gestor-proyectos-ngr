@@ -25,6 +25,9 @@
   .grid tr.res td{font-weight:700;background:#fafafa}
   .grid tr.res td.nom{color:#1f2430}
   .grid tr.off td{color:#9ca3af}
+  .grid tr.tot td{background:#1f3864;color:#fff;font-weight:700}
+  .grid tr.tot td.n,.grid tr.tot td.nom,.grid tr.tot td.nom small{background:#1f3864;color:#fff}
+  .fila.tot{background:#eef2f9}
   .grid tr.sel td{background:#dbe8fb !important}
   .grid .nom .ind{display:inline-block;width:16px}
   .grid .tg{cursor:pointer;color:#555;width:14px;display:inline-block;font-size:10px}
@@ -120,12 +123,21 @@ function pintar() {
     });
   } else P.forEach(p => filas.push({p}));
 
+  // fila 0 (resumen del proyecto, como en MS Project): Capex total de los proyectos activos
+  const actT = P.filter(activo), baseT = actT.length ? actT : P;
+  filas.unshift({res: true, total: true, k: "Total portafolio", n: actT.length, i0: Math.min(...baseT.map(p => p.i0)), i1: Math.max(...baseT.map(p => p.i1)),
+                 capex: actT.reduce((s, p) => s + p.capex + (p.capex_terceros || 0), 0)});
   // ---- tabla izquierda
-  let id = 0;
+  let id = -1;
   let h = `<table class="grid"><colgroup><col style="width:34px"><col style="width:300px"><col style="width:72px"><col style="width:74px"><col style="width:74px"><col style="width:130px"><col style="width:70px"><col style="width:96px"></colgroup>
     <tr><th></th><th>Nombre de tarea</th><th>Duración</th><th>Comienzo</th><th>Fin</th><th>Líder TI</th><th>% Cob.</th><th>Capex (S/)</th></tr>`;
   for (const f of filas) {
     id++;
+    if (f.total) {
+      h += `<tr class="res tot"><td class="n">0</td><td class="nom">Total portafolio <small style="font-weight:400">(${f.n} proyectos activos)</small></td>
+        <td class="num">${f.i1 - f.i0 + 1} ${f.i1 - f.i0 ? "meses" : "mes"}</td><td>${fecha(f.i0)}</td><td>${fecha(f.i1, 1)}</td><td></td><td></td><td class="num">${fmtK(f.capex).replace("S/ ", "")}</td></tr>`;
+      continue;
+    }
     if (f.res) {
       const k = f.k.replace(/'/g, "\\'");
       h += `<tr class="res" data-r="${id}"><td class="n">${id}</td><td class="nom"><span class="tg" onclick="plegar('${k}')">${CERR.has(f.k) ? "▶" : "◢"}</span> ${f.k} <small style="font-weight:400;color:#6b7280">(${f.n})</small></td>
@@ -149,7 +161,8 @@ function pintar() {
   let b = `<div class="tl" style="width:${ancho}px"><div class="tl-cab"><div class="f1">${f1}</div><div class="f2">${f2}</div></div><div style="position:relative">`;
   for (const f of filas) {
     const t = f.res ? f : f.p, x = (t.i0 - a0) * W, w = (t.i1 - t.i0 + 1) * W;
-    if (f.res) b += `<div class="fila">${cols}<div class="resumen" style="left:${x}px;width:${w}px"></div></div>`;
+    if (f.total) b += `<div class="fila tot">${cols}<div class="resumen" style="left:${x}px;width:${w}px;background:#1f3864"></div><span class="etq" style="left:${x + w + 8}px;font-weight:700;color:#1f3864">${fmtS(f.capex)}</span></div>`;
+    else if (f.res) b += `<div class="fila">${cols}<div class="resumen" style="left:${x}px;width:${w}px"></div></div>`;
     else {
       const p = f.p, off = !activo(p), cls = p.on_hold ? "on_hold" : off ? "off" : p.estado;
       const cov = off ? 0 : Math.max(0, Math.min(1, p.cobertura || 0));
