@@ -390,6 +390,23 @@ def api_proyecto(request: Request, body: dict = Body(...)):
     return {"ok": True}
 
 
+@app.get("/api/dependencias")
+def api_dependencias():
+    return db.leer_dependencias() if db.disponible() else {}
+
+
+@app.put("/api/dependencias")
+def api_guardar_dependencias(request: Request, body: dict = Body(...)):
+    _dueno(request, body["codigo"])
+    if not db.disponible():
+        raise HTTPException(503, "No hay base de datos conectada.")
+    try:
+        db.guardar_dependencias(body["codigo"], body.get("prerequisitos") or [])
+    except ValueError as e:
+        raise HTTPException(409, str(e))
+    return {"ok": True}
+
+
 @app.get("/api/observaciones")
 def api_observaciones():
     return db.leer_observaciones() if db.disponible() else {}
@@ -519,7 +536,7 @@ def api_estado():
     return db.estado()
 
 
-VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html", "/tops": "tops.html", "/gantt": "gantt.html", "/sugerencias": "sugerencias.html"}
+VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html", "/tops": "tops.html", "/gantt": "gantt.html", "/dependencias": "dependencias.html", "/sugerencias": "sugerencias.html"}
 for ruta, archivo in VISTAS.items():
     app.add_api_route(ruta, (lambda a=archivo: FileResponse(STATIC / a)), methods=["GET"], include_in_schema=False)
 

@@ -77,6 +77,8 @@ create table if not exists gestor.necesidades (
 alter table gestor.necesidades add column if not exists mes_ini text;
 alter table gestor.necesidades add column if not exists mes_fin text;
 alter table gestor.necesidades add column if not exists dist jsonb;
+create table if not exists gestor.dependencias (
+  codigo text not null, prerequisito text not null, actualizado timestamptz default now(), primary key (codigo, prerequisito));
 create table if not exists gestor.observaciones (
   codigo text primary key, capex text default '', opex text default '', actualizado timestamptz default now());
 create table if not exists gestor.escenario (
@@ -443,6 +445,33 @@ def actualizar_proyecto(codigo: str, opex_mensual: float | None = None, opex_mes
             c.execute("update gestor.proyectos set opex_meses = %s, actualizado = now() where codigo = %s", (opex_meses, codigo))
         if opex_mensual is not None:
             c.execute("update gestor.proyectos set opex_mensual = %s, actualizado = now() where codigo = %s", (opex_mensual, codigo))
+
+
+# ---------- dependencias entre proyectos (codigo depende de prerequisito)
+def leer_dependencias() -> dict:
+    with _conn() as c:
+        out = {}
+        for cod, pre in c.execute("select codigo, prerequisito from gestor.dependencias order by codigo, prerequisito"):
+            out.setdefault(cod, []).append(pre)
+        return out
+
+
+def guardar_dependencias(codigo: str, prereqs: list) -> None:
+    prereqs = sorted({str(x) for x in prereqs if x and str(x) != codigo})
+    with _conn() as c:
+        actual = {}
+        for cod, pre in c.execute("select codigo, prerequisito from gestor.dependencias"):
+            actual.setdefault(cod, set()).add(pre)
+        actual[codigo] = set(prereqs)
+        # no se aceptan ciclos (A depende de B y B, directa o indirectamente, de A)
+        def llega(desde, hasta, vistos=()):
+            return desde == hasta or any(llega(x, hasta, vistos + (desde,)) for x in actual.get(desde, ()) if x not in vistos)
+        for pre in prereqs:
+            if llega(pre, codigo):
+                raise ValueError(f"{pre} ya depende (directa o indirectamente) de {codigo}: se formaría un ciclo.")
+        c.execute("delete from gestor.dependencias where codigo = %s", (codigo,))
+        for pre in prereqs:
+            c.execute("insert into gestor.dependencias (codigo, prerequisito) values (%s, %s)", (codigo, pre))
 
 
 # ---------- observaciones de capex y opex por proyecto

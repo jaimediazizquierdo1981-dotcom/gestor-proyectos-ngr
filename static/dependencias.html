@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dependencias · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:1600px}
+  .dos{display:grid;grid-template-columns:minmax(560px,1fr) minmax(520px,1fr);gap:16px;align-items:start}
+  @media (max-width:1200px){.dos{grid-template-columns:1fr}}
+  table.dp{width:100%;border-collapse:collapse;font-size:12.5px}
+  .dp th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:6px;border-bottom:2px solid var(--line);white-space:nowrap}
+  .dp td{padding:6px;border-bottom:1px solid #f0ece4;vertical-align:top}
+  .dp td.pr{width:34px;text-align:center}
+  .prio{display:inline-block;min-width:22px;padding:1px 6px;border-radius:10px;background:#1f3864;color:#fff;font-weight:700;font-size:11px;text-align:center}
+  .chip{display:inline-flex;align-items:center;gap:4px;background:#eef2f9;border:1px solid #c9d5ea;color:#1f3864;border-radius:12px;padding:1px 8px;margin:1px 3px 1px 0;font-size:11.5px;white-space:nowrap}
+  .chip.req{background:#fff5e6;border-color:#f0c98a;color:#8a5300}
+  .ola{display:inline-block;font-size:10.5px;font-weight:700;border-radius:4px;padding:1px 6px;background:#e8f5ee;color:#1d7a4a;white-space:nowrap}
+  .btn-e{font:inherit;font-size:11.5px;border:1px solid #c8cdd6;background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer}
+  .btn-e:disabled{opacity:.4;cursor:not-allowed}
+  .ed{margin-top:6px;border:1px solid #c9d5ea;border-radius:8px;padding:8px;background:#fafbfe;max-height:260px;overflow:auto}
+  .ed label{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:12px}
+  .ed .acc{display:flex;gap:8px;margin-top:6px}
+  .ed .acc button{font:inherit;font-size:12px;border-radius:6px;padding:4px 12px;cursor:pointer;border:1px solid #1f3864}
+  .ed .acc .ok{background:#1f3864;color:#fff}.ed .acc .no{background:#fff;color:#1f3864}
+  /* árbol */
+  .arbol ul{list-style:none;margin:0;padding-left:22px;position:relative}
+  .arbol > ul{padding-left:0}
+  .arbol li{position:relative;padding:3px 0 3px 18px}
+  .arbol ul ul li:before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:2px solid #c9d5ea}
+  .arbol ul ul li:last-child:before{bottom:auto;height:16px}
+  .arbol ul ul li:after{content:"";position:absolute;left:0;top:16px;width:14px;border-top:2px solid #c9d5ea}
+  .nodo{display:inline-flex;align-items:center;gap:8px;border:1px solid #c9d5ea;border-radius:8px;padding:5px 10px;background:#fff;font-size:12.5px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .nodo.raiz{border:2px solid #1f3864;background:#eef2f9;font-weight:600}
+  .nodo .tg{cursor:pointer;color:#1f3864;font-size:11px;width:12px}
+  .nodo small{color:#6b7280;font-weight:400}
+  .nodo .tambien{font-size:10.5px;color:#8a5300}
+  .grupo{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 6px}
+  .vacio{color:var(--muted);font-size:12.5px;padding:8px 0}
+  .aviso-err{color:#b42318;font-size:12px;margin-top:4px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Dependencias entre proyectos</h1>
+  <div class="sub">Proyectos activos ordenados por prioridad (mismo criterio de la palanca del Consolidado). En cada proyecto marca de qué otros depende (sus prerrequisitos). El árbol pone en la rama principal los proyectos que son prerrequisito de otros, y debajo los que dependen de ellos. La "Ola" indica el orden de ejecución: Ola 1 no depende de nadie, Ola 2 depende solo de proyectos de la Ola 1, etc. Solo el Líder TI de cada proyecto (o el administrador) edita sus dependencias.</div>
+  <div class="dos">
+    <div class="card">
+      <h2>Proyectos activos</h2>
+      <table class="dp" id="tP"></table>
+    </div>
+    <div class="card">
+      <h2>Árbol de dependencias</h2>
+      <div class="arbol" id="arbol"></div>
+    </div>
+  </div>
+</main>
+<script src="/static/comun.js"></script>
+<script>
+nav("Dependencias");
+let D = null, DEP = {}, YO = null, EDIT = null, CERR = new Set(), ERR = "";
+const TODOS = leer("gestor_ngr_no_transf") === true;
+const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
+const normN = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const puede = p => !YO || !YO.usuario ? true : YO.solo_lectura ? false : YO.es_admin || normN(p.lider_ti) === normN(YO.nombre);
+
+async function cargar() {
+  cargando(true, "Cargando…");
+  [D, DEP, YO] = await Promise.all([calcular(), fetch("/api/dependencias").then(r => r.json()).catch(() => ({})),
+                                    fetch("/api/yo").then(r => r.ok ? r.json() : null).catch(() => null)]);
+  cargando(false);
+  pintar();
+}
+function proyectos() {
+  return D.proyectos.filter(p => activo(p) && (TODOS || esTransf(p))).sort(ordPrio);
+}
+function olas(P) {   // nivel topológico dentro de los proyectos activos
+  const cods = new Set(P.map(p => p.codigo)), memo = {};
+  const ola = (c, pila = new Set()) => {
+    if (memo[c]) return memo[c];
+    if (pila.has(c)) return 1;
+    pila.add(c);
+    const pre = (DEP[c] || []).filter(x => cods.has(x));
+    memo[c] = pre.length ? 1 + Math.max(...pre.map(x => ola(x, pila))) : 1;
+    return memo[c];
+  };
+  P.forEach(p => ola(p.codigo));
+  return memo;
+}
+function pintar() {
+  const P = proyectos(), M = Object.fromEntries(P.map(p => [p.codigo, p])), O = olas(P);
+  const dependientes = {};
+  P.forEach(p => (DEP[p.codigo] || []).filter(x => M[x]).forEach(x => (dependientes[x] ||= []).push(p.codigo)));
+  // ---- tabla
+  let h = `<tr><th>Prior.</th><th>Proyecto</th><th>Depende de (prerrequisitos)</th><th>Es prerrequisito de</th><th>Ola</th><th></th></tr>`;
+  for (const p of P) {
+    const pre = (DEP[p.codigo] || []), dep = dependientes[p.codigo] || [], ed = EDIT === p.codigo;
+    h += `<tr><td class="pr">${p.prioridad ? `<span class="prio">${p.prioridad}</span>` : ""}</td>
+      <td><b>${p.codigo}</b> ${p.proyecto}<br><small style="color:#6b7280">${p.lider_ti || "Sin Líder TI"}</small></td>
+      <td>${pre.length ? pre.map(c => `<span class="chip req" title="${M[c] ? M[c].proyecto : "No activo en este escenario"}">${c}${M[c] ? "" : " (no activo)"}</span>`).join("") : '<small style="color:#9ca3af">—</small>'}
+        ${ed ? `<div class="ed">${P.filter(x => x.codigo !== p.codigo).map(x => `<label><input type="checkbox" value="${x.codigo}" ${pre.includes(x.codigo) ? "checked" : ""}> <b>${x.codigo}</b> ${x.proyecto}</label>`).join("")}
+          <div class="acc"><button class="ok" onclick="guardarDep('${p.codigo}', this)">Guardar</button><button class="no" onclick="EDIT=null;ERR='';pintar()">Cancelar</button></div>${ERR ? `<div class="aviso-err">${ERR}</div>` : ""}</div>` : ""}</td>
+      <td>${dep.length ? dep.map(c => `<span class="chip" title="${M[c].proyecto}">${c}</span>`).join("") : '<small style="color:#9ca3af">—</small>'}</td>
+      <td><span class="ola">Ola ${O[p.codigo]}</span></td>
+      <td><button class="btn-e" ${puede(p) ? "" : "disabled title='Solo el Líder TI del proyecto o el administrador'"} onclick="EDIT='${p.codigo}';ERR='';pintar()">Editar</button></td></tr>`;
+  }
+  tP.innerHTML = P.length ? h : '<tr><td class="vacio">No hay proyectos activos.</td></tr>';
+  // ---- árbol: rama principal = prerrequisitos que no dependen de nadie (dentro del escenario)
+  const raices = P.filter(p => dependientes[p.codigo] && !(DEP[p.codigo] || []).some(x => M[x]));
+  const nodo = (c, padre, camino) => {
+    const p = M[c], hijos = (dependientes[c] || []).filter(x => !camino.includes(x)), k = (padre || "") + ">" + c, abierto = !CERR.has(k);
+    const otros = (DEP[c] || []).filter(x => M[x] && x !== padre);
+    return `<li><span class="nodo ${padre ? "" : "raiz"}">${hijos.length ? `<span class="tg" onclick="plegar('${k}')">${abierto ? "▾" : "▸"}</span>` : ""}
+      ${p.prioridad ? `<span class="prio">${p.prioridad}</span>` : ""}<span><b>${c}</b> ${p.proyecto} <small>· Ola ${O[c]}${hijos.length ? ` · ${hijos.length} dependiente${hijos.length > 1 ? "s" : ""}` : ""}</small>
+      ${padre && otros.length ? `<br><span class="tambien">también depende de ${otros.join(", ")}</span>` : ""}</span></span>
+      ${hijos.length && abierto ? `<ul>${hijos.map(x => nodo(x, c, [...camino, x])).join("")}</ul>` : ""}</li>`;
+  };
+  const sueltos = P.filter(p => !dependientes[p.codigo] && !(DEP[p.codigo] || []).some(x => M[x]));
+  arbol.innerHTML = (raices.length ? `<div class="grupo">Rama principal · prerrequisitos de otros proyectos (${raices.length})</div><ul>${raices.map(p => nodo(p.codigo, null, [p.codigo])).join("")}</ul>`
+      : '<div class="vacio">Aún no hay dependencias registradas. Usa “Editar” en la tabla para marcar de qué proyectos depende cada uno.</div>')
+    + (sueltos.length ? `<div class="grupo">Proyectos independientes (${sueltos.length})</div><div>${sueltos.map(p => `<span class="chip" title="${p.proyecto}">${p.codigo}</span>`).join("")}</div>` : "");
+}
+function plegar(k) { CERR.has(k) ? CERR.delete(k) : CERR.add(k); pintar(); }
+async function guardarDep(cod, btn) {
+  const pre = [...btn.closest(".ed").querySelectorAll("input:checked")].map(i => i.value);
+  const fuera = (DEP[cod] || []).filter(x => !proyectos().some(p => p.codigo === x));   // conserva prerrequisitos de proyectos no activos
+  const r = await fetch("/api/dependencias", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify({codigo: cod, prerequisitos: [...pre, ...fuera]})});
+  if (!r.ok) { ERR = (await r.json().catch(() => ({}))).detail || "No se pudo guardar."; pintar(); return; }
+  DEP[cod] = [...pre, ...fuera].sort(); if (!DEP[cod].length) delete DEP[cod];
+  EDIT = null; ERR = ""; pintar();
+}
+cargar();
+</script>
+</body>
+</html>

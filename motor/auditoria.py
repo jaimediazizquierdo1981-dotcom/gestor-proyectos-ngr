@@ -15,6 +15,7 @@ ACCIONES = {
     ("PUT", "/api/necesidades"): "Editar posiciones del proyecto",
     ("PUT", "/api/proyecto"): "Editar montos del proyecto (Capex/Opex)",
     ("PUT", "/api/observaciones"): "Editar observaciones",
+    ("PUT", "/api/dependencias"): "Editar dependencias del proyecto",
     ("POST", "/api/hoja/guardar"): "Guardar hoja de trabajo",
     ("DELETE", "/api/hoja/ficha"): "Eliminar ficha de proyecto",
     ("POST", "/api/cargar/colaboradores"): "Cargar plantilla de colaboradores",
