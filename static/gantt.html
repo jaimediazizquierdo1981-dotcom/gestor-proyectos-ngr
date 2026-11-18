@@ -56,9 +56,8 @@
 <body>
 <main>
   <h1>Gantt de proyectos</h1>
-  <div class="sub">Mismos criterios del Consolidado (interruptor de no transformacionales y proyectos activos). Fechas = primer y último mes con días asignados en la Hoja de trabajo; si un proyecto no tiene asignaciones, se usa su plan. La franja oscura dentro de cada barra es su % de cobertura.</div>
+  <div class="sub">Solo proyectos transformacionales. Fechas = primer y último mes con días asignados en la Hoja de trabajo; si un proyecto no tiene asignaciones, se usa su plan. La franja oscura dentro de cada barra es su % de cobertura.</div>
   <div class="barra-sup">
-    <label class="tgl" title="Igual que en el Consolidado"><input type="checkbox" id="chkTodos" onchange="cambiarTodos(this.checked)"><i></i>Incluir proyectos no transformacionales</label>
     <span>Agrupar por <select id="agrupar" onchange="pintar()"><option value="programa">Programa</option><option value="lider_ti">Líder TI</option><option value="pe">Pilar estratégico (PE)</option><option value="">Sin agrupar</option></select></span>
     <span>Mostrar <select id="mostrar" onchange="pintar()"><option value="act">Solo activos</option><option value="todos">Activos y no activos</option></select></span>
     <span>Escala <select id="escala" onchange="pintar()"><option value="64">Meses</option><option value="110">Meses (ancho)</option><option value="40">Trimestres</option></select></span>
@@ -73,13 +72,13 @@
 <script src="/static/comun.js"></script>
 <script>
 nav("Gantt");
-let D = null, TODOS = leer("gestor_ngr_no_transf") === true, CERR = new Set(), SEL = null;
+let D = null, TODOS = false,   // el Gantt muestra solo proyectos transformacionales
+    CERR = new Set(), SEL = null;
 const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const ym = s => { const [y, m] = s.split("-").map(Number); return y * 12 + m - 1; };
 const lbl = i => MESES[i % 12] + "-" + String(Math.floor(i / 12)).slice(2);
 const fecha = (i, fin) => { const y = Math.floor(i / 12), m = i % 12; const d = fin ? new Date(y, m + 1, 0) : new Date(y, m, 1); return d.toLocaleDateString("es-PE", {day: "2-digit", month: "2-digit", year: "2-digit"}); };
-function cambiarTodos(v) { TODOS = v; guardar("gestor_ngr_no_transf", v); cargar(); }
 
 async function cargar() {
   cargando(true, "Calculando…");
@@ -95,7 +94,6 @@ async function cargar() {
     }
   }
   cargando(false);
-  chkTodos.checked = TODOS;
   pintar();
 }
 
