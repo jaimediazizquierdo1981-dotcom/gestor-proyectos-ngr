@@ -159,7 +159,8 @@ function verSinPrio(v) { TODOS = v; guardar("gestor_ngr_no_transf", v); cargar()
 function vistaGrupo(g, c) { GRP = {...GRP, [g]: c}; guardar("gestor_ngr_grupos", GRP); tabla(); }
 function tabla() {
   chkSinPrio.checked = TODOS;
-  const P = D.proyectos.slice().sort(ordPrio).filter(p => TODOS || esTransf(p));
+  const U = D.proyectos.slice().sort(ordPrio).filter(p => TODOS || esTransf(p));
+  const P = TODOS ? U : U.filter(activo);   // palanca apagada: solo transformacionales y activos
   const PF = PFT.filter(f => D.personas.some(x => x.tipo !== "tercero" && x.perfil === f) || P.some(p => (p.recursos[f] || 0) > 0));
   const inc = P.filter(activo);
   const s = k => inc.reduce((a, p) => a + (typeof k === "function" ? k(p) : p[k]), 0);
@@ -195,7 +196,7 @@ function tabla() {
   document.querySelectorAll(".vista .grp button").forEach(b => b.classList.toggle("on", !!GRP[b.dataset.g] === (b.dataset.v === "1")));
   bContraer.classList.toggle("on", CONTRAIDO); bTodas.classList.toggle("on", !CONTRAIDO);
   const cub = inc.filter(p => p.estado === "cubierto");
-  kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + P.length],
+  kpis.innerHTML = [["Proyectos en el escenario", inc.length + " de " + U.length],
     ["Cubiertos al 100%", cub.length + " de " + inc.length],
     ["Capex total", fmtK(s(p => p.capex + (p.capex_terceros || 0)))], ["Capex cubierto", fmtK(cub.reduce((a, p) => a + p.capex + (p.capex_terceros || 0), 0))],
     ["Opex anual (run rate)", fmtK(s("opex_anual"))], ["Opex dentro del horizonte", fmtK(s("opex_horizonte"))], ["Días requeridos", fmtD(s("dias_requeridos"))]]
