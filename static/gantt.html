@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gantt · Gestor de Proyectos NGR</title>
+<link rel="stylesheet" href="/static/comun.css">
+<style>
+  main{max-width:none;padding-left:18px;padding-right:18px}
+  .barra-sup{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 10px;font-size:12.5px;color:var(--muted)}
+  .barra-sup select{font:inherit;padding:3px 6px;border:1px solid #c8cdd6;border-radius:4px}
+  .ley{display:flex;gap:12px;align-items:center}
+  .ley i{display:inline-block;width:22px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  /* ---- aspecto MS Project ---- */
+  .mp{display:flex;border:1px solid #a9b3c1;background:#fff;font-family:"Segoe UI",Arial,sans-serif;font-size:12px;color:#1f2430;height:calc(100vh - 230px);min-height:420px}
+  .izq{flex:0 0 auto;overflow:hidden;border-right:3px double #a9b3c1;display:flex;flex-direction:column}
+  .der{flex:1 1 auto;overflow:auto;position:relative}
+  .izq .cuerpo{overflow:hidden;flex:1}
+  table.grid{border-collapse:collapse;table-layout:fixed}
+  .grid th{background:#f3f3f3;border:1px solid #d4d4d4;font-weight:600;font-size:11.5px;color:#333;height:44px;padding:0 6px;text-align:left;white-space:nowrap;position:sticky;top:0;z-index:2}
+  .grid td{border-right:1px solid #e3e3e3;border-bottom:1px solid #ececec;height:24px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .grid td.n{text-align:center;color:#666;background:#f7f7f7;border-right:1px solid #d4d4d4}
+  .grid td.num{text-align:right}
+  .grid tr.res td{font-weight:700;background:#fafafa}
+  .grid tr.res td.nom{color:#1f2430}
+  .grid tr.off td{color:#9ca3af}
+  .grid tr.sel td{background:#dbe8fb !important}
+  .grid .nom .ind{display:inline-block;width:16px}
+  .grid .tg{cursor:pointer;color:#555;width:14px;display:inline-block;font-size:10px}
+  .tl{position:relative}
+  .tl-cab{position:sticky;top:0;z-index:3;background:#f3f3f3}
+  .tl-cab .f1,.tl-cab .f2{display:flex;border-bottom:1px solid #d4d4d4}
+  .tl-cab .f1 div,.tl-cab .f2 div{flex:0 0 auto;border-right:1px solid #d4d4d4;font-size:11.5px;color:#333;height:22px;line-height:22px;text-align:center;font-weight:600;overflow:hidden}
+  .tl-cab .f2 div{font-weight:400}
+  .fila{position:relative;height:24px;border-bottom:1px solid #f0f0f0}
+  .fila.sel{background:#dbe8fb}
+  .col{position:absolute;top:0;bottom:0;border-right:1px solid #f0f0f0}
+  .col.fin{background:#fafafa}
+  .bar{position:absolute;top:6px;height:12px;background:#8ab4e8;border:1px solid #4f81bd;border-radius:2px;cursor:default}
+  .bar .av{position:absolute;left:0;top:3px;bottom:3px;background:#1f4e89}
+  .bar.parcial{background:#f5c77e;border-color:#d08a1a}.bar.parcial .av{background:#9a5b00}
+  .bar.no_cubierto{background:#f2a1a1;border-color:#c23b3b}.bar.no_cubierto .av{background:#8b1d1d}
+  .bar.off{background:#e5e7eb;border-color:#b6bcc6}.bar.off .av{background:#9ca3af}
+  .bar.on_hold{background:repeating-linear-gradient(45deg,#e5e7eb,#e5e7eb 4px,#cfd4dc 4px,#cfd4dc 8px);border-color:#9ca3af}
+  .etq{position:absolute;top:5px;font-size:11px;color:#333;white-space:nowrap}
+  .resumen{position:absolute;top:8px;height:6px;background:#2b2b2b}
+  .resumen:before,.resumen:after{content:"";position:absolute;bottom:-6px;border:5px solid transparent;border-top:6px solid #2b2b2b}
+  .resumen:before{left:-5px}.resumen:after{right:-5px}
+  .hoy{position:absolute;top:0;bottom:0;border-left:2px dashed #d64545;z-index:1;pointer-events:none}
+  .hoy span{position:absolute;top:2px;left:3px;font-size:10px;color:#d64545;background:#fff;padding:0 2px}
+  .tip{position:fixed;z-index:60;background:#fff;border:1px solid #a9b3c1;box-shadow:0 3px 12px rgba(0,0,0,.18);padding:8px 10px;font-size:12px;border-radius:4px;display:none;max-width:320px;line-height:1.5}
+  .tip b{color:#1f3864}
+</style>
+</head>
+<body>
+<main>
+  <h1>Gantt de proyectos</h1>
+  <div class="sub">Mismos criterios del Consolidado (interruptor de no transformacionales y proyectos activos). Fechas = primer y último mes con días asignados en la Hoja de trabajo; si un proyecto no tiene asignaciones, se usa su plan. La franja oscura dentro de cada barra es su % de cobertura.</div>
+  <div class="barra-sup">
+    <label class="tgl" title="Igual que en el Consolidado"><input type="checkbox" id="chkTodos" onchange="cambiarTodos(this.checked)"><i></i>Incluir proyectos no transformacionales</label>
+    <span>Agrupar por <select id="agrupar" onchange="pintar()"><option value="programa">Programa</option><option value="lider_ti">Líder TI</option><option value="pe">Pilar estratégico (PE)</option><option value="">Sin agrupar</option></select></span>
+    <span>Mostrar <select id="mostrar" onchange="pintar()"><option value="act">Solo activos</option><option value="todos">Activos y no activos</option></select></span>
+    <span>Escala <select id="escala" onchange="pintar()"><option value="64">Meses</option><option value="110">Meses (ancho)</option><option value="40">Trimestres</option></select></span>
+    <span class="ley"><span><i style="background:#8ab4e8;border:1px solid #4f81bd"></i>Cubierto</span><span><i style="background:#f5c77e;border:1px solid #d08a1a"></i>Parcial</span><span><i style="background:#f2a1a1;border:1px solid #c23b3b"></i>No cubierto</span><span><i style="background:#e5e7eb;border:1px solid #b6bcc6"></i>No activo / On hold</span><span><i style="background:#2b2b2b;height:5px"></i>Resumen</span></span>
+  </div>
+  <div class="mp">
+    <div class="izq"><div class="cuerpo" id="izq"></div></div>
+    <div class="der" id="der"></div>
+  </div>
+  <div class="tip" id="tip"></div>
+</main>
+<script src="/static/comun.js"></script>
+<script>
+nav("Gantt");
+let D = null, TODOS = leer("gestor_ngr_no_transf") === true, CERR = new Set(), SEL = null;
+const esTransf = p => (p.tipo || "Transformacional") !== "No transformacional";
+const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const ym = s => { const [y, m] = s.split("-").map(Number); return y * 12 + m - 1; };
+const lbl = i => MESES[i % 12] + "-" + String(Math.floor(i / 12)).slice(2);
+const fecha = (i, fin) => { const y = Math.floor(i / 12), m = i % 12; const d = fin ? new Date(y, m + 1, 0) : new Date(y, m, 1); return d.toLocaleDateString("es-PE", {day: "2-digit", month: "2-digit", year: "2-digit"}); };
+function cambiarTodos(v) { TODOS = v; guardar("gestor_ngr_no_transf", v); cargar(); }
+
+async function cargar() {
+  cargando(true, "Calculando…");
+  D = await calcular();
+  if (!TODOS) {   // igual que el Consolidado: se recalcula sin las no transformacionales
+    const fuera = D.proyectos.filter(p => !esTransf(p) && activo(p));
+    if (fuera.length) {
+      const esc = {...(leer(ESC_KEY) || {})};
+      fuera.forEach(p => esc[p.codigo] = {...(esc[p.codigo] || {}), incluir: false});
+      const tipos = Object.fromEntries(D.proyectos.map(p => [p.codigo, p.tipo]));
+      D = await calcular({escenario: esc});
+      D.proyectos.forEach(p => { p.tipo = tipos[p.codigo]; });
+    }
+  }
+  cargando(false);
+  chkTodos.checked = TODOS;
+  pintar();
+}
+
+function pintar() {
+  const P = D.proyectos.filter(p => (TODOS || esTransf(p)) && (mostrar.value === "todos" || activo(p))).map(p => {
+    const ini = p.ini_hoja || p.inicio_plan || p.inicio, fin = p.fin_hoja || p.fin_plan || ini;
+    return {...p, i0: ym(ini), i1: Math.max(ym(fin), ym(ini))};
+  }).sort((a, b) => (activo(b) - activo(a)) || ((a.prioridad || 999) - (b.prioridad || 999)) || a.i0 - b.i0);
+  if (!P.length) { izq.innerHTML = '<div style="padding:16px;color:#6b7280">No hay proyectos con estos criterios.</div>'; der.innerHTML = ""; return; }
+  // rango de tiempo: horizonte del modelo ampliado a las fechas de los proyectos, por años completos
+  let a0 = Math.min(ym(D.meses[0]), ...P.map(p => p.i0)), a1 = Math.max(ym(D.meses.at(-1)), ...P.map(p => p.i1));
+  a0 -= a0 % 12; a1 += 11 - (a1 % 12);
+  const trimestral = escala.value === "40", W = +escala.value / (trimestral ? 3 : 1), n = a1 - a0 + 1, ancho = n * W;
+  // filas: resumen por grupo + tareas
+  const g = agrupar.value, filas = [];
+  if (g) {
+    const grupos = {};
+    P.forEach(p => (grupos[(p[g] || "Sin " + agrupar.selectedOptions[0].text.toLowerCase())] ||= []).push(p));
+    Object.entries(grupos).sort((x, y) => Math.min(...x[1].map(p => p.i0)) - Math.min(...y[1].map(p => p.i0))).forEach(([k, L]) => {
+      const act = L.filter(activo), base = act.length ? act : L;
+      filas.push({res: true, k, n: L.length, i0: Math.min(...base.map(p => p.i0)), i1: Math.max(...base.map(p => p.i1)),
+                  capex: act.reduce((s, p) => s + p.capex + (p.capex_terceros || 0), 0), dias: act.reduce((s, p) => s + p.dias_base + p.dias_terceros, 0)});
+      if (!CERR.has(k)) L.forEach(p => filas.push({p, k}));
+    });
+  } else P.forEach(p => filas.push({p}));
+
+  // ---- tabla izquierda
+  let id = 0;
+  let h = `<table class="grid"><colgroup><col style="width:34px"><col style="width:300px"><col style="width:72px"><col style="width:74px"><col style="width:74px"><col style="width:130px"><col style="width:70px"><col style="width:96px"></colgroup>
+    <tr><th></th><th>Nombre de tarea</th><th>Duración</th><th>Comienzo</th><th>Fin</th><th>Líder TI</th><th>% Cob.</th><th>Capex (S/)</th></tr>`;
+  for (const f of filas) {
+    id++;
+    if (f.res) {
+      const k = f.k.replace(/'/g, "\\'");
+      h += `<tr class="res" data-r="${id}"><td class="n">${id}</td><td class="nom"><span class="tg" onclick="plegar('${k}')">${CERR.has(f.k) ? "▶" : "◢"}</span> ${f.k} <small style="font-weight:400;color:#6b7280">(${f.n})</small></td>
+        <td class="num">${f.i1 - f.i0 + 1} ${f.i1 - f.i0 ? "meses" : "mes"}</td><td>${fecha(f.i0)}</td><td>${fecha(f.i1, 1)}</td><td></td><td></td><td class="num">${fmtK(f.capex).replace("S/ ", "")}</td></tr>`;
+    } else {
+      const p = f.p, off = !activo(p);
+      h += `<tr class="${off ? "off" : ""}" data-r="${id}" data-c="${p.codigo}"><td class="n">${id}</td><td class="nom" title="${p.codigo} · ${p.proyecto}">${g ? '<span class="ind"></span>' : ""}<b style="font-weight:600">${p.codigo}</b> ${p.proyecto}${esTransf(p) ? "" : ' <small style="color:#9ca3af">· No transf.</small>'}</td>
+        <td class="num">${p.i1 - p.i0 + 1} ${p.i1 - p.i0 ? "meses" : "mes"}</td><td>${fecha(p.i0)}</td><td>${fecha(p.i1, 1)}</td><td title="${p.lider_ti || ""}">${p.lider_ti || ""}</td>
+        <td class="num">${off ? "–" : fmtPct(p.cobertura)}</td><td class="num">${fmtK(p.capex + (p.capex_terceros || 0)).replace("S/ ", "")}</td></tr>`;
+    }
+  }
+  izq.innerHTML = h + "</table>";
+
+  // ---- línea de tiempo derecha
+  let f1 = "", f2 = "";
+  for (let y = a0; y <= a1; y += 12) f1 += `<div style="width:${12 * W}px">${y / 12}</div>`;
+  if (trimestral) for (let q = a0; q <= a1; q += 3) f2 += `<div style="width:${3 * W}px">T${(q % 12) / 3 + 1}</div>`;
+  else for (let m = a0; m <= a1; m++) f2 += `<div style="width:${W}px">${MESES[m % 12]}</div>`;
+  let cols = "";
+  for (let m = a0; m <= a1; m += trimestral ? 3 : 1) cols += `<div class="col ${(m % 12) >= 9 && !trimestral ? "" : ""}" style="left:${(m - a0) * W}px;width:${(trimestral ? 3 : 1) * W}px"></div>`;
+  let b = `<div class="tl" style="width:${ancho}px"><div class="tl-cab"><div class="f1">${f1}</div><div class="f2">${f2}</div></div><div style="position:relative">`;
+  for (const f of filas) {
+    const t = f.res ? f : f.p, x = (t.i0 - a0) * W, w = (t.i1 - t.i0 + 1) * W;
+    if (f.res) b += `<div class="fila">${cols}<div class="resumen" style="left:${x}px;width:${w}px"></div></div>`;
+    else {
+      const p = f.p, off = !activo(p), cls = p.on_hold ? "on_hold" : off ? "off" : p.estado;
+      const cov = off ? 0 : Math.max(0, Math.min(1, p.cobertura || 0));
+      b += `<div class="fila" data-c="${p.codigo}">${cols}<div class="bar ${cls}" data-c="${p.codigo}" style="left:${x}px;width:${w}px"><div class="av" style="width:${cov * 100}%"></div></div>
+        <span class="etq" style="left:${x + w + 6}px">${p.lider_ti ? p.lider_ti.split(" ").slice(0, 2).join(" ") : ""}</span></div>`;
+    }
+  }
+  const hoy = new Date(), ih = hoy.getFullYear() * 12 + hoy.getMonth();
+  if (ih >= a0 && ih <= a1) b += `<div class="hoy" style="left:${(ih - a0 + (hoy.getDate() - 1) / 30) * W}px"><span>Hoy</span></div>`;
+  der.innerHTML = b + "</div></div>";
+  // altura de cabecera alineada con la tabla (44px) y scroll sincronizado
+  
+  der.onscroll = () => { izq.scrollTop = der.scrollTop; };
+  izq.onwheel = e => { der.scrollTop += e.deltaY; e.preventDefault(); };
+  // selección y tooltip
+  const P2 = Object.fromEntries(P.map(p => [p.codigo, p]));
+  document.querySelectorAll("[data-c]").forEach(el => {
+    el.onclick = () => { SEL = el.dataset.c; document.querySelectorAll(".sel").forEach(x => x.classList.remove("sel"));
+      document.querySelectorAll(`[data-c="${SEL}"]`).forEach(x => (x.tagName === "TR" || x.classList.contains("fila")) && x.classList.add("sel")); };
+  });
+  document.querySelectorAll(".bar").forEach(el => {
+    el.onmousemove = e => { const p = P2[el.dataset.c];
+      tip.innerHTML = `<b>${p.codigo} · ${p.proyecto}</b><br>${lbl(p.i0)} → ${lbl(p.i1)} (${p.i1 - p.i0 + 1} meses)<br>Líder TI: ${p.lider_ti || "—"}<br>
+        Estado: ${({cubierto: "Cubierto", parcial: "Parcial", no_cubierto: "No cubierto", on_hold: "On hold"})[p.estado] || (activo(p) ? p.estado : "No activo")} · Cobertura ${activo(p) ? fmtPct(p.cobertura) : "–"}<br>
+        Días: ${fmtD(p.dias_base)} internos · ${fmtD(p.dias_terceros)} terceros<br>Capex: ${fmtS(p.capex + (p.capex_terceros || 0))}${p.prioridad ? `<br>Prioridad ${p.prioridad}` : ""}`;
+      tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - 330) + "px"; tip.style.top = e.clientY + 14 + "px"; };
+    el.onmouseleave = () => tip.style.display = "none";
+  });
+  // al abrir: la línea de tiempo arranca en el primer proyecto
+  if (!der.dataset.ok) { der.scrollLeft = Math.max(0, (Math.min(...P.map(p => p.i0)) - a0 - 1) * W); der.dataset.ok = 1; }
+}
+function plegar(k) { CERR.has(k) ? CERR.delete(k) : CERR.add(k); pintar(); }
+cargar();
+</script>
+</body>
+</html>

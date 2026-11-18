@@ -24,6 +24,8 @@
   .hold{font:inherit;font-size:11px;padding:2px 7px;border-radius:6px;border:1px solid var(--line);background:#fff;color:#6b7280;cursor:pointer;white-space:nowrap}
   .hold.on{background:#8a8f99;border-color:#8a8f99;color:#fff;font-weight:600}
   .hold:disabled{opacity:.4;cursor:default}
+  #bExcel{margin-left:auto;background:#1D7A4A;color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:600;cursor:pointer}
+  #bExcel:hover{background:#166339}
   .vista{display:flex;gap:8px;margin-top:12px}
   .vista button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:8px;border:1px solid #c9bfd6;background:#fff;color:#5b2a6e;cursor:pointer}
   .vista button.on{background:#5b2a6e;border-color:#5b2a6e;color:#fff}
@@ -92,7 +94,8 @@
     <div class="grp"><span>Recursos internos</span><button data-g="int" data-v="1" onclick="vistaGrupo('int',true)">⇤ Contraer</button><button data-g="int" data-v="0" onclick="vistaGrupo('int',false)">⇔ Expandir</button></div>
     <div class="grp"><span>Terceros</span><button data-g="ter" data-v="1" onclick="vistaGrupo('ter',true)">⇤ Contraer</button><button data-g="ter" data-v="0" onclick="vistaGrupo('ter',false)">⇔ Expandir</button></div>
     <div class="grp"><span>Inversión y soporte</span><button data-g="inv" data-v="1" onclick="vistaGrupo('inv',true)">⇤ Contraer</button><button data-g="inv" data-v="0" onclick="vistaGrupo('inv',false)">⇔ Expandir</button></div>
-    <label class="tgl" title="Apagado: la tabla, los totales y todos los indicadores consideran solo los proyectos transformacionales. Encendido: consideran todos los proyectos."><input type="checkbox" id="chkSinPrio" onchange="verSinPrio(this.checked)"><i></i>Incluir proyectos no transformacionales</label></div>
+    <label class="tgl" title="Apagado: la tabla, los totales y todos los indicadores consideran solo los proyectos transformacionales. Encendido: consideran todos los proyectos."><input type="checkbox" id="chkSinPrio" onchange="verSinPrio(this.checked)"><i></i>Incluir proyectos no transformacionales</label>
+    <button id="bExcel" onclick="bajarExcel()" title="Descarga el cuadro de proyectos con todos los datos y el Capex abierto mes a mes, con el criterio del interruptor">⬇ Descargar Excel</button></div>
   <div class="tbl"><table id="t"></table></div>
   <div class="note"><span id="notaRec">Recursos internos y Terceros = días asignados a personas en la Hoja de trabajo, por rol.</span> <b>Estado y Cobertura</b> = días asignados a personas en la <b>Hoja de trabajo</b> ÷ días de las posiciones que necesita el proyecto. El Opex arranca el mes siguiente al fin del proyecto.</div>
 
@@ -300,6 +303,18 @@ function heat() {
     T.map(u => `<tr><td class="l"><b>${u.perfil}</b></td><td>${u.personas}</td>` + u.capacidad.map((c, i) => celda(u.usado[i], c, true)).join("") + total(u) + "</tr>").join("");
 }
 
+async function bajarExcel() {
+  bExcel.disabled = true; const t = bExcel.textContent; bExcel.textContent = "Generando…";
+  try {
+    const r = await fetch("/api/excel", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({escenario: leer(ESC_KEY) || {}, todos: TODOS})});
+    if (!r.ok) throw new Error(r.status);
+    const b = await r.blob(), a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = (r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/)?.[1] || "Consolidado_proyectos.xlsx";
+    a.click(); URL.revokeObjectURL(a.href);
+  } catch (e) { alert("No se pudo generar el Excel."); }
+  bExcel.disabled = false; bExcel.textContent = t;
+}
 let MC = null;
 async function cargar() {
   cargando(true, "Calculando cobertura…");

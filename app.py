@@ -1,3 +1,4 @@
+from datetime import datetime
 """Gestor de Proyectos NGR: API y vistas."""
 from pathlib import Path
 import json
@@ -37,7 +38,7 @@ if db.disponible():   # una sola vez: fichas referenciales de PRY-27-10 y PRY-27
                     print("SOBRECARGA_TERCERO", _p["persona"], _m, f"{sum(_a.values()):g}/{float(_p['capacidad'][_i]):g}", _a, flush=True)
     except Exception as _e:
         print("equilibrio error:", _e, flush=True)
-SOLO_LECTURA_OK = {"/api/calcular", "/api/montecarlo", "/api/auth/cambiar", "/api/auth/login"}
+SOLO_LECTURA_OK = {"/api/calcular", "/api/montecarlo", "/api/excel", "/api/auth/cambiar", "/api/auth/login"}
 CAMBIO_LIBRE = {"/cambiar-clave", "/api/auth/cambiar", "/api/yo", "/logout", "/static/comun.css"}
 
 
@@ -279,6 +280,29 @@ def api_montecarlo(entrada: dict = Body(default={})):
     return ejecutar(entrada, con_mc=True)["montecarlo"]
 
 
+@app.post("/api/excel")
+def api_excel(entrada: dict = Body(default={})):
+    """Consolidado en Excel, con el mismo criterio del interruptor (solo transformacionales o todos)."""
+    from fastapi.responses import Response
+    from motor import excel
+    todos = bool(entrada.pop("todos", False))
+    entrada.pop("parametros", None)
+    R = ejecutar(entrada, con_mc=False)
+    if not todos:   # igual que el Consolidado: se recalcula sin las no transformacionales
+        fuera = [p for p in R["proyectos"] if (p.get("tipo") or "Transformacional") == "No transformacional" and p.get("incluir") and not p.get("on_hold")]
+        if fuera:
+            esc = dict(entrada.get("escenario") or {})
+            for p in fuera:
+                esc[p["codigo"]] = {**(esc.get(p["codigo"]) or {}), "incluir": False}
+            tipos = {p["codigo"]: p.get("tipo") for p in R["proyectos"]}
+            R = ejecutar({**entrada, "escenario": esc}, con_mc=False)
+            for p in R["proyectos"]:
+                p["tipo"] = tipos.get(p["codigo"])
+    nombre = f"Consolidado_proyectos_{'todos' if todos else 'transformacionales'}_{datetime.now():%Y%m%d}.xlsx"
+    return Response(excel.construir(R, todos), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
 @app.put("/api/parametros")
 def api_parametros(request: Request, body: dict = Body(...)):
     """Criterios: iguales para todos; solo el administrador los cambia."""
@@ -495,7 +519,7 @@ def api_estado():
     return db.estado()
 
 
-VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html", "/tops": "tops.html", "/sugerencias": "sugerencias.html"}
+VISTAS = {"/": "index.html", "/criterios": "criterios.html", "/simulador": "simulador.html", "/colaboradores": "colaboradores.html", "/hoja": "hoja.html", "/tops": "tops.html", "/gantt": "gantt.html", "/sugerencias": "sugerencias.html"}
 for ruta, archivo in VISTAS.items():
     app.add_api_route(ruta, (lambda a=archivo: FileResponse(STATIC / a)), methods=["GET"], include_in_schema=False)
 

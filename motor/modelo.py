@@ -333,7 +333,8 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
     if modo == "hoja":
         tipo_de = {e["persona"]: e.get("tipo") or "interno" for e in equipo}
         perfil_de = {e["persona"]: e["perfil"] for e in equipo}
-        a_tercero = {"Gestor de TI": "Gestor de TI", "Arquitecto": "Arquitecto", "Experto en Data": "Experto en Data", "Desarrollador": "Dev", "QA": "QA", "Analista Funcional": "Analista Funcional", "Analista Técnico": "Analista Técnico", "Seguridad TI": "Seguridad TI", "Devops": "Devops", "Soporte": "Soporte", "Demanda de Servicios": "Demanda de Servicios"}
+        a_tercero = {"Gestor de TI": "Gestor de TI", "Arquitecto": "Arquitecto", "Experto en Data": "Experto en Data", "Desarrollador": "Dev", "QA": "QA", "Analista Funcional": "Analista Funcional", "Analista Técnico": "Analista Técnico", "Seguridad TI": "Seguridad TI", "Devops": "Devops", "Soporte": "Soporte", "Demanda de Servicios": "Demanda de Servicios",
+                     "Infra": "Infra", "Especialista de Gobierno de Datos": "Especialista de Gobierno de Datos"}
         for f in filas:
             rec, ter = {pf: 0.0 for pf in PERFILES}, {t: 0.0 for t in TERCEROS}
             fuente = a.get("pausa", {}) if f.get("on_hold") else a["asignacion"]
@@ -351,7 +352,7 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
             f["dias_base"], f["dias_terceros"] = sum(rec.values()), sum(ter.values())
             # capex de terceros = días asignados ÷ días hábiles del mes × costo mensual del cargo
             costos = p.get("costos_terceros", {})
-            cx = 0.0
+            cx, cxm = 0.0, {}
             for n, ms in fuente.items():
                 if tipo_de.get(n) != "tercero":
                     continue
@@ -359,8 +360,11 @@ def ejecutar(entrada: dict | None = None, con_mc: bool = True) -> dict:
                     d = x.get(f["codigo"], 0)
                     c_mes = cap[n][lista.index(mes)] if mes in lista else 0
                     if d and c_mes:
-                        cx += d / c_mes * float(costos.get(perfil_de[n], 0))
+                        v = d / c_mes * float(costos.get(perfil_de[n], 0))
+                        cx += v
+                        cxm[mes] = cxm.get(mes, 0.0) + v
             f["capex_terceros"] = round(cx, 2)
+            f["capex_terceros_mes"] = {k: round(v, 2) for k, v in cxm.items()}
 
     # capacidad vs. uso por perfil y mes
     gente = {pf: [e["persona"] for e in equipo if e["perfil"] == pf and e.get("tipo") != "tercero"] for pf in PERFILES}
