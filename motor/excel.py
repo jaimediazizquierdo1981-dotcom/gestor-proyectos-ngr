@@ -56,7 +56,8 @@ def _orden(p):
 
 def construir(R: dict, todos: bool) -> bytes:
     esT = lambda p: (p.get("tipo") or "Transformacional") != "No transformacional"
-    P = sorted([p for p in R["proyectos"] if todos or esT(p)], key=_orden)
+    universo = [p for p in R["proyectos"] if todos or esT(p)]
+    P = sorted([p for p in universo if _activo(p)], key=_orden)   # Proyectos y Capex mensual: solo los activos del escenario
     M = R["meses"]
     PF = [f for f in R["perfiles"] if any((p["recursos"].get(f) or 0) > 0 for p in P)
           or any(x.get("tipo") != "tercero" and x["perfil"] == f for x in R["personas"])]
@@ -141,7 +142,7 @@ def construir(R: dict, todos: bool) -> bytes:
         c.fill = PatternFill("solid", fgColor=AZUL)
         c.border = BORDE
         c.alignment = Alignment(horizontal="left" if j == 1 else "center", vertical="center")
-    ws.cell(rT + 2, 1, "Notas: los totales suman solo los proyectos activos (columna Activo = Sí); las filas en gris son proyectos no activos. "
+    ws.cell(rT + 2, 1, "Notas: se listan solo los proyectos activos del escenario (los mismos que suman en el Resumen). "
                        "Capex total = Capex del proyecto (equipos, asesorías, etc.) + Capex de terceros (días de terceros ÷ días hábiles del mes × costo mensual del cargo). "
                        "El Opex arranca el mes siguiente al fin del proyecto.").font = Font(name=F, size=8, italic=True, color=GRIS)
     anchos = {1: 8, 2: 22, 3: 8, 4: 30, 5: 11, 6: 22, 7: 34, 8: 15, 9: 18, 10: 18, 11: 8, 12: 8, 13: 7}
@@ -259,7 +260,7 @@ def construir(R: dict, todos: bool) -> bytes:
     rng = lambda col: f"{pr}!{col}{r0}:{col}{rT - 1}"
     act_c = rng(L(n))
     est_c = rng(L(n - 2))
-    kp = [("Proyectos en el escenario", f'=COUNTIF({act_c},"Sí")&" de "&COUNTA({rng("E")})', "General"),
+    kp = [("Proyectos en el escenario", f'=COUNTIF({act_c},"Sí")&" de {len(universo)}"', "General"),
           ("Cubiertos al 100%", f'=COUNTIFS({act_c},"Sí",{est_c},"Cubierto")&" de "&COUNTIF({act_c},"Sí")', "General"),
           ("Capex total", f"={pr}!{L(i_inv + 2)}{rT}", MON),
           ("Capex cubierto", f'=SUMIFS({rng(L(i_inv + 2))},{act_c},"Sí",{est_c},"Cubierto")', MON),
